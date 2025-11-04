@@ -2,9 +2,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const http = require('http');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
 
 // Configuración del puerto
 const PORT = process.env.PORT || 3000;
@@ -14,6 +16,10 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting
+const { apiLimiter } = require('./middlewares/rateLimiter');
+app.use('/api', apiLimiter);
 
 // Servir archivos estáticos (uploads)
 app.use('/uploads', express.static('uploads'));
@@ -48,6 +54,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Documentación Swagger
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./config/swagger');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: "Degader Social API Docs"
+}));
+
+// Inicializar Socket.IO
+const { initializeSocket } = require('./config/socket');
+const io = initializeSocket(server);
+
+// Hacer io disponible en las rutas
+app.set('io', io);
+
 // Importar y usar rutas de la API
 const apiRoutes = require('./routes/index.routes');
 app.use('/api', apiRoutes);
@@ -62,7 +83,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Inicio del servidor
-const server = app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('='.repeat(50));
   console.log('🚀 Servidor Degader Social Backend V2');
   console.log('='.repeat(50));

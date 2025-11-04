@@ -1,4 +1,5 @@
 const Conversacion = require('../models/Conversacion');
+const { emitToConversation } = require('../config/socket');
 
 class ConversacionService {
   /**
@@ -51,6 +52,16 @@ class ConversacionService {
     await conversacion.save();
 
     await conversacion.populate('mensajes.emisor', 'nombre apellido avatar');
+
+    // Emitir evento en tiempo real
+    try {
+      emitToConversation(conversacionId, 'message:new', {
+        conversacion: conversacion._id,
+        mensaje: conversacion.mensajes[conversacion.mensajes.length - 1]
+      });
+    } catch (error) {
+      console.error('Error emitiendo mensaje en tiempo real:', error);
+    }
 
     return conversacion;
   }

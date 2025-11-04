@@ -1,4 +1,5 @@
 const Notificacion = require('../models/Notificacion');
+const { emitToUser } = require('../config/socket');
 
 class NotificacionService {
   /**
@@ -8,6 +9,13 @@ class NotificacionService {
     const notificacion = new Notificacion(notificationData);
     await notificacion.save();
     await notificacion.populate('emisor', 'nombre apellido avatar');
+
+    // Emitir notificación en tiempo real
+    try {
+      emitToUser(notificacion.destinatario, 'notification:new', notificacion);
+    } catch (error) {
+      console.error('Error emitiendo notificación en tiempo real:', error);
+    }
 
     return notificacion;
   }

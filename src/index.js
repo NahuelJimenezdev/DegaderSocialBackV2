@@ -2,18 +2,23 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
 // Configuración del puerto
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Middlewares
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Aumentar límite para soportar imágenes/videos en base64 (50MB)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Servir archivos estáticos (uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Conexión a MongoDB
 mongoose.connect(process.env.MONGO_ACCESS)
@@ -25,12 +30,31 @@ mongoose.connect(process.env.MONGO_ACCESS)
     process.exit(1);
   });
 
+// Importar rutas
+const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
+const postRoutes = require('./routes/post.routes');
+const friendshipRoutes = require('./routes/friendship.routes');
+const groupRoutes = require('./routes/group.routes');
+const notificationRoutes = require('./routes/notification.routes');
+const conversationRoutes = require('./routes/conversation.routes');
+
 // Ruta de prueba
 app.get('/', (req, res) => {
   res.json({
     message: 'Bienvenido a Degader Social Backend V2',
     status: 'OK',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: '2.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/usuarios',
+      posts: '/api/publicaciones',
+      friendships: '/api/amistades',
+      groups: '/api/grupos',
+      notifications: '/api/notificaciones',
+      conversations: '/api/conversaciones'
+    }
   });
 });
 
@@ -42,6 +66,15 @@ app.get('/health', (req, res) => {
     uptime: process.uptime()
   });
 });
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', userRoutes);
+app.use('/api/publicaciones', postRoutes);
+app.use('/api/amistades', friendshipRoutes);
+app.use('/api/grupos', groupRoutes);
+app.use('/api/notificaciones', notificationRoutes);
+app.use('/api/conversaciones', conversationRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

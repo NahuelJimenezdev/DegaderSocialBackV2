@@ -10,12 +10,18 @@ router.use(authenticate);
 // Rutas de conversaciones
 router.get('/', conversationController.getAllConversations);
 router.get('/unread-count', conversationController.getUnreadCount);
+router.get('/pending-count', conversationController.getPendingCount);
 router.get('/:id', conversationController.getConversationById);
 
 router.post('/with/:userId', conversationController.getOrCreateConversation);
 router.post('/:id/message', uploadMessageFile, handleUploadError, conversationController.sendMessage);
 
 router.put('/:id/read', conversationController.markAsRead);
+router.put('/:id/archive', conversationController.archiveConversation);
+router.put('/:id/clear', conversationController.clearConversation);
+router.put('/:id/star', conversationController.starConversation);
+router.put('/:id/accept-request', conversationController.acceptMessageRequest);
+router.put('/:id/decline-request', conversationController.declineMessageRequest);
 router.delete('/:id', conversationController.deleteConversation);
 
 module.exports = router;

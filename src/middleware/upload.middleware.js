@@ -134,6 +134,7 @@ const uploadGroupImage = multer({
 // Middleware de upload para mensajes
 const uploadMessageFile = multer({
   storage: messageStorage,
+  fileFilter: mediaFileFilter,
   limits: limits
 }).single('archivo');
 

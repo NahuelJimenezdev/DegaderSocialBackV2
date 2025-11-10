@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth.middleware');
+const { authenticate } = require('../middleware/auth.middleware');
 const {
   obtenerCarpetas,
   crearCarpeta,
@@ -14,7 +14,7 @@ const {
 } = require('../controllers/folderController');
 
 // Todas las rutas requieren autenticación
-// router.use(protect);
+router.use(authenticate);
 
 // GET /api/folders - Obtener carpetas del usuario
 router.get('/', obtenerCarpetas);

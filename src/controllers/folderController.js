@@ -73,10 +73,22 @@ const determinarTipoArchivo = (mimetype) => {
  */
 const obtenerCarpetas = async (req, res) => {
   try {
+    console.log('📂 [obtenerCarpetas] Inicio de petición');
+    console.log('📂 [obtenerCarpetas] Query params:', req.query);
+    console.log('📂 [obtenerCarpetas] UserId:', req.userId);
+    console.log('📂 [obtenerCarpetas] User object:', req.user);
+
     const { tipo } = req.query;
     const userId = req.userId;
 
+    if (!userId) {
+      console.error('❌ [obtenerCarpetas] No se encontró userId en req');
+      return res.status(401).json(formatErrorResponse('Usuario no autenticado'));
+    }
+
+    console.log('📂 [obtenerCarpetas] Llamando a Folder.obtenerCarpetasUsuario con userId:', userId, 'tipo:', tipo || 'todos');
     const carpetas = await Folder.obtenerCarpetasUsuario(userId, tipo);
+    console.log('✅ [obtenerCarpetas] Carpetas obtenidas:', carpetas.length);
 
     res.json(formatSuccessResponse('Carpetas obtenidas exitosamente', {
       carpetas,
@@ -84,7 +96,8 @@ const obtenerCarpetas = async (req, res) => {
     }));
 
   } catch (error) {
-    console.error('Error al obtener carpetas:', error);
+    console.error('❌ [obtenerCarpetas] Error completo:', error);
+    console.error('❌ [obtenerCarpetas] Stack trace:', error.stack);
     res.status(500).json(formatErrorResponse('Error al obtener carpetas', [error.message]));
   }
 };

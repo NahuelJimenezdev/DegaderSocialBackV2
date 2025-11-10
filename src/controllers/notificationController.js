@@ -18,10 +18,45 @@ const getAllNotifications = async (req, res) => {
 
     const total = await Notification.countDocuments({ receptor: req.userId });
 
+    // Transformar notificaciones al formato esperado por el frontend
+    const transformedNotifications = notifications.map(n => {
+      // Construir mensaje basado en tipo
+      let mensaje = n.contenido;
+      if (n.emisor) {
+        const nombreCompleto = `${n.emisor.nombre} ${n.emisor.apellido}`;
+        if (n.tipo === 'solicitud_amistad') {
+          mensaje = `${nombreCompleto} te envió una solicitud de amistad`;
+        } else if (n.tipo === 'amistad_aceptada') {
+          mensaje = `${nombreCompleto} aceptó tu solicitud de amistad`;
+        } else if (n.contenido) {
+          mensaje = `${nombreCompleto} ${n.contenido}`;
+        }
+      }
+
+      return {
+        _id: n._id,
+        tipo: n.tipo === 'solicitud_amistad' || n.tipo === 'amistad_aceptada' ? 'amistad' : n.tipo,
+        mensaje: mensaje,
+        leido: n.leida,
+        fechaCreacion: n.createdAt,
+        remitenteId: n.emisor ? {
+          _id: n.emisor._id,
+          nombre: n.emisor.nombre,
+          apellido: n.emisor.apellido,
+          avatar: n.emisor.avatar
+        } : null,
+        datos: {
+          nombre: n.emisor ? `${n.emisor.nombre} ${n.emisor.apellido}` : '',
+          avatar: n.emisor?.avatar,
+          fromUserId: n.emisor?._id
+        }
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        notifications,
+        notifications: transformedNotifications,
         pagination: {
           total,
           page: parseInt(page),
@@ -50,7 +85,42 @@ const getUnreadNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
-    res.json(formatSuccessResponse('Notificaciones no leídas obtenidas', notifications));
+    // Transformar notificaciones al formato esperado por el frontend
+    const transformedNotifications = notifications.map(n => {
+      // Construir mensaje basado en tipo
+      let mensaje = n.contenido;
+      if (n.emisor) {
+        const nombreCompleto = `${n.emisor.nombre} ${n.emisor.apellido}`;
+        if (n.tipo === 'solicitud_amistad') {
+          mensaje = `${nombreCompleto} te envió una solicitud de amistad`;
+        } else if (n.tipo === 'amistad_aceptada') {
+          mensaje = `${nombreCompleto} aceptó tu solicitud de amistad`;
+        } else if (n.contenido) {
+          mensaje = `${nombreCompleto} ${n.contenido}`;
+        }
+      }
+
+      return {
+        _id: n._id,
+        tipo: n.tipo === 'solicitud_amistad' || n.tipo === 'amistad_aceptada' ? 'amistad' : n.tipo,
+        mensaje: mensaje,
+        leido: n.leida,
+        fechaCreacion: n.createdAt,
+        remitenteId: n.emisor ? {
+          _id: n.emisor._id,
+          nombre: n.emisor.nombre,
+          apellido: n.emisor.apellido,
+          avatar: n.emisor.avatar
+        } : null,
+        datos: {
+          nombre: n.emisor ? `${n.emisor.nombre} ${n.emisor.apellido}` : '',
+          avatar: n.emisor?.avatar,
+          fromUserId: n.emisor?._id
+        }
+      };
+    });
+
+    res.json(formatSuccessResponse('Notificaciones no leídas obtenidas', transformedNotifications));
   } catch (error) {
     console.error('Error al obtener notificaciones no leídas:', error);
     res.status(500).json(formatErrorResponse('Error al obtener notificaciones no leídas', [error.message]));

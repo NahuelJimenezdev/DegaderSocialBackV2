@@ -77,7 +77,44 @@ const conversationSchema = new mongoose.Schema({
   configuracion: {
     notificaciones: { type: Boolean, default: true },
     silenciada: { type: Boolean, default: false }
-  }
+  },
+  // Estado de solicitud de mensaje (para personas que no son amigas)
+  messageRequestStatus: {
+    type: String,
+    enum: ['none', 'pending', 'accepted'],
+    default: 'none'
+  },
+  // Usuario que inició la conversación (para saber quién envió la solicitud)
+  initiatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  // Usuarios que archivaron esta conversación
+  archivedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // Usuarios que destacaron esta conversación (con estrella)
+  starredBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // Usuarios que eliminaron esta conversación (solo para ellos)
+  deletedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // Registro de cuando cada usuario vació la conversación
+  clearedBy: [{
+    usuario: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    fecha: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

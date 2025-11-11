@@ -16,6 +16,10 @@ router.post('/', uploadGroupImage, handleUploadError, groupController.createGrou
 router.put('/:id', uploadGroupImage, handleUploadError, groupController.updateGroup);
 router.delete('/:id', groupController.deleteGroup);
 
+// Avatar del grupo
+router.post('/:id/avatar', uploadGroupImage, handleUploadError, groupController.uploadGroupAvatar);
+router.delete('/:id/avatar', groupController.deleteGroupAvatar);
+
 // Acciones de grupo
 router.post('/:id/join', groupController.joinGroup);
 router.post('/:id/leave', groupController.leaveGroup);

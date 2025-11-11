@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx storybook@latest init:*)",
+      "Bash(dir:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"taskkill /PID 76208 /F\")",
+      "Bash(move:*)",
+      "Bash(nul)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(\"C:\\Users\\Nahuel Jiménez\\Documents\\00_ProyectosWeb\\Degader\\DegaderSocialFrontV2\\src\\features\\perfilVisitante\\hooks\\usePostsVisitante.js\")",
+      "Bash(\"C:\\Users\\Nahuel Jiménez\\Documents\\00_ProyectosWeb\\Degader\\DegaderSocialFrontV2\\src\\features\\perfilVisitante\\components\\ProfileActions.jsx\")",
+      "Bash(npm start)",
+      "Bash(cmd /c \"taskkill /PID 2464 /F\")",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(del nul)",
+      "Bash(npm run dev:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

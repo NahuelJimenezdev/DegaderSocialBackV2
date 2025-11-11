@@ -31,10 +31,22 @@ const getAllGroups = async (req, res) => {
 
     const total = await Group.countDocuments(filter);
 
+    // Transformar grupos para compatibilidad con frontend
+    const transformedGroups = groups.map(group => {
+      const groupObj = group.toObject();
+      groupObj.imagePerfilGroup = groupObj.imagen; // Alias para compatibilidad
+      groupObj.members = groupObj.miembros.map(m => ({
+        user: m.usuario,
+        role: m.rol,
+        joinedAt: m.fechaUnion
+      }));
+      return groupObj;
+    });
+
     res.json({
       success: true,
       data: {
-        groups,
+        groups: transformedGroups,
         pagination: {
           total,
           page: parseInt(page),
@@ -79,7 +91,16 @@ const getGroupById = async (req, res) => {
       }
     }
 
-    res.json(formatSuccessResponse('Grupo encontrado', group));
+    // Transformar datos para compatibilidad con frontend
+    const groupObj = group.toObject();
+    groupObj.imagePerfilGroup = groupObj.imagen; // Alias para compatibilidad
+    groupObj.members = groupObj.miembros.map(m => ({
+      user: m.usuario,
+      role: m.rol,
+      joinedAt: m.fechaUnion
+    }));
+
+    res.json(formatSuccessResponse('Grupo encontrado', groupObj));
   } catch (error) {
     console.error('Error al obtener grupo:', error);
     res.status(500).json(formatErrorResponse('Error al obtener grupo', [error.message]));
@@ -92,11 +113,17 @@ const getGroupById = async (req, res) => {
  */
 const createGroup = async (req, res) => {
   try {
+    console.log('📥 createGroup - Payload recibido:', JSON.stringify(req.body));
+    console.log('👤 createGroup - Usuario autenticado:', req.userId);
+    console.log('📁 createGroup - Archivo subido:', req.file ? req.file.filename : 'ninguno');
+
     const { nombre, descripcion, tipo, categoria } = req.body;
 
     // Validar datos
+    console.log('🔍 Validando datos del grupo:', { nombre, tipo });
     const validation = validateGroupData({ nombre, tipo });
     if (!validation.isValid) {
+      console.log('❌ Validación fallida:', validation.errors);
       return res.status(400).json(formatErrorResponse('Datos inválidos', validation.errors));
     }
 
@@ -114,13 +141,18 @@ const createGroup = async (req, res) => {
       }]
     };
 
+    console.log('📦 Datos del grupo preparados:', JSON.stringify(groupData));
+
     // Agregar imagen si se subió
     if (req.file) {
       groupData.imagen = `/uploads/groups/${req.file.filename}`;
+      console.log('🖼️ Imagen agregada:', groupData.imagen);
     }
 
     const group = new Group(groupData);
+    console.log('💾 Guardando grupo en DB...');
     await group.save();
+    console.log('✅ Grupo guardado exitosamente con ID:', group._id);
 
     await group.populate([
       { path: 'creador', select: 'nombre apellido avatar' },
@@ -129,7 +161,16 @@ const createGroup = async (req, res) => {
 
     res.status(201).json(formatSuccessResponse('Grupo creado exitosamente', group));
   } catch (error) {
-    console.error('Error al crear grupo:', error);
+    console.error('❌ Error al crear grupo:', error);
+    console.error('❌ Error completo:', error.stack);
+
+    // Manejar errores de validación de Mongoose
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      console.log('❌ Errores de validación Mongoose:', errors);
+      return res.status(400).json(formatErrorResponse('Datos inválidos', errors));
+    }
+
     res.status(500).json(formatErrorResponse('Error al crear grupo', [error.message]));
   }
 };
@@ -378,6 +419,84 @@ const deleteGroup = async (req, res) => {
   }
 };
 
+/**
+ * Subir avatar del grupo
+ * POST /api/grupos/:id/avatar
+ */
+const uploadGroupAvatar = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const group = await Group.findById(id);
+
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Verificar que sea administrador o creador
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
+                    group.creador.equals(req.userId);
+
+    if (!isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para editar este grupo'));
+    }
+
+    // Verificar que se subió un archivo
+    if (!req.file) {
+      return res.status(400).json(formatErrorResponse('No se proporcionó ninguna imagen'));
+    }
+
+    // Actualizar la imagen
+    group.imagen = `/uploads/groups/${req.file.filename}`;
+    await group.save();
+
+    res.json(formatSuccessResponse('Avatar actualizado exitosamente', { imagen: group.imagen }));
+  } catch (error) {
+    console.error('Error al subir avatar:', error);
+    res.status(500).json(formatErrorResponse('Error al subir avatar', [error.message]));
+  }
+};
+
+/**
+ * Eliminar avatar del grupo
+ * DELETE /api/grupos/:id/avatar
+ */
+const deleteGroupAvatar = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const group = await Group.findById(id);
+
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Verificar que sea administrador o creador
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
+                    group.creador.equals(req.userId);
+
+    if (!isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para editar este grupo'));
+    }
+
+    group.imagen = null;
+    await group.save();
+
+    res.json(formatSuccessResponse('Avatar eliminado exitosamente'));
+  } catch (error) {
+    console.error('Error al eliminar avatar:', error);
+    res.status(500).json(formatErrorResponse('Error al eliminar avatar', [error.message]));
+  }
+};
+
 module.exports = {
   getAllGroups,
   getGroupById,
@@ -386,5 +505,7 @@ module.exports = {
   joinGroup,
   leaveGroup,
   getGroupMembers,
-  deleteGroup
+  deleteGroup,
+  uploadGroupAvatar,
+  deleteGroupAvatar
 };

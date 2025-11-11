@@ -6,10 +6,15 @@ const User = require('../models/User');
  */
 const authenticate = async (req, res, next) => {
   try {
+    console.log('🔐 authenticate - Headers:', req.headers.authorization ? 'Token presente' : 'NO TOKEN');
+    console.log('🔐 authenticate - Content-Type:', req.headers['content-type']);
+    console.log('🔐 authenticate - Body:', JSON.stringify(req.body));
+
     // Obtener token del header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ authenticate - Token no proporcionado');
       return res.status(401).json({
         success: false,
         message: 'Token no proporcionado'
@@ -20,11 +25,13 @@ const authenticate = async (req, res, next) => {
 
     // Verificar token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ authenticate - Token decodificado, userId:', decoded.userId);
 
     // Buscar usuario
     const user = await User.findById(decoded.userId);
 
     if (!user) {
+      console.log('❌ authenticate - Usuario no encontrado en DB');
       return res.status(401).json({
         success: false,
         message: 'Usuario no encontrado'
@@ -32,18 +39,21 @@ const authenticate = async (req, res, next) => {
     }
 
     if (user.estado !== 'activo') {
+      console.log('❌ authenticate - Usuario inactivo');
       return res.status(403).json({
         success: false,
         message: 'Cuenta inactiva o suspendida'
       });
     }
 
+    console.log('✅ authenticate - Usuario autenticado:', user._id);
     // Agregar usuario al request
     req.user = user;
     req.userId = user._id;
 
     next();
   } catch (error) {
+    console.log('❌ authenticate - Error:', error.message);
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         success: false,

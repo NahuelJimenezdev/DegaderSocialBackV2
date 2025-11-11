@@ -124,12 +124,12 @@ const uploadPostImage = multer({
   limits: limits
 }).single('imagen');
 
-// Middleware de upload para grupos
+// Middleware de upload para grupos (acepta 'imagen' o 'avatar')
 const uploadGroupImage = multer({
   storage: groupStorage,
   fileFilter: imageFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5 MB para grupos
-}).single('imagen');
+}).single('avatar');
 
 // Middleware de upload para mensajes
 const uploadMessageFile = multer({

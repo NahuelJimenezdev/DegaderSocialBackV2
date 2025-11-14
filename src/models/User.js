@@ -109,8 +109,7 @@ userSchema.virtual('nombreCompleto').get(function() {
   return `${this.nombre} ${this.apellido}`;
 });
 
-// Índices para búsquedas
-userSchema.index({ email: 1 });
+// Índices para búsquedas (email ya tiene índice por unique: true)
 userSchema.index({ nombre: 1, apellido: 1 });
 userSchema.index({ legajo: 1 });
 

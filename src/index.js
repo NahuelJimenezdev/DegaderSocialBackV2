@@ -22,6 +22,7 @@ const io = new Server(httpServer, {
     credentials: true
   }
 });
+global.io = io;
 
 // Hacer io accesible globalmente
 app.set('io', io);
@@ -37,7 +38,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Servir archivos estáticos (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Conexión a MongoDB
 mongoose.connect(process.env.MONGO_ACCESS)
@@ -97,6 +99,24 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Suscripción a grupos (para mensajes del grupo)
+  socket.on('subscribeGroup', ({ groupId }) => {
+    if (socket.userId) {
+      socket.join(`group:${groupId}`);
+      console.log(`👥 Usuario ${socket.userId} se unió al grupo ${groupId}`);
+      // Confirmar suscripción al cliente
+      socket.emit('subscribedToGroup', { groupId });
+    }
+  });
+
+  // Desuscripción de grupos
+  socket.on('unsubscribeGroup', ({ groupId }) => {
+    if (socket.userId) {
+      socket.leave(`group:${groupId}`);
+      console.log(`👥 Usuario ${socket.userId} salió del grupo ${groupId}`);
+    }
+  });
+
   // Desconexión
   socket.on('disconnect', () => {
     if (socket.userId) {
@@ -122,6 +142,12 @@ global.emitNotification = (userId, notification) => {
 global.emitMessage = (conversationId, message) => {
   io.to(`conversation:${conversationId}`).emit('newMessage', message);
   console.log(`💬 Mensaje emitido a conversación ${conversationId}`);
+};
+
+// Función helper para emitir mensajes de grupo
+global.emitGroupMessage = (groupId, message) => {
+  io.to(`group:${groupId}`).emit('newGroupMessage', message);
+  console.log(`👥 Mensaje emitido al grupo ${groupId}`);
 };
 
 // Importar rutas

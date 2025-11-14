@@ -21,7 +21,10 @@ const notificationSchema = new mongoose.Schema({
       'compartir_post',
       'mencion',
       'invitacion_grupo',
-      'solicitud_grupo_aceptada',
+      'solicitud_grupo',
+      'solicitud_grupo_aprobada',
+      'solicitud_grupo_rechazada',
+      'nuevo_miembro_grupo',
       'nuevo_mensaje',
       'evento',
       'sistema'

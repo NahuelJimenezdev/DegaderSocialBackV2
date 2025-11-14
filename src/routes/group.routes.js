@@ -24,4 +24,25 @@ router.delete('/:id/avatar', groupController.deleteGroupAvatar);
 router.post('/:id/join', groupController.joinGroup);
 router.post('/:id/leave', groupController.leaveGroup);
 
+// Solicitudes de unión
+router.post('/:id/join/:requestId/approve', groupController.approveJoinRequest);
+router.post('/:id/join/:requestId/reject', groupController.rejectJoinRequest);
+
+// Gestión de miembros
+router.post('/:id/members/:memberId/role', groupController.updateMemberRole);
+router.delete('/:id/members/:memberId', groupController.removeMember);
+router.post('/:id/transfer', groupController.transferOwnership);
+
+// Mensajes del grupo
+router.get('/:id/messages', groupController.getMessages);
+router.post('/:id/messages', groupController.sendMessage);
+router.delete('/:id/messages/:messageId', groupController.deleteMessage);
+router.post('/:id/messages/:messageId/reactions', groupController.reactToMessage);
+router.put('/:id/messages/:messageId/star', groupController.toggleStarMessage);
+router.put('/:id/messages/:messageId/read', groupController.markMessageAsRead);
+
+// Destacados y enlaces
+router.get('/:id/destacados', groupController.getDestacados);
+router.get('/:id/enlaces', groupController.getEnlaces);
+
 module.exports = router;

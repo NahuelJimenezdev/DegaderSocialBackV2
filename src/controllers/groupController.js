@@ -1,4 +1,5 @@
 const Group = require('../models/Group');
+const GroupMessage = require('../models/GroupMessage');
 const Notification = require('../models/Notification');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
@@ -13,10 +14,14 @@ const getAllGroups = async (req, res) => {
 
     const filter = {};
 
-    // Solo grupos públicos o grupos donde el usuario es miembro
+    // Mostrar:
+    // - Grupos públicos (todos pueden verlos)
+    // - Grupos privados (todos pueden verlos para solicitar unirse)
+    // - Grupos secretos SOLO si el usuario es miembro (solo por invitación)
     filter.$or = [
       { tipo: 'publico' },
-      { 'miembros.usuario': req.userId }
+      { tipo: 'privado' },
+      { tipo: 'secreto', 'miembros.usuario': req.userId }
     ];
 
     if (tipo) filter.tipo = tipo;
@@ -77,7 +82,8 @@ const getGroupById = async (req, res) => {
       .populate('creador', 'nombre apellido avatar')
       .populate('administradores', 'nombre apellido avatar')
       .populate('moderadores', 'nombre apellido avatar')
-      .populate('miembros.usuario', 'nombre apellido avatar');
+      .populate('miembros.usuario', 'nombre apellido avatar')
+      .populate('solicitudesPendientes.usuario', 'nombre apellido avatar');
 
     if (!group) {
       return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
@@ -94,10 +100,32 @@ const getGroupById = async (req, res) => {
     // Transformar datos para compatibilidad con frontend
     const groupObj = group.toObject();
     groupObj.imagePerfilGroup = groupObj.imagen; // Alias para compatibilidad
-    groupObj.members = groupObj.miembros.map(m => ({
-      user: m.usuario,
-      role: m.rol,
-      joinedAt: m.fechaUnion
+    groupObj.members = groupObj.miembros.map(m => {
+      let role = m.rol;
+
+      // Transformar roles del español al inglés para el frontend
+      if (role === 'miembro') role = 'member';
+      if (role === 'administrador') role = 'admin';
+
+      // Si es el creador, su rol es 'owner' independientemente del rol en miembros
+      if (m.usuario._id.equals(group.creador._id)) {
+        role = 'owner';
+      }
+
+      return {
+        user: m.usuario,
+        role: role,
+        joinedAt: m.fechaUnion,
+        _id: m._id
+      };
+    });
+
+    // Transformar solicitudes pendientes para el frontend
+    groupObj.joinRequests = groupObj.solicitudesPendientes.map(s => ({
+      _id: s.usuario._id,
+      user: s.usuario,
+      createdAt: s.fecha,
+      status: 'pending'
     }));
 
     res.json(formatSuccessResponse('Grupo encontrado', groupObj));
@@ -159,7 +187,16 @@ const createGroup = async (req, res) => {
       { path: 'miembros.usuario', select: 'nombre apellido avatar' }
     ]);
 
-    res.status(201).json(formatSuccessResponse('Grupo creado exitosamente', group));
+    // Transformar grupo para compatibilidad con frontend
+    const groupObj = group.toObject();
+    groupObj.imagePerfilGroup = groupObj.imagen; // Alias para compatibilidad
+    groupObj.members = groupObj.miembros.map(m => ({
+      user: m.usuario,
+      role: m.rol,
+      joinedAt: m.fechaUnion
+    }));
+
+    res.status(201).json(formatSuccessResponse('Grupo creado exitosamente', groupObj));
   } catch (error) {
     console.error('❌ Error al crear grupo:', error);
     console.error('❌ Error completo:', error.stack);
@@ -237,6 +274,9 @@ const joinGroup = async (req, res) => {
   try {
     const { id } = req.params;
 
+    console.log('🚀 [JOIN] Solicitud de unión al grupo:', id);
+    console.log('🚀 [JOIN] Usuario ID:', req.userId);
+
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
@@ -247,16 +287,23 @@ const joinGroup = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
     }
 
+    console.log('📊 [JOIN] Tipo de grupo:', group.tipo);
+    console.log('📊 [JOIN] Configuración:', group.configuracion);
+
     // Verificar si ya es miembro
     const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
     if (isMember) {
+      console.log('⚠️ [JOIN] Usuario ya es miembro');
       return res.status(400).json(formatErrorResponse('Ya eres miembro de este grupo'));
     }
 
     // Si es grupo privado, agregar a solicitudes pendientes
-    if (group.tipo === 'privado' && !group.configuracion.requiereAprobacion === false) {
+    if (group.tipo === 'privado') {
+      console.log('🔒 [JOIN] Grupo privado - enviando solicitud');
+
       const hasPendingRequest = group.solicitudesPendientes.some(s => s.usuario.equals(req.userId));
       if (hasPendingRequest) {
+        console.log('⚠️ [JOIN] Ya tiene solicitud pendiente');
         return res.status(400).json(formatErrorResponse('Ya tienes una solicitud pendiente'));
       }
 
@@ -266,11 +313,22 @@ const joinGroup = async (req, res) => {
       });
 
       await group.save();
+      console.log('✅ [JOIN] Solicitud guardada');
 
-      // Notificar a administradores
-      const adminNotifications = group.administradores.map(admin => {
+      // Notificar a administradores y creador
+      const notificationTargets = [
+        group.creador,
+        ...group.administradores
+      ];
+
+      // Eliminar duplicados
+      const uniqueTargets = [...new Set(notificationTargets.map(t => t.toString()))];
+
+      console.log('📧 [JOIN] Enviando notificaciones a:', uniqueTargets.length, 'usuarios');
+
+      const adminNotifications = uniqueTargets.map(targetId => {
         return new Notification({
-          receptor: admin,
+          receptor: targetId,
           emisor: req.userId,
           tipo: 'solicitud_grupo',
           contenido: 'solicitó unirse al grupo',
@@ -283,15 +341,30 @@ const joinGroup = async (req, res) => {
 
       await Promise.all(adminNotifications);
 
+      // Emitir notificaciones por Socket.IO
+      if (global.emitNotification) {
+        uniqueTargets.forEach(targetId => {
+          global.emitNotification(targetId, {
+            tipo: 'solicitud_grupo',
+            contenido: 'Nueva solicitud para unirse al grupo',
+            grupo: group._id
+          });
+        });
+      }
+
+      console.log('✅ [JOIN] Solicitud enviada exitosamente');
       return res.json(formatSuccessResponse('Solicitud enviada. Espera la aprobación de un administrador'));
     }
 
     // Si es grupo secreto, no se puede unir directamente
     if (group.tipo === 'secreto') {
+      console.log('🚫 [JOIN] Grupo secreto - acceso denegado');
       return res.status(403).json(formatErrorResponse('No puedes unirte a este grupo. Debes ser invitado'));
     }
 
     // Unirse directamente si es público
+    console.log('🌍 [JOIN] Grupo público - unión directa');
+
     group.miembros.push({
       usuario: req.userId,
       rol: 'miembro',
@@ -299,25 +372,39 @@ const joinGroup = async (req, res) => {
     });
 
     await group.save();
+    console.log('✅ [JOIN] Usuario agregado como miembro');
 
     // Notificar al creador
-    const notification = new Notification({
-      receptor: group.creador,
-      emisor: req.userId,
-      tipo: 'nuevo_miembro_grupo',
-      contenido: 'se unió a tu grupo',
-      referencia: {
-        tipo: 'Group',
-        id: group._id
+    try {
+      const notification = new Notification({
+        receptor: group.creador,
+        emisor: req.userId,
+        tipo: 'nuevo_miembro_grupo',
+        contenido: 'se unió a tu grupo',
+        referencia: {
+          tipo: 'Group',
+          id: group._id
+        }
+      });
+      await notification.save();
+
+      // Emitir notificación por Socket.IO
+      if (global.emitNotification) {
+        global.emitNotification(group.creador, notification);
       }
-    });
-    await notification.save();
+
+      console.log('✅ [JOIN] Notificación enviada al creador');
+    } catch (notifError) {
+      console.error('⚠️ [JOIN] Error al enviar notificación (continuando):', notifError.message);
+    }
 
     await group.populate('miembros.usuario', 'nombre apellido avatar');
 
+    console.log('✅ [JOIN] Proceso completado exitosamente');
     res.json(formatSuccessResponse('Te has unido al grupo exitosamente', group));
   } catch (error) {
-    console.error('Error al unirse al grupo:', error);
+    console.error('❌ [JOIN] Error al unirse al grupo:', error);
+    console.error('❌ [JOIN] Stack:', error.stack);
     res.status(500).json(formatErrorResponse('Error al unirse al grupo', [error.message]));
   }
 };
@@ -497,6 +584,807 @@ const deleteGroupAvatar = async (req, res) => {
   }
 };
 
+/**
+ * Obtener mensajes de un grupo
+ * GET /api/grupos/:id/messages
+ */
+const getMessages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50, before } = req.query;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Construir query
+    const query = { grupo: id, isDeleted: false };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    // Obtener mensajes
+    const messages = await GroupMessage.find(query)
+      .populate('author', 'nombre apellido avatar')
+      .populate('replyTo', 'content author')
+      .populate('reactions.usuario', 'nombre apellido')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    res.json(formatSuccessResponse('Mensajes obtenidos', messages.reverse()));
+  } catch (error) {
+    console.error('Error al obtener mensajes:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener mensajes', [error.message]));
+  }
+};
+
+/**
+ * Enviar mensaje a un grupo
+ * POST /api/grupos/:id/messages
+ */
+const sendMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, replyTo, tipo = 'texto', files = [] } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json(formatErrorResponse('El mensaje no puede estar vacío'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Crear mensaje
+    const messageData = {
+      grupo: id,
+      author: req.userId,
+      content: content.trim(),
+      tipo,
+      files
+    };
+
+    if (replyTo && isValidObjectId(replyTo)) {
+      messageData.replyTo = replyTo;
+    }
+
+    const message = new GroupMessage(messageData);
+    await message.save();
+
+    // Poblar datos
+    await message.populate([
+      { path: 'author', select: 'nombre apellido avatar' },
+      { path: 'replyTo', select: 'content author' }
+    ]);
+
+    // Emitir mensaje en tiempo real a todos los miembros del grupo
+    if (global.emitGroupMessage) {
+      global.emitGroupMessage(id, message);
+    }
+
+    res.status(201).json(formatSuccessResponse('Mensaje enviado', message));
+  } catch (error) {
+    console.error('Error al enviar mensaje:', error);
+    res.status(500).json(formatErrorResponse('Error al enviar mensaje', [error.message]));
+  }
+};
+
+/**
+ * Eliminar mensaje
+ * DELETE /api/grupos/:id/messages/:messageId
+ */
+const deleteMessage = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(messageId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const message = await GroupMessage.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json(formatErrorResponse('Mensaje no encontrado'));
+    }
+
+    // Verificar que el mensaje pertenece al grupo
+    if (!message.grupo.equals(id)) {
+      return res.status(400).json(formatErrorResponse('El mensaje no pertenece a este grupo'));
+    }
+
+    // Verificar que el usuario es el autor o admin del grupo
+    const group = await Group.findById(id);
+    const isAuthor = message.author.equals(req.userId);
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
+                    group.creador.equals(req.userId);
+
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar este mensaje'));
+    }
+
+    // Marcar como eliminado en lugar de borrar físicamente
+    message.isDeleted = true;
+    message.deletedAt = new Date();
+    await message.save();
+
+    // Emitir evento Socket.IO para eliminar mensaje en tiempo real
+    if (global.io) {
+      const roomName = `group:${id}`;
+      const socketsInRoom = await global.io.in(roomName).allSockets();
+      console.log(`🗑️ Emitiendo messageDeleted al room ${roomName}, sockets: ${socketsInRoom.size}`);
+
+      global.io.to(roomName).emit('messageDeleted', {
+        groupId: id,
+        messageId: messageId
+      });
+      console.log(`🗑️ Mensaje ${messageId} eliminado emitido al grupo ${id}`);
+    }
+
+    res.json(formatSuccessResponse('Mensaje eliminado exitosamente'));
+  } catch (error) {
+    console.error('Error al eliminar mensaje:', error);
+    res.status(500).json(formatErrorResponse('Error al eliminar mensaje', [error.message]));
+  }
+};
+
+/**
+ * Reaccionar a un mensaje
+ * POST /api/grupos/:id/messages/:messageId/reactions
+ */
+const reactToMessage = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const { emoji } = req.body;
+
+    if (!isValidObjectId(id) || !isValidObjectId(messageId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    if (!emoji) {
+      return res.status(400).json(formatErrorResponse('Emoji requerido'));
+    }
+
+    const message = await GroupMessage.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json(formatErrorResponse('Mensaje no encontrado'));
+    }
+
+    // Verificar que el mensaje pertenece al grupo
+    if (!message.grupo.equals(id)) {
+      return res.status(400).json(formatErrorResponse('El mensaje no pertenece a este grupo'));
+    }
+
+    // Verificar que el usuario es miembro
+    const group = await Group.findById(id);
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Verificar si el usuario ya reaccionó con este emoji
+    const existingReaction = message.reactions.find(
+      r => r.usuario.equals(req.userId) && r.emoji === emoji
+    );
+
+    let updatedMessage;
+    if (existingReaction) {
+      // Remover la reacción - usar operación atómica
+      updatedMessage = await GroupMessage.findByIdAndUpdate(
+        messageId,
+        { $pull: { reactions: { usuario: req.userId, emoji: emoji } } },
+        { new: true }
+      ).populate('reactions.usuario', 'nombre apellido');
+    } else {
+      // Agregar nueva reacción - usar operación atómica
+      updatedMessage = await GroupMessage.findByIdAndUpdate(
+        messageId,
+        { $push: { reactions: { usuario: req.userId, emoji: emoji } } },
+        { new: true }
+      ).populate('reactions.usuario', 'nombre apellido');
+    }
+
+    // Emitir evento Socket.IO para actualizar reacciones en tiempo real
+    if (global.io) {
+      const roomName = `group:${id}`;
+      const socketsInRoom = await global.io.in(roomName).allSockets();
+      console.log(`😀 Emitiendo messageReactionUpdated al room ${roomName}, sockets: ${socketsInRoom.size}`);
+
+      global.io.to(roomName).emit('messageReactionUpdated', {
+        groupId: id,
+        messageId: messageId,
+        message: updatedMessage
+      });
+      console.log(`😀 Reacción en mensaje ${messageId} emitida al grupo ${id}`);
+    }
+
+    res.json(formatSuccessResponse('Reacción actualizada', updatedMessage));
+  } catch (error) {
+    console.error('Error al reaccionar:', error);
+    res.status(500).json(formatErrorResponse('Error al reaccionar', [error.message]));
+  }
+};
+
+/**
+ * Destacar/quitar destacado de mensaje
+ * PUT /api/grupos/:id/messages/:messageId/star
+ */
+const toggleStarMessage = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(messageId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const message = await GroupMessage.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json(formatErrorResponse('Mensaje no encontrado'));
+    }
+
+    // Verificar que el mensaje pertenece al grupo
+    if (!message.grupo.equals(id)) {
+      return res.status(400).json(formatErrorResponse('El mensaje no pertenece a este grupo'));
+    }
+
+    // Verificar que el usuario es miembro
+    const group = await Group.findById(id);
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    await message.toggleStar(req.userId);
+
+    // Poblar author para que el frontend tenga toda la información
+    await message.populate('author', 'nombre apellido avatar');
+
+    res.json(formatSuccessResponse('Estado de destacado actualizado', message));
+  } catch (error) {
+    console.error('Error al destacar mensaje:', error);
+    res.status(500).json(formatErrorResponse('Error al destacar mensaje', [error.message]));
+  }
+};
+
+/**
+ * Marcar mensaje como leído
+ * PUT /api/grupos/:id/messages/:messageId/read
+ */
+const markMessageAsRead = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(messageId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const message = await GroupMessage.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json(formatErrorResponse('Mensaje no encontrado'));
+    }
+
+    // Verificar que el mensaje pertenece al grupo
+    if (!message.grupo.equals(id)) {
+      return res.status(400).json(formatErrorResponse('El mensaje no pertenece a este grupo'));
+    }
+
+    await message.markAsRead(req.userId);
+
+    res.json(formatSuccessResponse('Mensaje marcado como leído'));
+  } catch (error) {
+    console.error('Error al marcar como leído:', error);
+    res.status(500).json(formatErrorResponse('Error al marcar como leído', [error.message]));
+  }
+};
+
+/**
+ * Aprobar solicitud de unión a grupo
+ * POST /api/grupos/:id/join/:requestId/approve
+ */
+const approveJoinRequest = async (req, res) => {
+  try {
+    const { id, requestId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(requestId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const group = await Group.findById(id);
+
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Verificar que el usuario es creador o administrador
+    const isCreator = group.creador.equals(req.userId);
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId));
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permisos para aprobar solicitudes'));
+    }
+
+    // Buscar la solicitud pendiente
+    const requestIndex = group.solicitudesPendientes.findIndex(
+      s => s.usuario.equals(requestId)
+    );
+
+    if (requestIndex === -1) {
+      return res.status(404).json(formatErrorResponse('Solicitud no encontrada'));
+    }
+
+    // Verificar que el usuario no sea ya miembro
+    const isMember = group.miembros.some(m => m.usuario.equals(requestId));
+    if (isMember) {
+      // Eliminar la solicitud duplicada
+      group.solicitudesPendientes.splice(requestIndex, 1);
+      await group.save();
+      return res.status(400).json(formatErrorResponse('El usuario ya es miembro del grupo'));
+    }
+
+    // Agregar usuario a miembros
+    group.miembros.push({
+      usuario: requestId,
+      rol: 'miembro',
+      fechaUnion: new Date()
+    });
+
+    // Eliminar de solicitudes pendientes
+    group.solicitudesPendientes.splice(requestIndex, 1);
+
+    await group.save();
+
+    // Notificar al usuario que su solicitud fue aprobada
+    const notification = new Notification({
+      receptor: requestId,
+      emisor: req.userId,
+      tipo: 'solicitud_grupo_aprobada',
+      contenido: 'aceptó tu solicitud para unirte al grupo',
+      referencia: {
+        tipo: 'Group',
+        id: group._id
+      }
+    });
+    await notification.save();
+
+    // Emitir notificación por Socket.IO si existe
+    if (global.emitNotification) {
+      global.emitNotification(requestId, notification);
+    }
+
+    await group.populate('miembros.usuario', 'nombre apellido avatar');
+
+    res.json(formatSuccessResponse('Solicitud aprobada exitosamente', group));
+  } catch (error) {
+    console.error('Error al aprobar solicitud:', error);
+    res.status(500).json(formatErrorResponse('Error al aprobar solicitud', [error.message]));
+  }
+};
+
+/**
+ * Rechazar solicitud de unión a grupo
+ * POST /api/grupos/:id/join/:requestId/reject
+ */
+const rejectJoinRequest = async (req, res) => {
+  try {
+    const { id, requestId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(requestId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const group = await Group.findById(id);
+
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Verificar que el usuario es creador o administrador
+    const isCreator = group.creador.equals(req.userId);
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId));
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permisos para rechazar solicitudes'));
+    }
+
+    // Buscar la solicitud pendiente
+    const requestIndex = group.solicitudesPendientes.findIndex(
+      s => s.usuario.equals(requestId)
+    );
+
+    if (requestIndex === -1) {
+      return res.status(404).json(formatErrorResponse('Solicitud no encontrada'));
+    }
+
+    // Eliminar de solicitudes pendientes
+    group.solicitudesPendientes.splice(requestIndex, 1);
+
+    await group.save();
+
+    // Notificar al usuario que su solicitud fue rechazada
+    const notification = new Notification({
+      receptor: requestId,
+      emisor: req.userId,
+      tipo: 'solicitud_grupo_rechazada',
+      contenido: 'rechazó tu solicitud para unirte al grupo',
+      referencia: {
+        tipo: 'Group',
+        id: group._id
+      }
+    });
+    await notification.save();
+
+    // Emitir notificación por Socket.IO si existe
+    if (global.emitNotification) {
+      global.emitNotification(requestId, notification);
+    }
+
+    res.json(formatSuccessResponse('Solicitud rechazada exitosamente'));
+  } catch (error) {
+    console.error('Error al rechazar solicitud:', error);
+    res.status(500).json(formatErrorResponse('Error al rechazar solicitud', [error.message]));
+  }
+};
+
+/**
+ * Obtener mensajes destacados por el usuario actual
+ * GET /api/grupos/:id/destacados
+ */
+const getDestacados = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Obtener mensajes donde starredBy incluye al usuario actual
+    const destacados = await GroupMessage.find({
+      grupo: id,
+      starredBy: req.userId
+    })
+      .populate('author', 'nombre apellido avatar')
+      .populate('replyTo')
+      .populate('reactions.usuario', 'nombre apellido')
+      .sort({ createdAt: -1 }); // Más recientes primero
+
+    res.json(formatSuccessResponse('Mensajes destacados obtenidos', destacados));
+  } catch (error) {
+    console.error('Error al obtener destacados:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener destacados', [error.message]));
+  }
+};
+
+/**
+ * Obtener enlaces compartidos en el grupo
+ * Extrae URLs tanto del contenido de mensajes como de attachments
+ * GET /api/grupos/:id/enlaces
+ */
+const getEnlaces = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Obtener todos los mensajes del grupo
+    const messages = await GroupMessage.find({ grupo: id })
+      .populate('author', 'nombre apellido avatar')
+      .sort({ createdAt: -1 });
+
+    // Regex para detectar URLs (mejorada para capturar URLs más complejas)
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+
+    const enlaces = [];
+
+    messages.forEach(msg => {
+      const msgEnlaces = [];
+
+      // 1. Extraer URLs del contenido del mensaje
+      if (msg.content) {
+        const urls = msg.content.match(urlRegex);
+        if (urls) {
+          urls.forEach(url => {
+            // Limpiar la URL (quitar puntuación al final)
+            const cleanUrl = url.replace(/[.,;!?]+$/, '');
+            msgEnlaces.push({
+              url: cleanUrl,
+              type: 'text',
+              source: 'content',
+              title: cleanUrl,
+              messageId: msg._id,
+              content: msg.content,
+              author: msg.author,
+              createdAt: msg.createdAt
+            });
+          });
+        }
+      }
+
+      // 2. Extraer URLs de attachments tipo 'link'
+      if (msg.attachments && msg.attachments.length > 0) {
+        msg.attachments.forEach(att => {
+          if (att.type === 'link') {
+            msgEnlaces.push({
+              url: att.url,
+              type: 'attachment',
+              source: 'attachment',
+              title: att.title || att.url,
+              description: att.description,
+              preview: att.preview,
+              messageId: msg._id,
+              content: msg.content,
+              author: msg.author,
+              createdAt: msg.createdAt
+            });
+          }
+        });
+      }
+
+      // Agregar todos los enlaces de este mensaje
+      enlaces.push(...msgEnlaces);
+    });
+
+    // Eliminar duplicados basados en URL
+    const uniqueEnlaces = enlaces.filter((enlace, index, self) =>
+      index === self.findIndex((e) => e.url === enlace.url)
+    );
+
+    res.json(formatSuccessResponse('Enlaces obtenidos', uniqueEnlaces));
+  } catch (error) {
+    console.error('Error al obtener enlaces:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener enlaces', [error.message]));
+  }
+};
+
+/**
+ * Actualizar rol de un miembro (admin/owner only)
+ * POST /grupos/:id/members/:memberId/role
+ */
+const updateMemberRole = async (req, res) => {
+  try {
+    const { id, memberId } = req.params;
+    const { role } = req.body; // 'admin' o 'member' (en inglés desde frontend)
+
+    console.log(`🔧 [UPDATE ROLE] Grupo: ${id}, Miembro: ${memberId}, Nuevo rol: ${role}`);
+
+    // Validar que el rol sea válido
+    if (!['admin', 'member'].includes(role)) {
+      return res.status(400).json(formatErrorResponse('Rol no válido. Debe ser "admin" o "member"'));
+    }
+
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Verificar que el usuario sea admin o creador
+    const isCreator = group.creador.equals(req.userId);
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId));
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permisos para cambiar roles'));
+    }
+
+    // Buscar el miembro en la lista
+    const memberIndex = group.miembros.findIndex(m => m.usuario.equals(memberId));
+    if (memberIndex === -1) {
+      return res.status(404).json(formatErrorResponse('Miembro no encontrado en el grupo'));
+    }
+
+    // No se puede cambiar el rol del creador
+    if (group.creador.equals(memberId)) {
+      return res.status(400).json(formatErrorResponse('No se puede cambiar el rol del creador del grupo'));
+    }
+
+    // Actualizar rol (convertir de inglés a español para la BD)
+    if (role === 'admin') {
+      // Agregar a administradores si no está
+      if (!group.administradores.some(admin => admin.equals(memberId))) {
+        group.administradores.push(memberId);
+      }
+      // Usar 'administrador' en español para la BD
+      group.miembros[memberIndex].rol = 'administrador';
+    } else {
+      // Quitar de administradores si está
+      group.administradores = group.administradores.filter(admin => !admin.equals(memberId));
+      // Usar 'miembro' en español para la BD
+      group.miembros[memberIndex].rol = 'miembro';
+    }
+
+    await group.save();
+
+    console.log(`✅ [UPDATE ROLE] Rol actualizado exitosamente a '${group.miembros[memberIndex].rol}'`);
+    res.json(formatSuccessResponse('Rol actualizado exitosamente', group));
+  } catch (error) {
+    console.error('❌ [UPDATE ROLE] Error:', error);
+    res.status(500).json(formatErrorResponse('Error al actualizar el rol', [error.message]));
+  }
+};
+
+/**
+ * Expulsar un miembro del grupo (admin/owner only)
+ * DELETE /grupos/:id/members/:memberId
+ */
+const removeMember = async (req, res) => {
+  try {
+    const { id, memberId } = req.params;
+
+    console.log(`🚪 [REMOVE MEMBER] Grupo: ${id}, Miembro: ${memberId}`);
+
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Verificar que el usuario sea admin o creador
+    const isCreator = group.creador.equals(req.userId);
+    const isAdmin = group.administradores.some(admin => admin.equals(req.userId));
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permisos para expulsar miembros'));
+    }
+
+    // No se puede expulsar al creador
+    if (group.creador.equals(memberId)) {
+      return res.status(400).json(formatErrorResponse('No se puede expulsar al creador del grupo'));
+    }
+
+    // Buscar el miembro en la lista
+    const memberIndex = group.miembros.findIndex(m => m.usuario.equals(memberId));
+    if (memberIndex === -1) {
+      return res.status(404).json(formatErrorResponse('Miembro no encontrado en el grupo'));
+    }
+
+    // Eliminar de miembros
+    group.miembros.splice(memberIndex, 1);
+
+    // Eliminar de administradores si está
+    group.administradores = group.administradores.filter(admin => !admin.equals(memberId));
+
+    await group.save();
+
+    // Notificar al miembro expulsado (opcional)
+    if (global.emitNotification) {
+      global.emitNotification(memberId, {
+        tipo: 'sistema',
+        contenido: `Has sido expulsado del grupo ${group.nombre}`,
+        grupo: group._id
+      });
+    }
+
+    console.log(`✅ [REMOVE MEMBER] Miembro expulsado exitosamente`);
+    res.json(formatSuccessResponse('Miembro expulsado exitosamente', group));
+  } catch (error) {
+    console.error('❌ [REMOVE MEMBER] Error:', error);
+    res.status(500).json(formatErrorResponse('Error al expulsar miembro', [error.message]));
+  }
+};
+
+/**
+ * Transferir propiedad del grupo (owner only)
+ * POST /grupos/:id/transfer
+ */
+const transferOwnership = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newOwnerId } = req.body;
+
+    console.log(`👑 [TRANSFER] Grupo: ${id}, Nuevo propietario: ${newOwnerId}`);
+
+    if (!newOwnerId) {
+      return res.status(400).json(formatErrorResponse('Se requiere el ID del nuevo propietario'));
+    }
+
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Solo el creador puede transferir la propiedad
+    if (!group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('Solo el propietario puede transferir la propiedad'));
+    }
+
+    // Verificar que el nuevo propietario sea miembro del grupo
+    const newOwnerIsMember = group.miembros.some(m => m.usuario.equals(newOwnerId));
+    if (!newOwnerIsMember) {
+      return res.status(400).json(formatErrorResponse('El nuevo propietario debe ser miembro del grupo'));
+    }
+
+    // No transferir a uno mismo
+    if (group.creador.equals(newOwnerId)) {
+      return res.status(400).json(formatErrorResponse('Ya eres el propietario del grupo'));
+    }
+
+    // El antiguo creador se convierte en administrador
+    if (!group.administradores.some(admin => admin.equals(req.userId))) {
+      group.administradores.push(req.userId);
+    }
+
+    // Actualizar el rol del antiguo creador en miembros
+    const oldOwnerMember = group.miembros.find(m => m.usuario.equals(req.userId));
+    if (oldOwnerMember) {
+      oldOwnerMember.rol = 'administrador';
+    }
+
+    // El nuevo creador deja de ser admin (si lo era) porque ahora es owner
+    group.administradores = group.administradores.filter(admin => !admin.equals(newOwnerId));
+
+    // Actualizar el rol del nuevo creador en miembros
+    const newOwnerMember = group.miembros.find(m => m.usuario.equals(newOwnerId));
+    if (newOwnerMember) {
+      newOwnerMember.rol = 'propietario';
+    }
+
+    // Cambiar el creador
+    group.creador = newOwnerId;
+
+    await group.save();
+
+    // Notificar al nuevo propietario
+    if (global.emitNotification) {
+      global.emitNotification(newOwnerId, {
+        tipo: 'sistema',
+        contenido: `Ahora eres el propietario del grupo ${group.nombre}`,
+        grupo: group._id
+      });
+    }
+
+    console.log(`✅ [TRANSFER] Propiedad transferida exitosamente`);
+    res.json(formatSuccessResponse('Propiedad transferida exitosamente', group));
+  } catch (error) {
+    console.error('❌ [TRANSFER] Error:', error);
+    res.status(500).json(formatErrorResponse('Error al transferir propiedad', [error.message]));
+  }
+};
+
 module.exports = {
   getAllGroups,
   getGroupById,
@@ -507,5 +1395,22 @@ module.exports = {
   getGroupMembers,
   deleteGroup,
   uploadGroupAvatar,
-  deleteGroupAvatar
+  deleteGroupAvatar,
+  // Join requests
+  approveJoinRequest,
+  rejectJoinRequest,
+  // Member management
+  updateMemberRole,
+  removeMember,
+  transferOwnership,
+  // Message functions
+  getMessages,
+  sendMessage,
+  deleteMessage,
+  reactToMessage,
+  toggleStarMessage,
+  markMessageAsRead,
+  // Starred & Links
+  getDestacados,
+  getEnlaces
 };

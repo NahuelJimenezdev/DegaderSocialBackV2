@@ -45,6 +45,10 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 mongoose.connect(process.env.MONGO_ACCESS)
   .then(() => {
     console.log('✅ Conexión exitosa a MongoDB');
+
+    // Iniciar cron de reuniones después de conectar a la DB
+    const { startMeetingCron } = require('./utils/meetingCron');
+    startMeetingCron();
   })
   .catch((error) => {
     console.error('❌ Error al conectar a MongoDB:', error);
@@ -117,6 +121,22 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Suscripción a reuniones del usuario
+  socket.on('subscribeMeetings', ({ userId }) => {
+    if (socket.userId) {
+      socket.join(`meetings:${userId}`);
+      console.log(`📅 Usuario ${userId} suscrito a actualizaciones de reuniones`);
+    }
+  });
+
+  // Desuscripción de reuniones
+  socket.on('unsubscribeMeetings', ({ userId }) => {
+    if (socket.userId) {
+      socket.leave(`meetings:${userId}`);
+      console.log(`📅 Usuario ${userId} desuscrito de reuniones`);
+    }
+  });
+
   // Desconexión
   socket.on('disconnect', () => {
     if (socket.userId) {
@@ -150,6 +170,18 @@ global.emitGroupMessage = (groupId, message) => {
   console.log(`👥 Mensaje emitido al grupo ${groupId}`);
 };
 
+// Función helper para emitir actualizaciones de reuniones
+global.emitMeetingUpdate = (attendeeIds, meeting, eventType = 'update') => {
+  // Emitir a cada asistente
+  attendeeIds.forEach(userId => {
+    io.to(`meetings:${userId}`).emit('meetingUpdate', {
+      type: eventType, // 'create', 'update', 'cancel', 'statusChange'
+      meeting: meeting
+    });
+  });
+  console.log(`📅 Actualización de reunión emitida a ${attendeeIds.length} usuarios - Tipo: ${eventType}`);
+};
+
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
@@ -161,6 +193,17 @@ const notificationRoutes = require('./routes/notification.routes');
 const conversationRoutes = require('./routes/conversation.routes');
 const searchRoutes = require('./routes/search.routes');
 const folderRoutes = require('./routes/folder.routes');
+
+const meetingRoutes = require('./routes/meeting.routes.js');
+
+// Definición de la versión de la API
+const apiVersion = '/api/v2';
+// Rutas de reuniones
+// Uso de rutas existentes
+app.use(`${apiVersion}/users`, userRoutes);
+app.use(`${apiVersion}/posts`, postRoutes);
+
+// app.use(`${apiVersion}/meetings`, meetingRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -210,6 +253,8 @@ app.use('/api/conversaciones', conversationRoutes);
 app.use('/api/buscar', searchRoutes);
 app.use('/api/folders', folderRoutes);
 
+
+app.use('/api/meetings', meetingRoutes);
 // Manejador de rutas no encontradas
 app.use((req, res) => {
   res.status(404).json({

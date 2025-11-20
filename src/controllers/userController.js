@@ -62,7 +62,7 @@ const searchUsers = async (req, res) => {
       ],
       estado: 'activo'
     })
-      .select('-password')
+      .select('-password -estado -__v')
       .limit(20);
 
     res.json(formatSuccessResponse('Búsqueda completada', users));

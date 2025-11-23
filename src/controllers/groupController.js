@@ -622,7 +622,22 @@ const getMessages = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit));
 
-    res.json(formatSuccessResponse('Mensajes obtenidos', messages.reverse()));
+    // Transformar mensajes para agregar attachments desde files
+    const transformedMessages = messages.reverse().map(msg => {
+      const msgObj = msg.toObject();
+      // Mapear files a attachments para compatibilidad con frontend
+      if (msgObj.files && msgObj.files.length > 0) {
+        msgObj.attachments = msgObj.files.map(f => ({
+          type: f.tipo,
+          url: f.url,
+          name: f.nombre,
+          size: f.tamaño
+        }));
+      }
+      return msgObj;
+    });
+
+    res.json(formatSuccessResponse('Mensajes obtenidos', transformedMessages));
   } catch (error) {
     console.error('Error al obtener mensajes:', error);
     res.status(500).json(formatErrorResponse('Error al obtener mensajes', [error.message]));
@@ -1385,6 +1400,219 @@ const transferOwnership = async (req, res) => {
   }
 };
 
+/**
+ * Obtener archivos (videos, audio, documentos) del grupo
+ * GET /api/grupos/:id/archivos
+ */
+const getArchivos = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Obtener mensajes con archivos (no imágenes)
+    const messages = await GroupMessage.find({
+      grupo: id,
+      isDeleted: false,
+      $or: [
+        { 'files.tipo': { $in: ['video', 'audio', 'file', 'documento', 'archivo'] } },
+        { tipo: { $in: ['archivo', 'video'] } }
+      ]
+    })
+      .populate('author', 'nombre apellido avatar')
+      .sort({ createdAt: -1 });
+
+    // Transformar mensajes para agregar attachments desde files
+    const transformedMessages = messages.map(msg => {
+      const msgObj = msg.toObject();
+      // Mapear files a attachments para compatibilidad con frontend
+      if (msgObj.files && msgObj.files.length > 0) {
+        msgObj.attachments = msgObj.files.map(f => ({
+          type: f.tipo,
+          url: f.url,
+          name: f.nombre,
+          size: f.tamaño
+        }));
+      }
+      // Mapear author a sender para compatibilidad con frontend
+      msgObj.sender = msgObj.author;
+      return msgObj;
+    });
+
+    res.json(formatSuccessResponse('Archivos obtenidos', transformedMessages));
+  } catch (error) {
+    console.error('Error al obtener archivos:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener archivos', [error.message]));
+  }
+};
+
+/**
+ * Obtener multimedia (imágenes) del grupo
+ * GET /api/grupos/:id/multimedia
+ */
+const getMultimedia = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Obtener mensajes con imágenes
+    const messages = await GroupMessage.find({
+      grupo: id,
+      isDeleted: false,
+      $or: [
+        { 'files.tipo': { $regex: /^image/i } },
+        { tipo: 'imagen' }
+      ]
+    })
+      .populate('author', 'nombre apellido avatar')
+      .sort({ createdAt: -1 });
+
+    // Transformar mensajes para agregar attachments desde files
+    const transformedMessages = messages.map(msg => {
+      const msgObj = msg.toObject();
+      // Mapear files a attachments para compatibilidad con frontend
+      if (msgObj.files && msgObj.files.length > 0) {
+        msgObj.attachments = msgObj.files.map(f => ({
+          type: f.tipo,
+          url: f.url,
+          name: f.nombre,
+          size: f.tamaño
+        }));
+      }
+      // Mapear author a sender para compatibilidad con frontend
+      msgObj.sender = msgObj.author;
+      return msgObj;
+    });
+
+    res.json(formatSuccessResponse('Multimedia obtenida', transformedMessages));
+  } catch (error) {
+    console.error('Error al obtener multimedia:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener multimedia', [error.message]));
+  }
+};
+
+/**
+ * Enviar mensaje con archivos adjuntos
+ * POST /api/grupos/:id/messages/upload
+ */
+const sendMessageWithFiles = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, replyTo, clientTempId } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar que el grupo existe y el usuario es miembro
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+    if (!isMember && !group.creador.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
+    }
+
+    // Procesar archivos subidos
+    const files = (req.files || []).map(file => {
+      let tipo = 'file';
+      if (file.mimetype.startsWith('image/')) tipo = 'image';
+      else if (file.mimetype.startsWith('video/')) tipo = 'video';
+      else if (file.mimetype.startsWith('audio/')) tipo = 'audio';
+
+      return {
+        url: `/uploads/group_attachments/${file.filename}`,
+        nombre: file.originalname,
+        tipo: tipo,
+        tamaño: file.size
+      };
+    });
+
+    // Determinar el tipo de mensaje
+    let tipoMensaje = 'texto';
+    if (files.length > 0) {
+      const firstFileType = files[0].tipo;
+      if (firstFileType === 'image') tipoMensaje = 'imagen';
+      else if (firstFileType === 'video') tipoMensaje = 'video';
+      else tipoMensaje = 'archivo';
+    }
+
+    // Crear mensaje - Si no hay content pero hay archivos, usar un placeholder
+    const messageData = {
+      grupo: id,
+      author: req.userId,
+      content: content && content.trim() ? content.trim() : (files.length > 0 ? ' ' : ''),
+      tipo: tipoMensaje,
+      files: files
+    };
+
+    if (replyTo && isValidObjectId(replyTo)) {
+      messageData.replyTo = replyTo;
+    }
+
+    const message = new GroupMessage(messageData);
+    await message.save();
+
+    // Poblar datos
+    await message.populate([
+      { path: 'author', select: 'nombre apellido avatar' },
+      { path: 'replyTo', select: 'content author' }
+    ]);
+
+    // Transformar a objeto y agregar attachments para compatibilidad con frontend
+    const messageObj = message.toObject();
+    // Mapear files a attachments para compatibilidad
+    messageObj.attachments = (messageObj.files || []).map(f => ({
+      type: f.tipo,
+      url: f.url,
+      name: f.nombre,
+      size: f.tamaño
+    }));
+
+    // Emitir mensaje en tiempo real
+    if (global.io) {
+      const roomName = `group:${id}`;
+      const emitted = { ...messageObj };
+      if (clientTempId) emitted.clientTempId = clientTempId;
+      global.io.to(roomName).emit('groupMessage', emitted);
+    }
+
+    res.status(201).json(formatSuccessResponse('Mensaje con archivos enviado', messageObj));
+  } catch (error) {
+    console.error('Error al enviar mensaje con archivos:', error);
+    res.status(500).json(formatErrorResponse('Error al enviar mensaje', [error.message]));
+  }
+};
+
 module.exports = {
   getAllGroups,
   getGroupById,
@@ -1406,10 +1634,14 @@ module.exports = {
   // Message functions
   getMessages,
   sendMessage,
+  sendMessageWithFiles,
   deleteMessage,
   reactToMessage,
   toggleStarMessage,
   markMessageAsRead,
+  // Media & Files
+  getArchivos,
+  getMultimedia,
   // Starred & Links
   getDestacados,
   getEnlaces

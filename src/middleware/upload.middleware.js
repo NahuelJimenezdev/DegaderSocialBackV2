@@ -138,6 +138,46 @@ const uploadMessageFile = multer({
   limits: limits
 }).single('archivo');
 
+// Configuración de almacenamiento para archivos de grupos (chat)
+const groupAttachmentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads/group_attachments';
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'attachment-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// Filtro de archivos para grupos - acepta más tipos
+const groupAttachmentFilter = (req, file, cb) => {
+  const allowedMime = [
+    'image/',
+    'video/',
+    'audio/',
+    'application/pdf',
+    'text/plain',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  const ok = allowedMime.some(a => file.mimetype.startsWith(a));
+  if (ok) {
+    return cb(null, true);
+  }
+  cb(new Error('Tipo de archivo no permitido'));
+};
+
+// Middleware de upload para archivos de grupo (múltiples)
+const uploadGroupAttachments = multer({
+  storage: groupAttachmentStorage,
+  fileFilter: groupAttachmentFilter,
+  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+}).array('attachments', 20);
+
 // Manejador de errores de multer
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -166,5 +206,6 @@ module.exports = {
   uploadPostImage,
   uploadGroupImage,
   uploadMessageFile,
+  uploadGroupAttachments,
   handleUploadError
 };

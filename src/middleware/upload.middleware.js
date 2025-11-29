@@ -156,13 +156,35 @@ const groupAttachmentStorage = multer.diskStorage({
 // Filtro de archivos para grupos - acepta más tipos
 const groupAttachmentFilter = (req, file, cb) => {
   const allowedMime = [
+    // Imágenes, videos y audio
     'image/',
     'video/',
     'audio/',
+    // PDF
     'application/pdf',
+    // Texto
     'text/plain',
+    'text/csv',
+    // Word
     'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // Excel
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    // PowerPoint
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // Archivos comprimidos
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'application/vnd.rar',
+    'application/x-7z-compressed',
+    // JSON
+    'application/json',
+    // RTF
+    'application/rtf',
+    'text/rtf'
   ];
   const ok = allowedMime.some(a => file.mimetype.startsWith(a));
   if (ok) {

@@ -1,6 +1,6 @@
 const Friendship = require('../models/Friendship');
 const Notification = require('../models/Notification');
-const User = require('../models/User');
+const User = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
 /**
@@ -64,9 +64,17 @@ const sendFriendRequest = async (req, res) => {
     });
     await notification.save();
 
+    // Poblar emisor para la notificación en tiempo real
+    await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
+
+    // Emitir notificación en tiempo real
+    if (global.emitNotification) {
+      global.emitNotification(receptorId, notification);
+    }
+
     await friendship.populate([
-      { path: 'solicitante', select: 'nombre apellido avatar' },
-      { path: 'receptor', select: 'nombre apellido avatar' }
+      { path: 'solicitante', select: 'nombres apellidos social.fotoPerfil' },
+      { path: 'receptor', select: 'nombres apellidos social.fotoPerfil' }
     ]);
 
     res.status(201).json(formatSuccessResponse('Solicitud enviada exitosamente', friendship));
@@ -86,7 +94,7 @@ const getPendingRequests = async (req, res) => {
       receptor: req.userId,
       estado: 'pendiente'
     })
-      .populate('solicitante', 'nombre apellido avatar email')
+      .populate('solicitante', 'nombres apellidos social.fotoPerfil email')
       .sort({ createdAt: -1 });
 
     res.json(formatSuccessResponse('Solicitudes obtenidas', requests));
@@ -140,9 +148,30 @@ const acceptFriendRequest = async (req, res) => {
     });
     await notification.save();
 
+    // Poblar emisor para la notificación en tiempo real
+    await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
+
+    // Emitir notificación en tiempo real
+    if (global.emitNotification) {
+      global.emitNotification(friendship.solicitante, notification);
+
+      // Emitir actualización de estado a ambos usuarios para actualizar botones en tiempo real
+      global.emitNotification(friendship.solicitante.toString(), {
+        tipo: 'amistad:actualizada',
+        usuarioId: req.userId.toString(),
+        nuevoEstado: 'aceptado'
+      });
+
+      global.emitNotification(req.userId.toString(), {
+        tipo: 'amistad:actualizada',
+        usuarioId: friendship.solicitante.toString(),
+        nuevoEstado: 'aceptado'
+      });
+    }
+
     await friendship.populate([
-      { path: 'solicitante', select: 'nombre apellido avatar' },
-      { path: 'receptor', select: 'nombre apellido avatar' }
+      { path: 'solicitante', select: 'nombres apellidos social.fotoPerfil' },
+      { path: 'receptor', select: 'nombres apellidos social.fotoPerfil' }
     ]);
 
     res.json(formatSuccessResponse('Solicitud aceptada exitosamente', friendship));
@@ -179,8 +208,19 @@ const rejectFriendRequest = async (req, res) => {
       return res.status(400).json(formatErrorResponse('La solicitud ya fue procesada'));
     }
 
+    const solicitanteId = friendship.solicitante.toString();
+
     friendship.estado = 'rechazada';
     await friendship.save();
+
+    // Emitir evento en tiempo real al solicitante para que elimine su notificación
+    if (global.emitNotification) {
+      global.emitNotification(solicitanteId, {
+        tipo: 'solicitud_rechazada',
+        usuarioId: req.userId.toString(),
+        mensaje: 'Tu solicitud de amistad fue rechazada'
+      });
+    }
 
     res.json(formatSuccessResponse('Solicitud rechazada'));
   } catch (error) {
@@ -201,8 +241,8 @@ const getFriends = async (req, res) => {
         { receptor: req.userId, estado: 'aceptada' }
       ]
     })
-      .populate('solicitante', 'nombre apellido avatar email ultimaConexion')
-      .populate('receptor', 'nombre apellido avatar email ultimaConexion')
+      .populate('solicitante', 'nombres apellidos social email ultimaConexion personal')
+      .populate('receptor', 'nombres apellidos social email ultimaConexion personal')
       .sort({ fechaAceptacion: -1 });
 
     // Formatear respuesta para obtener solo el amigo (no el usuario actual)
@@ -237,19 +277,81 @@ const removeFriend = async (req, res) => {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    const friendship = await Friendship.findOneAndDelete({
+    // Buscar la amistad primero (sin eliminar aún)
+    const friendship = await Friendship.findOne({
       $or: [
         { solicitante: req.userId, receptor: friendId },
         { solicitante: friendId, receptor: req.userId }
-      ],
-      estado: 'aceptada'
+      ]
     });
 
     if (!friendship) {
-      return res.status(404).json(formatErrorResponse('Amistad no encontrada'));
+      return res.status(404).json(formatErrorResponse('Amistad o solicitud no encontrada'));
     }
 
-    res.json(formatSuccessResponse('Amistad eliminada exitosamente'));
+    const esSolicitante = friendship.solicitante.equals(req.userId);
+    const estadoAnterior = friendship.estado;
+    const otherUserId = esSolicitante ? friendship.receptor : friendship.solicitante;
+
+    // Emitir evento en tiempo real según el estado ANTES de eliminar
+    if (global.emitNotification) {
+      if (estadoAnterior === 'aceptada') {
+        // Crear notificación persistente para el otro usuario
+        const notification = new Notification({
+          receptor: otherUserId,
+          emisor: req.userId,
+          tipo: 'amistad_eliminada',
+          contenido: 'eliminó la amistad',
+          referencia: {
+            tipo: 'User',
+            id: req.userId
+          }
+        });
+        await notification.save();
+
+        // Poblar emisor para la notificación en tiempo real
+        await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
+
+        // Amistad aceptada eliminada
+        global.emitNotification(friendId, notification);
+
+        global.emitNotification(req.userId.toString(), {
+          tipo: 'amistad_eliminada',
+          usuarioId: friendId,
+          mensaje: 'Amistad eliminada'
+        });
+      } else if (estadoAnterior === 'pendiente') {
+        // Solicitud pendiente cancelada
+        if (esSolicitante) {
+          // El solicitante canceló su propia solicitud
+          const notification = new Notification({
+            receptor: friendId,
+            emisor: req.userId,
+            tipo: 'solicitud_cancelada',
+            contenido: 'canceló la solicitud de amistad',
+            referencia: {
+              tipo: 'User',
+              id: req.userId
+            }
+          });
+          await notification.save();
+
+          // Poblar emisor para la notificación en tiempo real
+          await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
+
+          global.emitNotification(friendId, notification);
+        }
+      }
+    }
+
+    // Ahora sí eliminar la amistad
+    await Friendship.findByIdAndDelete(friendship._id);
+
+    const mensaje = estadoAnterior === 'aceptada'
+      ? 'Amistad eliminada exitosamente'
+      : 'Solicitud cancelada exitosamente';
+
+    res.json(formatSuccessResponse(mensaje));
   } catch (error) {
     console.error('Error al eliminar amistad:', error);
     res.status(500).json(formatErrorResponse('Error al eliminar amistad', [error.message]));

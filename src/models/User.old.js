@@ -57,10 +57,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  ciudad: {
-    type: String,
-    trim: true
-  },
+  // ciudad: { type: String, trim: true }, // DEPRECATED: Usar ubicacion.ciudad
   ubicacion: {
     pais: { type: String, trim: true },
     ciudad: { type: String, trim: true },
@@ -105,7 +102,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Virtual para nombre completo
-userSchema.virtual('nombreCompleto').get(function() {
+userSchema.virtual('nombreCompleto').get(function () {
   return `${this.nombre} ${this.apellido}`;
 });
 

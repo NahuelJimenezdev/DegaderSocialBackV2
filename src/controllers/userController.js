@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const path = require('path');
 const fs = require('fs');
@@ -103,43 +103,120 @@ const getUserById = async (req, res) => {
  */
 const updateProfile = async (req, res) => {
   try {
-    const allowedFields = ['nombre', 'apellido', 'biografia', 'telefono', 'ciudad', 'fechaNacimiento', 'legajo', 'area', 'cargo'];
     const updates = {};
 
-    // Filtrar solo campos permitidos
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+    // Actualizar nombres si se proporcionan
+    if (req.body.nombres) {
+      if (req.body.nombres.primero !== undefined) {
+        updates['nombres.primero'] = req.body.nombres.primero;
       }
-    });
-
-    // Actualizar configuración de privacidad si se proporciona
-    if (req.body.privacidad) {
-      updates.privacidad = {
-        ...updates.privacidad,
-        ...req.body.privacidad
-      };
+      if (req.body.nombres.segundo !== undefined) {
+        updates['nombres.segundo'] = req.body.nombres.segundo;
+      }
     }
 
-    // Actualizar ubicación si se proporciona
-    if (req.body.ubicacion) {
-      updates.ubicacion = {
-        pais: req.body.ubicacion.pais,
-        ciudad: req.body.ubicacion.ciudad,
-        subdivision: req.body.ubicacion.subdivision,
-        paisCode: req.body.ubicacion.paisCode || 'AR'
-      };
+    // Actualizar apellidos si se proporcionan
+    if (req.body.apellidos) {
+      if (req.body.apellidos.primero !== undefined) {
+        updates['apellidos.primero'] = req.body.apellidos.primero;
+      }
+      if (req.body.apellidos.segundo !== undefined) {
+        updates['apellidos.segundo'] = req.body.apellidos.segundo;
+      }
     }
 
-    // Actualizar información ministerial si se proporciona
-    if (req.body.ministerio) {
-      updates.ministerio = {
-        pastor: req.body.ministerio.pastor,
-        iglesiaNombre: req.body.ministerio.iglesiaNombre,
-        denominacion: req.body.ministerio.denominacion,
-        direccionMinisterio: req.body.ministerio.direccionMinisterio,
-        rolMinisterio: req.body.ministerio.rolMinisterio
-      };
+    // Actualizar información personal
+    if (req.body.personal) {
+      if (req.body.personal.fechaNacimiento !== undefined) {
+        updates['personal.fechaNacimiento'] = req.body.personal.fechaNacimiento;
+      }
+      if (req.body.personal.genero !== undefined) {
+        updates['personal.genero'] = req.body.personal.genero;
+      }
+      if (req.body.personal.celular !== undefined) {
+        updates['personal.celular'] = req.body.personal.celular;
+      }
+      if (req.body.personal.telefonoFijo !== undefined) {
+        updates['personal.telefonoFijo'] = req.body.personal.telefonoFijo;
+      }
+      if (req.body.personal.direccion !== undefined) {
+        updates['personal.direccion'] = req.body.personal.direccion;
+      }
+
+      // Actualizar ubicación dentro de personal
+      if (req.body.personal.ubicacion) {
+        if (req.body.personal.ubicacion.pais !== undefined) {
+          updates['personal.ubicacion.pais'] = req.body.personal.ubicacion.pais;
+        }
+        if (req.body.personal.ubicacion.estado !== undefined) {
+          updates['personal.ubicacion.estado'] = req.body.personal.ubicacion.estado;
+        }
+        if (req.body.personal.ubicacion.ciudad !== undefined) {
+          updates['personal.ubicacion.ciudad'] = req.body.personal.ubicacion.ciudad;
+        }
+        if (req.body.personal.ubicacion.barrio !== undefined) {
+          updates['personal.ubicacion.barrio'] = req.body.personal.ubicacion.barrio;
+        }
+        if (req.body.personal.ubicacion.codigoPostal !== undefined) {
+          updates['personal.ubicacion.codigoPostal'] = req.body.personal.ubicacion.codigoPostal;
+        }
+        if (req.body.personal.ubicacion.coordenadas) {
+          updates['personal.ubicacion.coordenadas'] = req.body.personal.ubicacion.coordenadas;
+        }
+      }
+    }
+
+    // Actualizar perfil social (biografía, sitio web, privacidad)
+    if (req.body.social) {
+      if (req.body.social.biografia !== undefined) {
+        updates['social.biografia'] = req.body.social.biografia;
+      }
+      if (req.body.social.sitioWeb !== undefined) {
+        updates['social.sitioWeb'] = req.body.social.sitioWeb;
+      }
+      if (req.body.social.username !== undefined) {
+        updates['social.username'] = req.body.social.username;
+      }
+
+      // Actualizar configuración de privacidad
+      if (req.body.social.privacidad) {
+        updates['social.privacidad'] = {
+          ...updates['social.privacidad'],
+          ...req.body.social.privacidad
+        };
+      }
+    }
+
+    // Actualizar perfil de fundación si se proporciona
+    if (req.body.fundacion) {
+      if (req.body.fundacion.codigoEmpleado !== undefined) {
+        updates['fundacion.codigoEmpleado'] = req.body.fundacion.codigoEmpleado;
+      }
+      if (req.body.fundacion.nivel !== undefined) {
+        updates['fundacion.nivel'] = req.body.fundacion.nivel;
+      }
+      if (req.body.fundacion.area !== undefined) {
+        updates['fundacion.area'] = req.body.fundacion.area;
+      }
+      if (req.body.fundacion.cargo !== undefined) {
+        updates['fundacion.cargo'] = req.body.fundacion.cargo;
+      }
+      if (req.body.fundacion.territorio) {
+        updates['fundacion.territorio'] = req.body.fundacion.territorio;
+      }
+    }
+
+    // Actualizar perfil eclesiástico si se proporciona
+    if (req.body.eclesiastico) {
+      if (req.body.eclesiastico.iglesia !== undefined) {
+        updates['eclesiastico.iglesia'] = req.body.eclesiastico.iglesia;
+      }
+      if (req.body.eclesiastico.rolPrincipal !== undefined) {
+        updates['eclesiastico.rolPrincipal'] = req.body.eclesiastico.rolPrincipal;
+      }
+      if (req.body.eclesiastico.ministerios) {
+        updates['eclesiastico.ministerios'] = req.body.eclesiastico.ministerios;
+      }
     }
 
     const user = await User.findByIdAndUpdate(
@@ -171,17 +248,28 @@ const uploadAvatar = async (req, res) => {
 
     const user = await User.findById(req.userId);
 
+    if (!user) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
     // Eliminar avatar anterior si existe
-    if (user.avatar) {
-      const oldAvatarPath = path.join(process.cwd(), user.avatar);
+    const oldAvatar = user.social?.fotoPerfil;
+    if (oldAvatar) {
+      const oldAvatarPath = path.join(process.cwd(), oldAvatar);
       if (fs.existsSync(oldAvatarPath)) {
         fs.unlinkSync(oldAvatarPath);
       }
     }
 
-    // Actualizar avatar
+    // Actualizar avatar en el perfil social
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    user.avatar = avatarUrl;
+
+    // Inicializar social si no existe
+    if (!user.social) {
+      user.social = {};
+    }
+
+    user.social.fotoPerfil = avatarUrl;
     await user.save();
 
     res.json(formatSuccessResponse('Avatar actualizado exitosamente', { avatar: avatarUrl }));
@@ -204,7 +292,7 @@ const uploadBanner = async (req, res) => {
     const { id } = req.params;
 
     // Verificar que el usuario está actualizando su propio banner o es admin
-    if (req.userId !== id && req.user.rol !== 'admin') {
+    if (req.userId !== id && req.user?.seguridad?.rolSistema !== 'admin') {
       return res.status(403).json(formatErrorResponse('No tienes permiso para actualizar este banner'));
     }
 
@@ -215,16 +303,23 @@ const uploadBanner = async (req, res) => {
     }
 
     // Eliminar banner anterior si existe
-    if (user.banner) {
-      const oldBannerPath = path.join(process.cwd(), user.banner);
+    const oldBanner = user.social?.fotoBanner;
+    if (oldBanner) {
+      const oldBannerPath = path.join(process.cwd(), oldBanner);
       if (fs.existsSync(oldBannerPath)) {
         fs.unlinkSync(oldBannerPath);
       }
     }
 
-    // Actualizar banner
+    // Actualizar banner en el perfil social
     const bannerUrl = `/uploads/banners/${req.file.filename}`;
-    user.banner = bannerUrl;
+
+    // Inicializar social si no existe
+    if (!user.social) {
+      user.social = {};
+    }
+
+    user.social.fotoBanner = bannerUrl;
     await user.save();
 
     res.json(formatSuccessResponse('Banner actualizado exitosamente', { banner: bannerUrl }));
@@ -243,7 +338,7 @@ const deleteBanner = async (req, res) => {
     const { id } = req.params;
 
     // Verificar que el usuario está eliminando su propio banner o es admin
-    if (req.userId !== id && req.user.rol !== 'admin') {
+    if (req.userId !== id && req.user?.seguridad?.rolSistema !== 'admin') {
       return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar este banner'));
     }
 
@@ -254,16 +349,19 @@ const deleteBanner = async (req, res) => {
     }
 
     // Eliminar archivo del banner si existe
-    if (user.banner) {
-      const bannerPath = path.join(process.cwd(), user.banner);
+    const banner = user.social?.fotoBanner;
+    if (banner) {
+      const bannerPath = path.join(process.cwd(), banner);
       if (fs.existsSync(bannerPath)) {
         fs.unlinkSync(bannerPath);
       }
     }
 
     // Actualizar usuario
-    user.banner = null;
-    await user.save();
+    if (user.social) {
+      user.social.fotoBanner = null;
+      await user.save();
+    }
 
     res.json(formatSuccessResponse('Banner eliminado exitosamente'));
   } catch (error) {
@@ -397,7 +495,7 @@ const getSavedPosts = async (req, res) => {
         path: 'savedPosts',
         populate: {
           path: 'usuario',
-          select: 'nombre apellido avatar'
+          select: 'nombres apellidos social.fotoPerfil email'
         }
       });
 

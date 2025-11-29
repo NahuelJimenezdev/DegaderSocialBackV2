@@ -3,19 +3,21 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   receptor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   emisor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   tipo: {
     type: String,
     enum: [
       'solicitud_amistad',
+      'solicitud_cancelada',
       'amistad_aceptada',
+      'amistad_eliminada',
       'like_post',
       'comentario_post',
       'compartir_post',
@@ -66,7 +68,7 @@ notificationSchema.index({ receptor: 1, leida: 1, createdAt: -1 });
 notificationSchema.index({ receptor: 1, tipo: 1 });
 
 // Método para marcar como leída
-notificationSchema.methods.marcarLeida = function() {
+notificationSchema.methods.marcarLeida = function () {
   this.leida = true;
   this.fechaLeida = new Date();
   return this.save();

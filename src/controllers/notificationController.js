@@ -11,7 +11,7 @@ const getAllNotifications = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const notifications = await Notification.find({ receptor: req.userId })
-      .populate('emisor', 'nombre apellido avatar')
+      .populate('emisor', 'nombres apellidos social.fotoPerfil')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
@@ -20,17 +20,30 @@ const getAllNotifications = async (req, res) => {
 
     // Transformar notificaciones al formato esperado por el frontend
     const transformedNotifications = notifications.map(n => {
+      // Construir nombre completo (solo primer nombre y primer apellido)
+      let nombreCompleto = 'Usuario';
+      if (n.emisor && n.emisor.nombres && n.emisor.apellidos) {
+        nombreCompleto = `${n.emisor.nombres.primero} ${n.emisor.apellidos.primero}`.trim();
+      }
+
       // Construir mensaje basado en tipo
       let mensaje = n.contenido;
-      if (n.emisor) {
-        const nombreCompleto = `${n.emisor.nombre} ${n.emisor.apellido}`;
-        if (n.tipo === 'solicitud_amistad') {
-          mensaje = `${nombreCompleto} te envió una solicitud de amistad`;
-        } else if (n.tipo === 'amistad_aceptada') {
-          mensaje = `${nombreCompleto} aceptó tu solicitud de amistad`;
-        } else if (n.contenido) {
-          mensaje = `${nombreCompleto} ${n.contenido}`;
-        }
+      if (n.tipo === 'solicitud_amistad') {
+        mensaje = `${nombreCompleto} te envió una solicitud de amistad`;
+      } else if (n.tipo === 'amistad_aceptada') {
+        mensaje = `${nombreCompleto} aceptó tu solicitud de amistad`;
+      } else if (n.tipo === 'amistad_eliminada') {
+        mensaje = `${nombreCompleto} eliminó la amistad`;
+      } else if (n.tipo === 'solicitud_cancelada') {
+        mensaje = `${nombreCompleto} canceló la solicitud de amistad`;
+      } else if (n.tipo === 'solicitud_grupo') {
+        // Para solicitudes de grupo, agregar el nombre del usuario que solicita
+        mensaje = `${nombreCompleto} ${n.contenido}`;
+      } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
+        // Para respuestas a solicitudes de grupo, el mensaje ya está completo
+        mensaje = n.contenido;
+      } else if (n.contenido) {
+        mensaje = `${nombreCompleto} ${n.contenido}`;
       }
 
       return {
@@ -41,13 +54,13 @@ const getAllNotifications = async (req, res) => {
         fechaCreacion: n.createdAt,
         remitenteId: n.emisor ? {
           _id: n.emisor._id,
-          nombre: n.emisor.nombre,
-          apellido: n.emisor.apellido,
-          avatar: n.emisor.avatar
+          nombre: n.emisor.nombres?.primero,
+          apellido: n.emisor.apellidos?.primero,
+          avatar: n.emisor.social?.fotoPerfil
         } : null,
         datos: {
-          nombre: n.emisor ? `${n.emisor.nombre} ${n.emisor.apellido}` : '',
-          avatar: n.emisor?.avatar,
+          nombre: nombreCompleto,
+          avatar: n.emisor?.social?.fotoPerfil,
           fromUserId: n.emisor?._id
         }
       };
@@ -81,23 +94,36 @@ const getUnreadNotifications = async (req, res) => {
       receptor: req.userId,
       leida: false
     })
-      .populate('emisor', 'nombre apellido avatar')
+      .populate('emisor', 'nombres apellidos social.fotoPerfil')
       .sort({ createdAt: -1 })
       .limit(50);
 
     // Transformar notificaciones al formato esperado por el frontend
     const transformedNotifications = notifications.map(n => {
+      // Construir nombre completo (solo primer nombre y primer apellido)
+      let nombreCompleto = 'Usuario';
+      if (n.emisor && n.emisor.nombres && n.emisor.apellidos) {
+        nombreCompleto = `${n.emisor.nombres.primero} ${n.emisor.apellidos.primero}`.trim();
+      }
+
       // Construir mensaje basado en tipo
       let mensaje = n.contenido;
-      if (n.emisor) {
-        const nombreCompleto = `${n.emisor.nombre} ${n.emisor.apellido}`;
-        if (n.tipo === 'solicitud_amistad') {
-          mensaje = `${nombreCompleto} te envió una solicitud de amistad`;
-        } else if (n.tipo === 'amistad_aceptada') {
-          mensaje = `${nombreCompleto} aceptó tu solicitud de amistad`;
-        } else if (n.contenido) {
-          mensaje = `${nombreCompleto} ${n.contenido}`;
-        }
+      if (n.tipo === 'solicitud_amistad') {
+        mensaje = `${nombreCompleto} te envió una solicitud de amistad`;
+      } else if (n.tipo === 'amistad_aceptada') {
+        mensaje = `${nombreCompleto} aceptó tu solicitud de amistad`;
+      } else if (n.tipo === 'amistad_eliminada') {
+        mensaje = `${nombreCompleto} eliminó la amistad`;
+      } else if (n.tipo === 'solicitud_cancelada') {
+        mensaje = `${nombreCompleto} canceló la solicitud de amistad`;
+      } else if (n.tipo === 'solicitud_grupo') {
+        // Para solicitudes de grupo, agregar el nombre del usuario que solicita
+        mensaje = `${nombreCompleto} ${n.contenido}`;
+      } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
+        // Para respuestas a solicitudes de grupo, el mensaje ya está completo
+        mensaje = n.contenido;
+      } else if (n.contenido) {
+        mensaje = `${nombreCompleto} ${n.contenido}`;
       }
 
       return {
@@ -108,13 +134,13 @@ const getUnreadNotifications = async (req, res) => {
         fechaCreacion: n.createdAt,
         remitenteId: n.emisor ? {
           _id: n.emisor._id,
-          nombre: n.emisor.nombre,
-          apellido: n.emisor.apellido,
-          avatar: n.emisor.avatar
+          nombre: n.emisor.nombres?.primero,
+          apellido: n.emisor.apellidos?.primero,
+          avatar: n.emisor.social?.fotoPerfil
         } : null,
         datos: {
-          nombre: n.emisor ? `${n.emisor.nombre} ${n.emisor.apellido}` : '',
-          avatar: n.emisor?.avatar,
+          nombre: nombreCompleto,
+          avatar: n.emisor?.social?.fotoPerfil,
           fromUserId: n.emisor?._id
         }
       };

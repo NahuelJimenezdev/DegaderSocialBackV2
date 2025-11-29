@@ -35,8 +35,8 @@ const getAllConversations = async (req, res) => {
     }
 
     const conversations = await Conversation.find(query)
-      .populate('participantes', 'nombre apellido avatar ultimaConexion')
-      .populate('ultimoMensaje.emisor', 'nombre apellido avatar')
+      .populate('participantes', 'nombres apellidos social ultimaConexion')
+      .populate('ultimoMensaje.emisor', 'nombres apellidos social')
       .sort({ 'ultimoMensaje.fecha': -1 });
 
     res.json(formatSuccessResponse('Conversaciones obtenidas', conversations));
@@ -60,8 +60,8 @@ const getConversationById = async (req, res) => {
     }
 
     const conversation = await Conversation.findById(id)
-      .populate('participantes', 'nombre apellido avatar ultimaConexion')
-      .populate('mensajes.emisor', 'nombre apellido avatar');
+      .populate('participantes', 'nombres apellidos social ultimaConexion')
+      .populate('mensajes.emisor', 'nombres apellidos social');
 
     if (!conversation) {
       return res.status(404).json(formatErrorResponse('Conversación no encontrada'));
@@ -117,6 +117,8 @@ const getOrCreateConversation = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    console.log('🔍 getOrCreateConversation - userId:', userId, 'req.userId:', req.userId);
+
     if (!isValidObjectId(userId)) {
       return res.status(400).json(formatErrorResponse('ID de usuario inválido'));
     }
@@ -126,17 +128,20 @@ const getOrCreateConversation = async (req, res) => {
     }
 
     // Buscar conversación existente
+    console.log('🔍 Buscando conversación existente...');
     let conversation = await Conversation.findOne({
       tipo: 'privada',
       participantes: { $all: [req.userId, userId], $size: 2 }
     })
-      .populate('participantes', 'nombre apellido avatar ultimaConexion')
-      .populate('mensajes.emisor', 'nombre apellido avatar');
+      .populate('participantes', 'nombres apellidos social ultimaConexion')
+      .populate('mensajes.emisor', 'nombres apellidos social');
 
     if (conversation) {
+      console.log('✅ Conversación encontrada:', conversation._id);
       return res.json(formatSuccessResponse('Conversación encontrada', conversation));
     }
 
+    console.log('🔍 No existe conversación, verificando amistad...');
     // Verificar si son amigos
     const friendship = await Friendship.findOne({
       $or: [
@@ -146,8 +151,10 @@ const getOrCreateConversation = async (req, res) => {
     });
 
     const areFriends = !!friendship;
+    console.log('👥 Son amigos?', areFriends);
 
     // Crear nueva conversación
+    console.log('📝 Creando nueva conversación...');
     conversation = new Conversation({
       tipo: 'privada',
       participantes: [req.userId, userId],
@@ -162,12 +169,15 @@ const getOrCreateConversation = async (req, res) => {
     });
 
     await conversation.save();
+    console.log('✅ Conversación guardada:', conversation._id);
 
-    await conversation.populate('participantes', 'nombre apellido avatar ultimaConexion');
+    await conversation.populate('participantes', 'nombres apellidos social ultimaConexion');
+    console.log('✅ Conversación populada');
 
     res.status(201).json(formatSuccessResponse('Conversación creada', conversation));
   } catch (error) {
-    console.error('Error al crear conversación:', error);
+    console.error('❌ Error al crear conversación:', error);
+    console.error('❌ Stack:', error.stack);
     res.status(500).json(formatErrorResponse('Error al crear conversación', [error.message]));
   }
 };
@@ -226,8 +236,8 @@ const sendMessage = async (req, res) => {
     await conversation.agregarMensaje(mensaje);
 
     await conversation.populate([
-      { path: 'participantes', select: 'nombre apellido avatar' },
-      { path: 'mensajes.emisor', select: 'nombre apellido avatar' }
+      { path: 'participantes', select: 'nombres apellidos social' },
+      { path: 'mensajes.emisor', select: 'nombres apellidos social' }
     ]);
 
     const newMessage = conversation.mensajes[conversation.mensajes.length - 1];
@@ -278,6 +288,15 @@ const markAsRead = async (req, res) => {
     }
 
     await conversation.marcarComoLeido(req.userId);
+
+    // Emitir evento Socket.IO para actualizar contador en tiempo real
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${req.userId}`).emit('conversationRead', {
+        conversationId: id,
+        userId: req.userId
+      });
+    }
 
     res.json(formatSuccessResponse('Conversación marcada como leída'));
   } catch (error) {

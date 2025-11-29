@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('../models/User.model');
 
 /**
  * Middleware para verificar el token JWT
@@ -38,8 +38,11 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    if (user.estado !== 'activo') {
-      console.log('❌ authenticate - Usuario inactivo');
+    // Solo bloquear si la cuenta está suspendida o inactiva
+    // Los usuarios normales siempre están 'activo'
+    // 'pendiente_validacion' solo aplica para miembros de fundación/iglesia que esperan aprobación
+    if (user.seguridad?.estadoCuenta === 'suspendido' || user.seguridad?.estadoCuenta === 'inactivo') {
+      console.log('❌ authenticate - Usuario suspendido/inactivo');
       return res.status(403).json({
         success: false,
         message: 'Cuenta inactiva o suspendida'
@@ -114,7 +117,7 @@ const optionalAuth = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.userId);
 
-      if (user && user.estado === 'activo') {
+      if (user && (user.seguridad?.estadoCuenta === 'activo' || !user.seguridad?.estadoCuenta)) {
         req.user = user;
         req.userId = user._id;
       }

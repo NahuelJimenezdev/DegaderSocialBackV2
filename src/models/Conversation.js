@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const messageSchema = new mongoose.Schema({
   emisor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   contenido: {
@@ -36,7 +36,7 @@ const messageSchema = new mongoose.Schema({
 const conversationSchema = new mongoose.Schema({
   participantes: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   }],
   tipo: {
@@ -57,13 +57,13 @@ const conversationSchema = new mongoose.Schema({
     fecha: Date,
     emisor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     }
   },
   mensajesNoLeidos: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     },
     cantidad: {
       type: Number,
@@ -87,28 +87,28 @@ const conversationSchema = new mongoose.Schema({
   // Usuario que inició la conversación (para saber quién envió la solicitud)
   initiatedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   },
   // Usuarios que archivaron esta conversación
   archivedBy: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
   // Usuarios que destacaron esta conversación (con estrella)
   starredBy: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
   // Usuarios que eliminaron esta conversación (solo para ellos)
   deletedBy: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
   // Registro de cuando cada usuario vació la conversación
   clearedBy: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     },
     fecha: {
       type: Date,

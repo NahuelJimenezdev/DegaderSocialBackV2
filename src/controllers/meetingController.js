@@ -1,5 +1,5 @@
 const Meeting = require('../models/Meeting.js');
-const User = require('../models/User.js');
+const User = require('../models/User.model.js');
 const Notification = require('../models/Notification.js');
 
 // Helper: Crear notificación de reunión

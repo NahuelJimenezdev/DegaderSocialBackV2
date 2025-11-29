@@ -2,11 +2,22 @@ const express = require('express');
 const router = express.Router();
 const Friendship = require('../models/Friendship');
 const Notification = require('../models/Notification');
-const User = require('../models/User');
+const User = require('../models/User.model');
+const friendshipController = require('../controllers/friendshipController');
 const { authenticate } = require('../middleware/auth.middleware');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
+
+// Rutas nuevas (compatibilidad con amistadService.js)
+router.get('/friends', friendshipController.getFriends); // Added missing route
+router.get('/status/:userId', friendshipController.getFriendshipStatus);
+router.post('/request', friendshipController.sendFriendRequest);
+router.post('/:id/accept', friendshipController.acceptFriendRequest);
+router.post('/:id/reject', friendshipController.rejectFriendRequest);
+router.delete('/:friendId', friendshipController.removeFriend);
+
+// Rutas legacy (compatibilidad con friendshipService.js)
 
 /**
  * GET /api/amistades/estado/:usuarioId
@@ -117,24 +128,25 @@ router.post('/solicitar', async (req, res) => {
 
     // Emitir notificación en tiempo real con Socket.IO
     if (global.emitNotification) {
-      await notification.populate('emisor', 'nombre apellido avatar');
+      await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
 
       // Estructura compatible con NotificationCard del frontend
+      const nombreCompleto = `${req.user.nombres?.primero || ''} ${req.user.apellidos?.primero || ''}`.trim();
       const notificationData = {
         _id: notification._id,
         tipo: 'amistad', // Frontend espera 'amistad', no 'solicitud_amistad'
-        mensaje: `${req.user.nombre} ${req.user.apellido} te envió una solicitud de amistad`,
+        mensaje: `${nombreCompleto} te envió una solicitud de amistad`,
         leido: false,
         fechaCreacion: notification.createdAt,
         remitenteId: {
           _id: req.user._id,
-          nombre: req.user.nombre,
-          apellido: req.user.apellido,
-          avatar: req.user.avatar
+          nombre: req.user.nombres?.primero,
+          apellido: req.user.apellidos?.primero,
+          avatar: req.user.social?.fotoPerfil
         },
         datos: {
-          nombre: `${req.user.nombre} ${req.user.apellido}`,
-          avatar: req.user.avatar,
+          nombre: nombreCompleto,
+          avatar: req.user.social?.fotoPerfil,
           fromUserId: req.user._id
         }
       };
@@ -201,21 +213,22 @@ router.post('/aceptar', async (req, res) => {
 
     // Emitir notificación en tiempo real
     if (global.emitNotification) {
+      const nombreCompleto = `${req.user.nombres?.primero || ''} ${req.user.apellidos?.primero || ''}`.trim();
       const notificationData = {
         _id: notification._id,
         tipo: 'amistad',
-        mensaje: `${req.user.nombre} ${req.user.apellido} aceptó tu solicitud de amistad`,
+        mensaje: `${nombreCompleto} aceptó tu solicitud de amistad`,
         leido: false,
         fechaCreacion: notification.createdAt,
         remitenteId: {
           _id: req.user._id,
-          nombre: req.user.nombre,
-          apellido: req.user.apellido,
-          avatar: req.user.avatar
+          nombre: req.user.nombres?.primero,
+          apellido: req.user.apellidos?.primero,
+          avatar: req.user.social?.fotoPerfil
         },
         datos: {
-          nombre: `${req.user.nombre} ${req.user.apellido}`,
-          avatar: req.user.avatar,
+          nombre: nombreCompleto,
+          avatar: req.user.social?.fotoPerfil,
           fromUserId: req.user._id
         }
       };

@@ -47,7 +47,7 @@ const createPost = async (req, res) => {
     await post.save();
 
     // Poblar usuario
-    await post.populate('usuario', 'nombre apellido avatar');
+    await post.populate('usuario', 'nombres apellidos social');
 
     res.status(201).json(formatSuccessResponse('Publicación creada exitosamente', post));
   } catch (error) {
@@ -89,11 +89,11 @@ const getFeed = async (req, res) => {
         { usuario: req.userId } // Incluir todas las propias
       ]
     })
-      .populate('usuario', 'nombre apellido avatar')
+      .populate('usuario', 'nombres apellidos social')
       .populate('postOriginal')
       .populate({
         path: 'comentarios.usuario',
-        select: 'nombre apellido avatar'
+        select: 'nombres apellidos social'
       })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
@@ -148,10 +148,10 @@ const getUserPosts = async (req, res) => {
       usuario: userId,
       ...privacyFilter
     })
-      .populate('usuario', 'nombre apellido avatar')
+      .populate('usuario', 'nombres apellidos social')
       .populate({
         path: 'comentarios.usuario',
-        select: 'nombre apellido avatar'
+        select: 'nombres apellidos social'
       })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
@@ -193,11 +193,11 @@ const getPostById = async (req, res) => {
     }
 
     const post = await Post.findById(id)
-      .populate('usuario', 'nombre apellido avatar')
+      .populate('usuario', 'nombres apellidos social')
       .populate('postOriginal')
       .populate({
         path: 'comentarios.usuario',
-        select: 'nombre apellido avatar'
+        select: 'nombres apellidos social'
       });
 
     if (!post) {
@@ -299,7 +299,7 @@ const addComment = async (req, res) => {
     // Poblar el comentario recién agregado
     await post.populate({
       path: 'comentarios.usuario',
-      select: 'nombre apellido avatar'
+      select: 'nombres apellidos social'
     });
 
     // Crear notificación
@@ -365,10 +365,10 @@ const sharePost = async (req, res) => {
 
     // Poblar datos
     await sharedPost.populate([
-      { path: 'usuario', select: 'nombre apellido avatar' },
+      { path: 'usuario', select: 'nombres apellidos social' },
       {
         path: 'postOriginal',
-        populate: { path: 'usuario', select: 'nombre apellido avatar' }
+        populate: { path: 'usuario', select: 'nombres apellidos social' }
       }
     ]);
 

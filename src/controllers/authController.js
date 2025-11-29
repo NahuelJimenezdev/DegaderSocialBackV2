@@ -1,6 +1,6 @@
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('../models/User.model');
 const { validateRegisterData, formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
 
 /**
@@ -37,16 +37,32 @@ const register = async (req, res) => {
     // Hash de la contraseña con argon2
     const hashedPassword = await argon2.hash(password);
 
-    // Crear usuario
+    // Crear usuario con nueva estructura
     const user = new User({
-      nombre,
-      apellido,
+      nombres: { primero: nombre },
+      apellidos: { primero: apellido },
       email: email.toLowerCase(),
       password: hashedPassword,
-      legajo,
-      area,
-      cargo
+      personal: {
+        ubicacion: {}
+      },
+      social: {},
+      seguridad: {
+        estadoCuenta: 'activo',
+        rolSistema: 'usuario'
+      }
     });
+
+    // Si vienen datos de fundación, agregarlos
+    if (legajo || area || cargo) {
+      user.esMiembroFundacion = true;
+      user.fundacion = {
+        activo: true,
+        codigoEmpleado: legajo,
+        area: area,
+        cargo: cargo
+      };
+    }
 
     await user.save();
 
@@ -89,21 +105,6 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
     }
-
-    // Verificar contraseña
-    const isPasswordValid = await argon2.verify(user.password, password);
-    if (!isPasswordValid) {
-      return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
-    }
-
-    // Verificar estado de la cuenta
-    if (user.estado !== 'activo') {
-      return res.status(403).json(formatErrorResponse('Cuenta inactiva o suspendida'));
-    }
-
-    // Actualizar última conexión
-    user.ultimaConexion = new Date();
-    await user.save();
 
     // Generar token
     const token = generateToken(user._id);

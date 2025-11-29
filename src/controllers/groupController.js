@@ -233,7 +233,7 @@ const updateGroup = async (req, res) => {
 
     // Verificar que sea administrador
     const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
-                    group.creador.equals(req.userId);
+      group.creador.equals(req.userId);
 
     if (!isAdmin) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para editar este grupo'));
@@ -526,7 +526,7 @@ const uploadGroupAvatar = async (req, res) => {
 
     // Verificar que sea administrador o creador
     const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
-                    group.creador.equals(req.userId);
+      group.creador.equals(req.userId);
 
     if (!isAdmin) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para editar este grupo'));
@@ -568,7 +568,7 @@ const deleteGroupAvatar = async (req, res) => {
 
     // Verificar que sea administrador o creador
     const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
-                    group.creador.equals(req.userId);
+      group.creador.equals(req.userId);
 
     if (!isAdmin) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para editar este grupo'));
@@ -616,9 +616,16 @@ const getMessages = async (req, res) => {
 
     // Obtener mensajes
     const messages = await GroupMessage.find(query)
-      .populate('author', 'nombre apellido avatar')
-      .populate('replyTo', 'content author')
-      .populate('reactions.usuario', 'nombre apellido')
+      .populate('author', 'nombres apellidos social')
+      .populate({
+        path: 'replyTo',
+        select: 'content author',
+        populate: {
+          path: 'author',
+          select: 'nombres apellidos social'
+        }
+      })
+      .populate('reactions.usuario', 'nombres apellidos')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit));
 
@@ -690,8 +697,15 @@ const sendMessage = async (req, res) => {
 
     // Poblar datos
     await message.populate([
-      { path: 'author', select: 'nombre apellido avatar' },
-      { path: 'replyTo', select: 'content author' }
+      { path: 'author', select: 'nombres apellidos social' },
+      {
+        path: 'replyTo',
+        select: 'content author',
+        populate: {
+          path: 'author',
+          select: 'nombres apellidos social'
+        }
+      }
     ]);
 
     // Emitir mensaje en tiempo real a todos los miembros del grupo
@@ -733,7 +747,7 @@ const deleteMessage = async (req, res) => {
     const group = await Group.findById(id);
     const isAuthor = message.author.equals(req.userId);
     const isAdmin = group.administradores.some(admin => admin.equals(req.userId)) ||
-                    group.creador.equals(req.userId);
+      group.creador.equals(req.userId);
 
     if (!isAuthor && !isAdmin) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar este mensaje'));
@@ -875,9 +889,30 @@ const toggleStarMessage = async (req, res) => {
     await message.toggleStar(req.userId);
 
     // Poblar author para que el frontend tenga toda la información
-    await message.populate('author', 'nombre apellido avatar');
+    await message.populate([
+      { path: 'author', select: 'nombres apellidos social' },
+      {
+        path: 'replyTo',
+        select: 'content author',
+        populate: {
+          path: 'author',
+          select: 'nombres apellidos social'
+        }
+      }
+    ]);
 
-    res.json(formatSuccessResponse('Estado de destacado actualizado', message));
+    // Transformar el mensaje para que el frontend reciba attachments
+    const msgObj = message.toObject();
+    if (msgObj.files && msgObj.files.length > 0) {
+      msgObj.attachments = msgObj.files.map(f => ({
+        type: f.tipo,
+        url: f.url,
+        name: f.nombre,
+        size: f.tamaño
+      }));
+    }
+
+    res.json(formatSuccessResponse('Estado de destacado actualizado', msgObj));
   } catch (error) {
     console.error('Error al destacar mensaje:', error);
     res.status(500).json(formatErrorResponse('Error al destacar mensaje', [error.message]));

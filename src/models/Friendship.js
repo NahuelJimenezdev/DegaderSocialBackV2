@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const friendshipSchema = new mongoose.Schema({
   solicitante: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   receptor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   estado: {
@@ -29,7 +29,7 @@ friendshipSchema.index({ receptor: 1, estado: 1 });
 friendshipSchema.index({ solicitante: 1, estado: 1 });
 
 // Validación para evitar auto-amistad
-friendshipSchema.pre('save', function(next) {
+friendshipSchema.pre('save', function (next) {
   if (this.solicitante.equals(this.receptor)) {
     next(new Error('No puedes enviarte una solicitud de amistad a ti mismo'));
   } else {

@@ -28,21 +28,21 @@ const groupSchema = new mongoose.Schema({
   },
   creador: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   administradores: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
   moderadores: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
   miembros: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     },
     fechaUnion: {
       type: Date,
@@ -57,7 +57,7 @@ const groupSchema = new mongoose.Schema({
   solicitudesPendientes: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     },
     fecha: {
       type: Date,
@@ -84,7 +84,7 @@ const groupSchema = new mongoose.Schema({
 });
 
 // Virtual para contar miembros
-groupSchema.virtual('totalMiembros').get(function() {
+groupSchema.virtual('totalMiembros').get(function () {
   return this.miembros.length;
 });
 

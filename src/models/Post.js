@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const commentSchema = new mongoose.Schema({
   usuario: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   contenido: {
@@ -13,7 +13,7 @@ const commentSchema = new mongoose.Schema({
   },
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }]
 }, {
   timestamps: true
@@ -22,7 +22,7 @@ const commentSchema = new mongoose.Schema({
 const postSchema = new mongoose.Schema({
   usuario: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true
   },
   contenido: {
@@ -30,7 +30,7 @@ const postSchema = new mongoose.Schema({
     required: [true, 'El contenido es obligatorio'],
     maxlength: 5000
   },
-  // Campo legacy para compatibilidad con código antiguo
+  // DEPRECATED: Campo legacy para compatibilidad. Usar 'images' en su lugar.
   imagen: {
     type: String,
     default: null
@@ -61,13 +61,13 @@ const postSchema = new mongoose.Schema({
   },
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
   comentarios: [commentSchema],
   compartidos: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     },
     fecha: {
       type: Date,
@@ -89,17 +89,17 @@ const postSchema = new mongoose.Schema({
 });
 
 // Virtual para contar likes
-postSchema.virtual('totalLikes').get(function() {
+postSchema.virtual('totalLikes').get(function () {
   return this.likes.length;
 });
 
 // Virtual para contar comentarios
-postSchema.virtual('totalComentarios').get(function() {
+postSchema.virtual('totalComentarios').get(function () {
   return this.comentarios.length;
 });
 
 // Virtual para contar compartidos
-postSchema.virtual('totalCompartidos').get(function() {
+postSchema.virtual('totalCompartidos').get(function () {
   return this.compartidos.length;
 });
 

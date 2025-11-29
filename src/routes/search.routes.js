@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
-const Usuario = require('../models/User');
+const Usuario = require('../models/User.model');
 
 /**
  * GET /api/buscar?q={query}
@@ -24,13 +24,15 @@ router.get('/', authenticate, async (req, res) => {
     // Buscar usuarios que coincidan con el término (excluyendo al usuario actual)
     const usuarios = await Usuario.find({
       $or: [
-        { nombre: { $regex: q, $options: 'i' } },
-        { apellido: { $regex: q, $options: 'i' } },
+        { 'nombres.primero': { $regex: q, $options: 'i' } },
+        { 'nombres.segundo': { $regex: q, $options: 'i' } },
+        { 'apellidos.primero': { $regex: q, $options: 'i' } },
+        { 'apellidos.segundo': { $regex: q, $options: 'i' } },
         { email: { $regex: q, $options: 'i' } }
       ],
       _id: { $ne: req.user._id } // Excluir al usuario actual
     })
-      .select('nombre apellido email avatar rol ciudad')
+      .select('nombres apellidos email social.fotoPerfil social.fotoBanner seguridad.rolSistema personal.ubicacion.ciudad')
       .limit(10);
 
     res.json({

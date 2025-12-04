@@ -16,6 +16,7 @@ class SocketService {
     global.emitMessage = this.emitMessage.bind(this);
     global.emitGroupMessage = this.emitGroupMessage.bind(this);
     global.emitMeetingUpdate = this.emitMeetingUpdate.bind(this);
+    global.emitPostUpdate = this.emitPostUpdate.bind(this);
   }
 
   handleConnection(socket) {
@@ -141,6 +142,13 @@ class SocketService {
       });
     });
     console.log(`📅 Actualización de reunión emitida a ${attendeeIds.length} usuarios - Tipo: ${eventType}`);
+  }
+
+  emitPostUpdate(post) {
+    if (!this.io) return;
+    // Emitir a todos los clientes conectados (feed público)
+    this.io.emit('post_updated', post);
+    console.log(`📢 Post actualizado emitido: ${post._id}`);
   }
 }
 

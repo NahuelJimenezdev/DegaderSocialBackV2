@@ -29,7 +29,11 @@ const notificationSchema = new mongoose.Schema({
       'nuevo_miembro_grupo',
       'nuevo_mensaje',
       'evento',
-      'sistema'
+      'sistema',
+      'respuesta_comentario',
+      'solicitud_iglesia',
+      'solicitud_iglesia_aprobada',
+      'solicitud_iglesia_rechazada'
     ],
     required: true
   },
@@ -41,7 +45,7 @@ const notificationSchema = new mongoose.Schema({
   referencia: {
     tipo: {
       type: String,
-      enum: ['Post', 'User', 'Group', 'Conversation', 'Comment', 'Meeting']
+      enum: ['Post', 'User', 'Group', 'Conversation', 'Comment', 'Meeting', 'Iglesia']
     },
     id: {
       type: mongoose.Schema.Types.ObjectId,

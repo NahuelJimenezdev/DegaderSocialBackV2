@@ -59,6 +59,7 @@ const searchRoutes = require('./routes/search.routes');
 const folderRoutes = require('./routes/folder.routes');
 const meetingRoutes = require('./routes/meeting.routes.js');
 const fundacionRoutes = require('./routes/fundacion.routes');
+const iglesiaRoutes = require('./routes/iglesia.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -93,6 +94,7 @@ app.use('/api/buscar', searchRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
+app.use('/api/iglesias', iglesiaRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

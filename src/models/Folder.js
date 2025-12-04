@@ -12,6 +12,10 @@ const fileSchema = new mongoose.Schema({
     enum: ['image', 'video', 'audio', 'pdf', 'document', 'spreadsheet', 'presentation', 'text', 'archive', 'file']
   },
   url: { type: String, required: true },
+  uploadedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserV2'
+  },
   uploadedAt: { type: Date, default: Date.now }
 }, { _id: true });
 
@@ -31,7 +35,7 @@ const folderSchema = new mongoose.Schema({
   },
   propietario: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true,
     index: true
   },
@@ -49,7 +53,7 @@ const folderSchema = new mongoose.Schema({
   compartidaCon: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'UserV2'
     },
     permisos: {
       type: String,
@@ -124,12 +128,12 @@ folderSchema.index({ nombre: 'text', descripcion: 'text' });
 folderSchema.index({ 'compartidaCon.usuario': 1 });
 
 // Virtual para formatear fecha
-folderSchema.virtual('fechaCreacionFormateada').get(function() {
+folderSchema.virtual('fechaCreacionFormateada').get(function () {
   return this.createdAt.toLocaleDateString('es-ES');
 });
 
 // Middleware para actualizar ultimaActividad y cantidadArchivos
-folderSchema.pre('save', function(next) {
+folderSchema.pre('save', function (next) {
   if (this.isModified('archivos')) {
     this.cantidadArchivos = this.archivos.length;
     this.tamaño = this.archivos.reduce((total, file) => total + file.size, 0);
@@ -143,8 +147,8 @@ folderSchema.pre('save', function(next) {
 });
 
 // Método para verificar permisos
-folderSchema.methods.tienePermiso = async function(userId, accion = 'lectura') {
-  const User = mongoose.model('User');
+folderSchema.methods.tienePermiso = async function (userId, accion = 'lectura') {
+  const UserV2 = mongoose.model('UserV2');
 
   // Obtener el ID del propietario
   const propietarioId = this.propietario._id ? this.propietario._id.toString() : this.propietario.toString();
@@ -177,19 +181,19 @@ folderSchema.methods.tienePermiso = async function(userId, accion = 'lectura') {
   // Si no está compartida explícitamente, verificar visibilidad automática (solo lectura)
   if (accion === 'lectura') {
     try {
-      const user = await User.findById(userId);
+      const user = await UserV2.findById(userId);
       if (!user) return false;
 
       // 1. Verificar visibilidad por cargo
       if (this.visibilidadPorCargo?.habilitado && this.visibilidadPorCargo?.cargos?.length > 0) {
-        if (user.cargo && this.visibilidadPorCargo.cargos.includes(user.cargo)) {
+        if (user.fundacion?.cargo && this.visibilidadPorCargo.cargos.includes(user.fundacion?.cargo)) {
           return true;
         }
       }
 
       // 2. Verificar visibilidad por área
       if (this.visibilidadPorArea?.habilitado && this.visibilidadPorArea?.areas?.length > 0) {
-        if (user.area && this.visibilidadPorArea.areas.includes(user.area)) {
+        if (user.fundacion?.area && this.visibilidadPorArea.areas.includes(user.fundacion?.area)) {
           return true;
         }
       }
@@ -229,13 +233,13 @@ folderSchema.methods.tienePermiso = async function(userId, accion = 'lectura') {
 };
 
 // Método estático para obtener carpetas del usuario
-folderSchema.statics.obtenerCarpetasUsuario = async function(userId, tipo = null) {
-  const User = mongoose.model('User');
+folderSchema.statics.obtenerCarpetasUsuario = async function (userId, tipo = null) {
+  const UserV2 = mongoose.model('UserV2');
 
   // Obtener información del usuario
   let user = null;
   try {
-    user = await User.findById(userId);
+    user = await UserV2.findById(userId);
   } catch (error) {
     console.error('Error obteniendo usuario:', error);
   }
@@ -248,18 +252,18 @@ folderSchema.statics.obtenerCarpetasUsuario = async function(userId, tipo = null
   // Si tenemos info del usuario, incluir carpetas con visibilidad automática
   if (user) {
     // Por cargo
-    if (user.cargo) {
+    if (user.fundacion?.cargo) {
       orConditions.push({
         'visibilidadPorCargo.habilitado': true,
-        'visibilidadPorCargo.cargos': user.cargo
+        'visibilidadPorCargo.cargos': user.fundacion?.cargo
       });
     }
 
     // Por área
-    if (user.area) {
+    if (user.fundacion?.area) {
       orConditions.push({
         'visibilidadPorArea.habilitado': true,
-        'visibilidadPorArea.areas': user.area
+        'visibilidadPorArea.areas': user.fundacion?.area
       });
     }
 
@@ -293,9 +297,10 @@ folderSchema.statics.obtenerCarpetasUsuario = async function(userId, tipo = null
   }
 
   return this.find(query)
-    .populate('propietario', 'nombre apellido email avatar cargo area')
-    .populate('compartidaCon.usuario', 'nombre apellido email avatar')
+    .populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil fundacion.cargo fundacion.area')
+    .populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil')
     .sort({ ultimaActividad: -1 });
 };
 
 module.exports = mongoose.model('Folder', folderSchema);
+

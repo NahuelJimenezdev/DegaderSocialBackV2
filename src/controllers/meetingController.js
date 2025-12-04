@@ -23,8 +23,8 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
     await notification.save();
 
     // Poblar datos del emisor antes de emitir
-    await notification.populate('emisor', 'nombre apellido avatar');
-    await notification.populate('receptor', 'nombre apellido');
+    await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil');
+    await notification.populate('receptor', 'nombres.primero apellidos.primero');
 
     // Emitir notificación via Socket.IO
     if (global.emitNotification) {
@@ -58,8 +58,8 @@ const createMeeting = async (req, res) => {
     await newMeeting.save();
 
     // Poblar datos antes de emitir
-    await newMeeting.populate('creator', 'nombre apellido avatarUrl');
-    await newMeeting.populate('attendees', 'nombre apellido email avatarUrl');
+    await newMeeting.populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil');
+    await newMeeting.populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil');
 
     // 🔔 Emitir evento Socket.IO a todos los asistentes
     if (global.emitMeetingUpdate) {
@@ -99,8 +99,8 @@ const getMyMeetings = async (req, res) => {
 
   try {
     const meetings = await Meeting.find({ attendees: userId })
-      .populate('creator', 'nombre apellido avatarUrl')
-      .populate('attendees', 'nombre apellido email avatarUrl')
+      .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil')
       .sort({ date: 1, time: 1 });
 
     // 🔄 Actualizar automáticamente el estado de las reuniones según la fecha/hora

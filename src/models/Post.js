@@ -14,7 +14,16 @@ const commentSchema = new mongoose.Schema({
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserV2'
-  }]
+  }],
+  // Para soportar respuestas (2 niveles: comentario → respuesta)
+  parentComment: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  image: {
+    type: String,
+    default: null
+  }
 }, {
   timestamps: true
 });

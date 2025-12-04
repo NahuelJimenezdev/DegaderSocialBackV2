@@ -10,24 +10,33 @@ const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 
 // Jerarquía Fundación
 const NIVELES_FUNDACION = [
-  "internacional", "directivo_general", "organo_control",
-  "nacional", "regional", "departamental", "municipal", "barrial", "local"
+  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal"
 ];
 
 const AREAS_FUNDACION = [
+  // Directivo General
   "Dirección Ejecutiva", "Junta Directiva", "Secretaría Ejecutiva", "Licitación y Adquisiciones",
-  "Control Interno", "Asuntos Éticos", "Salvación Mundial", "Misión de Paz",
-  "Planeación Estratégica", "Asuntos Étnicos", "Infraestructura", "Sostenibilidad Ambiental",
-  "Recursos Humanos", "Jurídica", "Salud", "Psicosocial", "Protección Animal",
-  "Educación", "Financiera", "Imagen Corporativa", "Seguridad"
+  // Órganos de Control
+  "Control Interno y Seguimiento", "Asuntos Éticos",
+  // Organismos Internacionales
+  "Salvación Mundial", "Misión Internacional de Paz",
+  // Áreas por nivel nacional/regional/departamental/municipal
+  "Planeación Estratégica y Proyectos", "Asuntos Étnicos", "Infraestructura", "Sostenibilidad Ambiental", "Recursos Humanos y Seguridad Laboral", "Jurídica", "Salud", "Psicosocial", "Protección Animal", "Educación", "Financiera", "Imagen Corporativa y Comunicación", "Seguridad"
 ];
 
 const CARGOS_FUNDACION = [
-  "Director Ejecutivo", "Miembro Junta", "Secretario", "Líder",
-  "Director Nacional", "Director Regional", "Director Departamental",
-  "Coordinador Municipal", "Coordinador Barrial",
-  "Profesional", "Asistente", "Voluntario", "Enlace"
+  // Directivo General
+  "Director Ejecutivo", "Directivo Nacional", "Secretaría Ejecutiva", "Equipo de Licitación y Adquisiciones",
+  // Órganos de Control
+  "Auditor de Control Interno", "Miembro Comité Ético",
+  // Organismos Internacionales
+  "Delegado Salvación Mundial", "Delegado Misión Internacional de Paz",
+  // Direcciones por nivel
+  "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal",
+  // Roles funcionales
+  "Profesional", "Encargado", "Asistente", "Voluntario"
 ];
+
 
 // Jerarquía Eclesiástica
 const MINISTERIOS = [

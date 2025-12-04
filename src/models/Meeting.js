@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const MeetingSchema = new mongoose.Schema({
   creator: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'UserV2',
     required: true,
   },
   group: {
@@ -44,7 +44,7 @@ const MeetingSchema = new mongoose.Schema({
   },
   attendees: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'UserV2'
   }],
 }, {
   timestamps: true,

@@ -85,7 +85,7 @@ const groupSchema = new mongoose.Schema({
 
 // Virtual para contar miembros
 groupSchema.virtual('totalMiembros').get(function () {
-  return this.miembros.length;
+  return this.miembros ? this.miembros.length : 0;
 });
 
 // Índices

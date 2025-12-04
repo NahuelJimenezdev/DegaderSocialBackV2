@@ -1,8 +1,10 @@
 const Folder = require('../models/Folder');
+const UserV2 = require('../models/User.model');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { formatSuccessResponse, formatErrorResponse } = require('../utils/responseFormatter');
+const { resolverUsuariosPorJerarquia, obtenerEstructuraJerarquia } = require('../services/jerarquiaResolver');
 
 // Configuración de multer para subida de archivos
 const storage = multer.diskStorage({
@@ -68,42 +70,81 @@ const determinarTipoArchivo = (mimetype) => {
 };
 
 /**
- * Obtener carpetas del usuario
- * GET /api/folders?tipo=personal
+ * Obtener estructura de jerarquía (Areas, Cargos, Niveles)
+ * GET /api/folders/jerarquia
+ */
+const obtenerJerarquia = async (req, res) => {
+  try {
+    const jerarquia = obtenerEstructuraJerarquia();
+    res.json(formatSuccessResponse('Estructura de jerarquía obtenida', jerarquia));
+  } catch (error) {
+    console.error('Error al obtener jerarquía:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener jerarquía', [error.message]));
+  }
+};
+
+/**
+ * Obtener carpetas del usuario con filtros avanzados
+ * GET /api/folders
  */
 const obtenerCarpetas = async (req, res) => {
   try {
-    console.log('📂 [obtenerCarpetas] Inicio de petición');
-    console.log('📂 [obtenerCarpetas] Query params:', req.query);
-    console.log('📂 [obtenerCarpetas] UserId:', req.userId);
-    console.log('📂 [obtenerCarpetas] User object:', req.user);
-
-    const { tipo } = req.query;
+    const { tipo, area, cargo, pais, provincia, ciudad, compartidas, misCarpetas } = req.query;
     const userId = req.userId;
 
-    if (!userId) {
-      console.error('❌ [obtenerCarpetas] No se encontró userId en req');
-      return res.status(401).json(formatErrorResponse('Usuario no autenticado'));
+    console.log('📂 [obtenerCarpetas] UserId:', userId, 'Filtros:', req.query);
+
+    // Si se pide explícitamente "mis carpetas", filtramos solo por propietario
+    if (misCarpetas === 'true') {
+      const carpetas = await Folder.find({ propietario: userId, activa: true })
+        .populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+        .populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+        .sort({ ultimaActividad: -1 });
+
+      return res.json(formatSuccessResponse('Mis carpetas obtenidas', { carpetas, total: carpetas.length }));
     }
 
-    console.log('📂 [obtenerCarpetas] Llamando a Folder.obtenerCarpetasUsuario con userId:', userId, 'tipo:', tipo || 'todos');
-    const carpetas = await Folder.obtenerCarpetasUsuario(userId, tipo);
-    console.log('✅ [obtenerCarpetas] Carpetas obtenidas:', carpetas.length);
+    // Si se pide explícitamente "compartidas conmigo"
+    if (compartidas === 'true') {
+      const carpetas = await Folder.find({
+        'compartidaCon.usuario': userId,
+        activa: true
+      })
+        .populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+        .populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+        .sort({ ultimaActividad: -1 });
 
+      return res.json(formatSuccessResponse('Carpetas compartidas obtenidas', { carpetas, total: carpetas.length }));
+    }
+
+    // Uso del método estático del modelo para lógica general (incluye visibilidad automática)
+    let carpetas = await Folder.obtenerCarpetasUsuario(userId, tipo);
+
+    // Aplicar filtros adicionales en memoria (ya que obtenerCarpetasUsuario devuelve documentos)
+    if (area) {
+      carpetas = carpetas.filter(c => c.visibilidadPorArea?.areas?.includes(area));
+    }
+    if (cargo) {
+      carpetas = carpetas.filter(c => c.visibilidadPorCargo?.cargos?.includes(cargo));
+    }
+    if (pais) {
+      carpetas = carpetas.filter(c => c.visibilidadGeografica?.pais === pais);
+    }
+
+    // Paginación manual si fuera necesario, por ahora retornamos todo
     res.json(formatSuccessResponse('Carpetas obtenidas exitosamente', {
       carpetas,
       total: carpetas.length
     }));
 
   } catch (error) {
-    console.error('❌ [obtenerCarpetas] Error completo:', error);
-    console.error('❌ [obtenerCarpetas] Stack trace:', error.stack);
+    console.error('❌ [obtenerCarpetas] Error:', error);
     res.status(500).json(formatErrorResponse('Error al obtener carpetas', [error.message]));
   }
 };
 
 /**
- * Crear nueva carpeta
+ * Crear nueva carpeta con lógica avanzada de jerarquía
  * POST /api/folders
  */
 const crearCarpeta = async (req, res) => {
@@ -114,25 +155,29 @@ const crearCarpeta = async (req, res) => {
       tipo,
       color,
       icono,
-      compartirCon,
+      compartirCon, // Array de IDs manuales
       visibilidadPorCargo,
       visibilidadPorArea,
-      visibilidadGeografica
+      visibilidadGeografica,
+      // Campos para lógica automática
+      areaSeleccionada,
+      nivelInstitucional,
+      pais,
+      provincia,
+      ciudad,
+      compartirAutomaticamente // booleano
     } = req.body;
+
     const userId = req.userId;
 
     console.log(`📁 Creando carpeta "${nombre}" para usuario: ${userId}`);
 
-    // Validaciones
+    // Validaciones básicas
     if (!nombre || nombre.trim().length < 3) {
       return res.status(400).json(formatErrorResponse('El nombre debe tener al menos 3 caracteres'));
     }
 
-    if (!descripcion || descripcion.trim().length < 10) {
-      return res.status(400).json(formatErrorResponse('La descripción debe tener al menos 10 caracteres'));
-    }
-
-    // Verificar si ya existe una carpeta con el mismo nombre
+    // Verificar duplicados
     const carpetaExistente = await Folder.findOne({
       propietario: userId,
       nombre: nombre.trim(),
@@ -143,17 +188,69 @@ const crearCarpeta = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Ya tienes una carpeta con este nombre'));
     }
 
-    // Crear carpeta
+    // Configuración inicial de la carpeta
     const nuevaCarpeta = new Folder({
       nombre: nombre.trim(),
-      descripcion: descripcion.trim(),
+      descripcion: descripcion ? descripcion.trim() : '',
       propietario: userId,
       tipo: tipo || 'personal',
       color: color || '#3B82F6',
-      icono: icono || 'folder'
+      icono: icono || 'folder',
+      compartidaCon: []
     });
 
-    // Sistema de visibilidad por cargo
+    // 1. Lógica de Jerarquía Automática
+    let usuariosObjetivo = [];
+
+    if (areaSeleccionada && nivelInstitucional) {
+      console.log(`🏢 Resolviendo jerarquía: Área ${areaSeleccionada}, Nivel ${nivelInstitucional}`);
+
+      // Resolver usuarios que coinciden con la jerarquía
+      usuariosObjetivo = await resolverUsuariosPorJerarquia({
+        area: areaSeleccionada,
+        nivel: nivelInstitucional,
+        pais,
+        provincia,
+        ciudad
+      });
+
+      console.log(`👥 Usuarios encontrados por jerarquía: ${usuariosObjetivo.length}`);
+
+      // Si se activa "compartir automáticamente", agregarlos a compartidaCon
+      if (compartirAutomaticamente && usuariosObjetivo.length > 0) {
+        const usuariosParaCompartir = usuariosObjetivo
+          .filter(u => u._id.toString() !== userId) // Excluir al creador
+          .map(u => ({
+            usuario: u._id,
+            permisos: 'lectura', // Por defecto lectura
+            fechaCompartido: new Date()
+          }));
+
+        nuevaCarpeta.compartidaCon.push(...usuariosParaCompartir);
+      }
+
+      // Configurar visibilidad automática en el modelo (para futuros usuarios que cumplan la regla)
+      // Esto permite que si alguien nuevo entra al cargo, vea la carpeta automáticamente
+      nuevaCarpeta.visibilidadPorArea = {
+        habilitado: true,
+        areas: [areaSeleccionada]
+      };
+
+      // Configurar visibilidad geográfica si aplica
+      if (pais || provincia || ciudad) {
+        nuevaCarpeta.visibilidadGeografica = {
+          habilitado: true,
+          pais: pais,
+          subdivision: provincia,
+          ciudad: ciudad
+        };
+      }
+
+      // Configurar cargos implícitos (opcional, si queremos ser estrictos)
+      // Por ahora lo dejamos abierto al área/nivel resuelto
+    }
+
+    // 2. Configuración manual de visibilidad (si viene del frontend explícitamente)
     if (visibilidadPorCargo) {
       nuevaCarpeta.visibilidadPorCargo = {
         habilitado: visibilidadPorCargo.habilitado || false,
@@ -161,41 +258,50 @@ const crearCarpeta = async (req, res) => {
       };
     }
 
-    // Sistema de visibilidad por área
-    if (visibilidadPorArea) {
+    if (visibilidadPorArea && !nuevaCarpeta.visibilidadPorArea.habilitado) {
       nuevaCarpeta.visibilidadPorArea = {
         habilitado: visibilidadPorArea.habilitado || false,
         areas: visibilidadPorArea.areas || []
       };
     }
 
-    // Sistema de visibilidad geográfica
-    if (visibilidadGeografica) {
+    if (visibilidadGeografica && !nuevaCarpeta.visibilidadGeografica.habilitado) {
       nuevaCarpeta.visibilidadGeografica = {
         habilitado: visibilidadGeografica.habilitado || false,
-        pais: visibilidadGeografica.pais || undefined,
-        ciudad: visibilidadGeografica.ciudad || undefined,
-        subdivision: visibilidadGeografica.subdivision || undefined
+        pais: visibilidadGeografica.pais,
+        ciudad: visibilidadGeografica.ciudad,
+        subdivision: visibilidadGeografica.subdivision
       };
     }
 
-    // Compartir con usuarios específicos
+    // 3. Compartir manual (usuarios seleccionados específicamente)
     if (compartirCon && Array.isArray(compartirCon)) {
-      nuevaCarpeta.compartidaCon = compartirCon.map(item => ({
-        usuario: item.usuario,
+      const manualShares = compartirCon.map(item => ({
+        usuario: item.usuario || item, // Soporta objeto u ID directo
         permisos: item.permisos || 'lectura'
       }));
+
+      // Evitar duplicados si ya se agregaron por jerarquía
+      manualShares.forEach(share => {
+        const exists = nuevaCarpeta.compartidaCon.find(c => c.usuario.toString() === share.usuario.toString());
+        if (!exists) {
+          nuevaCarpeta.compartidaCon.push(share);
+        }
+      });
     }
 
     await nuevaCarpeta.save();
 
-    // Poblar datos
-    await nuevaCarpeta.populate('propietario', 'nombre apellido email avatar cargo area');
-    await nuevaCarpeta.populate('compartidaCon.usuario', 'nombre apellido email avatar');
+    // Poblar respuesta
+    await nuevaCarpeta.populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil fundacion.cargo fundacion.area');
+    await nuevaCarpeta.populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil');
 
-    console.log(`✅ Carpeta "${nombre}" creada exitosamente`);
+    console.log(`✅ Carpeta "${nombre}" creada exitosamente. Compartida con ${nuevaCarpeta.compartidaCon.length} usuarios.`);
 
-    res.status(201).json(formatSuccessResponse('Carpeta creada exitosamente', nuevaCarpeta));
+    res.status(201).json(formatSuccessResponse('Carpeta creada exitosamente', {
+      carpeta: nuevaCarpeta,
+      usuariosAfectados: usuariosObjetivo.length
+    }));
 
   } catch (error) {
     console.error('Error al crear carpeta:', error);
@@ -213,8 +319,9 @@ const obtenerCarpeta = async (req, res) => {
     const userId = req.userId;
 
     const carpeta = await Folder.findById(id)
-      .populate('propietario', 'nombre apellido email avatar cargo area')
-      .populate('compartidaCon.usuario', 'nombre apellido email avatar');
+      .populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil fundacion.cargo fundacion.area')
+      .populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+      .populate('archivos.uploadedBy', 'nombres.primero apellidos.primero email social.fotoPerfil');
 
     if (!carpeta || !carpeta.activa) {
       return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
@@ -249,7 +356,7 @@ const actualizarCarpeta = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
     }
 
-    // Solo el propietario puede editar
+    // Solo el propietario o admin puede editar
     if (!await carpeta.tienePermiso(userId, 'admin')) {
       return res.status(403).json(formatErrorResponse('No tienes permisos para editar esta carpeta'));
     }
@@ -319,15 +426,14 @@ const compartirCarpeta = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
     }
 
-    // Solo el propietario puede compartir
-    const propietarioId = carpeta.propietario._id ? carpeta.propietario._id.toString() : carpeta.propietario.toString();
-    if (propietarioId !== userId.toString()) {
+    // Solo el propietario o admin puede compartir
+    if (!await carpeta.tienePermiso(userId, 'admin')) {
       return res.status(403).json(formatErrorResponse('No tienes permisos para compartir esta carpeta'));
     }
 
     // Verificar si ya está compartida con este usuario
     const yaCompartida = carpeta.compartidaCon.find(
-      item => item.usuario.toString() === usuarioId.toString()
+      item => item.usuario && item.usuario.toString() === usuarioId.toString()
     );
 
     if (yaCompartida) {
@@ -341,11 +447,68 @@ const compartirCarpeta = async (req, res) => {
 
     await carpeta.save();
 
+    // Poblar para devolver info completa
+    await carpeta.populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil');
+
     res.json(formatSuccessResponse('Carpeta compartida exitosamente', carpeta));
 
   } catch (error) {
     console.error('Error al compartir carpeta:', error);
     res.status(500).json(formatErrorResponse('Error al compartir carpeta', [error.message]));
+  }
+};
+
+/**
+ * Compartir carpeta masivamente
+ * POST /api/folders/:id/share/bulk
+ */
+const compartirMasivo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usuarios, permisos } = req.body; // usuarios es array de IDs
+    const userId = req.userId;
+
+    const carpeta = await Folder.findById(id);
+
+    if (!carpeta || !carpeta.activa) {
+      return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
+    }
+
+    if (!await carpeta.tienePermiso(userId, 'admin')) {
+      return res.status(403).json(formatErrorResponse('No tienes permisos para compartir esta carpeta'));
+    }
+
+    if (!Array.isArray(usuarios)) {
+      return res.status(400).json(formatErrorResponse('Se requiere un array de usuarios'));
+    }
+
+    let nuevosCompartidos = 0;
+
+    usuarios.forEach(uid => {
+      const yaCompartida = carpeta.compartidaCon.find(
+        item => item.usuario.toString() === uid.toString()
+      );
+
+      if (yaCompartida) {
+        yaCompartida.permisos = permisos || 'lectura';
+      } else {
+        carpeta.compartidaCon.push({
+          usuario: uid,
+          permisos: permisos || 'lectura'
+        });
+        nuevosCompartidos++;
+      }
+    });
+
+    await carpeta.save();
+
+    res.json(formatSuccessResponse(`Carpeta compartida con ${nuevosCompartidos} nuevos usuarios`, {
+      totalCompartidos: carpeta.compartidaCon.length
+    }));
+
+  } catch (error) {
+    console.error('Error al compartir masivamente:', error);
+    res.status(500).json(formatErrorResponse('Error al compartir masivamente', [error.message]));
   }
 };
 
@@ -361,11 +524,14 @@ const subirArchivo = async (req, res) => {
     const carpeta = await Folder.findById(id);
 
     if (!carpeta || !carpeta.activa) {
+      // Si falla, borrar el archivo subido por multer para no dejar basura
+      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
     }
 
     // Verificar permisos de escritura
     if (!await carpeta.tienePermiso(userId, 'escritura')) {
+      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(403).json(formatErrorResponse('No tienes permisos para subir archivos a esta carpeta'));
     }
 
@@ -386,6 +552,7 @@ const subirArchivo = async (req, res) => {
       mimetype: req.file.mimetype,
       tipo: determinarTipoArchivo(req.file.mimetype),
       url: fileUrl,
+      uploadedBy: userId,
       uploadedAt: new Date()
     };
 
@@ -398,6 +565,10 @@ const subirArchivo = async (req, res) => {
 
   } catch (error) {
     console.error('Error al subir archivo:', error);
+    // Limpiar archivo si hubo error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     res.status(500).json(formatErrorResponse('Error al subir archivo', [error.message]));
   }
 };
@@ -422,7 +593,7 @@ const eliminarArchivo = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permisos para eliminar archivos de esta carpeta'));
     }
 
-    // Buscar y eliminar el archivo
+    // Buscar el archivo
     const archivoIndex = carpeta.archivos.findIndex(
       archivo => archivo._id.toString() === fileId
     );
@@ -431,25 +602,72 @@ const eliminarArchivo = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Archivo no encontrado'));
     }
 
+    const archivo = carpeta.archivos[archivoIndex];
+
+    // Eliminar archivo físico
+    const filePath = path.join(__dirname, '../../uploads/folders', id, archivo.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Eliminar metadata
     carpeta.archivos.splice(archivoIndex, 1);
     await carpeta.save();
 
     res.json(formatSuccessResponse('Archivo eliminado exitosamente'));
-
   } catch (error) {
     console.error('Error al eliminar archivo:', error);
     res.status(500).json(formatErrorResponse('Error al eliminar archivo', [error.message]));
   }
 };
 
+/**
+ * Salir de una carpeta compartida (Dejar de seguir)
+ * POST /api/folders/:id/leave
+ */
+const salirDeCarpeta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const carpeta = await Folder.findById(id);
+
+    if (!carpeta || !carpeta.activa) {
+      return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
+    }
+
+    // Verificar si el usuario está en la lista de compartidos
+    const index = carpeta.compartidaCon.findIndex(
+      item => item.usuario && item.usuario.toString() === userId.toString()
+    );
+
+    if (index === -1) {
+      return res.status(400).json(formatErrorResponse('No eres parte de esta carpeta compartida'));
+    }
+
+    // Remover al usuario de la lista
+    carpeta.compartidaCon.splice(index, 1);
+    await carpeta.save();
+
+    res.json(formatSuccessResponse('Has salido de la carpeta exitosamente'));
+
+  } catch (error) {
+    console.error('Error al salir de carpeta:', error);
+    res.status(500).json(formatErrorResponse('Error al salir de carpeta', [error.message]));
+  }
+};
+
 module.exports = {
+  obtenerJerarquia,
   obtenerCarpetas,
   crearCarpeta,
   obtenerCarpeta,
   actualizarCarpeta,
   eliminarCarpeta,
   compartirCarpeta,
+  compartirMasivo,
   subirArchivo,
   eliminarArchivo,
+  salirDeCarpeta,
   uploadMiddleware: upload.single('archivo')
 };

@@ -8,10 +8,10 @@ const { formatErrorResponse, formatSuccessResponse } = require('../utils/validat
 const solicitarUnirse = async (req, res) => {
   try {
     const userId = req.userId;
-    const { nivel, areaFormal, cargoFormal, territorio } = req.body;
+    const { nivel, area, cargo, territorio } = req.body;
 
     // Validar campos requeridos
-    if (!nivel || !areaFormal || !cargoFormal) {
+    if (!nivel || !area || !cargo) {
       return res.status(400).json(formatErrorResponse('Nivel, área y cargo son obligatorios'));
     }
 
@@ -31,8 +31,8 @@ const solicitarUnirse = async (req, res) => {
     user.fundacion = {
       activo: true,
       nivel,
-      areaFormal,
-      cargoFormal,
+      area,
+      cargo,
       territorio: territorio || {},
       estadoAprobacion: 'pendiente',
       fechaIngreso: new Date()
@@ -43,8 +43,8 @@ const solicitarUnirse = async (req, res) => {
     res.json(formatSuccessResponse('Solicitud enviada. Espera la aprobación de un superior jerárquico', {
       estadoAprobacion: 'pendiente',
       nivel,
-      areaFormal,
-      cargoFormal
+      area,
+      cargo
     }));
   } catch (error) {
     console.error('Error al solicitar unirse a fundación:', error);
@@ -79,15 +79,35 @@ const listarSolicitudes = async (req, res) => {
     // Obtener niveles que puede aprobar (niveles inferiores)
     const nivelesAprobables = jerarquia.slice(indexNivelActual + 1);
 
-    // Buscar solicitudes pendientes de niveles inferiores
-    const solicitudes = await User.find({
+    console.log('🔍 [Fundación] Usuario actual:', {
+      id: currentUser._id,
+      nivel: nivelActual,
+      area: currentUser.fundacion.area,
+      rolSistema: currentUser.seguridad?.rolSistema
+    });
+    console.log('📋 [Fundación] Niveles aprobables:', nivelesAprobables);
+
+    // Construir query de búsqueda
+    const query = {
       esMiembroFundacion: true,
       'fundacion.estadoAprobacion': 'pendiente',
-      'fundacion.nivel': { $in: nivelesAprobables },
-      'fundacion.areaFormal': currentUser.fundacion.areaFormal // Misma área
-    })
-      .select('nombres apellidos email fundacion.nivel fundacion.areaFormal fundacion.cargoFormal fundacion.territorio createdAt')
+      'fundacion.nivel': { $in: nivelesAprobables }
+    };
+
+    // Solo filtrar por área si NO es Founder o nivel internacional
+    // Founder y nivel internacional pueden aprobar TODAS las áreas
+    if (currentUser.seguridad?.rolSistema !== 'Founder' && nivelActual !== 'internacional') {
+      query['fundacion.area'] = currentUser.fundacion.area;
+    }
+
+    console.log('🔎 [Fundación] Query de búsqueda:', JSON.stringify(query, null, 2));
+
+    // Buscar solicitudes pendientes
+    const solicitudes = await User.find(query)
+      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio createdAt')
       .sort({ createdAt: -1 });
+
+    console.log(`✅ [Fundación] Solicitudes encontradas: ${solicitudes.length}`);
 
     res.json(formatSuccessResponse('Solicitudes pendientes obtenidas', {
       total: solicitudes.length,
@@ -137,9 +157,11 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden aprobar'));
     }
 
-    // Verificar misma área
-    if (aprobador.fundacion.areaFormal !== solicitante.fundacion.areaFormal) {
-      return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
+    // Verificar misma área (excepto para Founder o nivel internacional)
+    if (aprobador.seguridad?.rolSistema !== 'Founder' && aprobador.fundacion.nivel !== 'internacional') {
+      if (aprobador.fundacion.area !== solicitante.fundacion.area) {
+        return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
+      }
     }
 
     // Aprobar solicitud
@@ -154,8 +176,8 @@ const aprobarSolicitud = async (req, res) => {
         id: solicitante._id,
         nombreCompleto: solicitante.nombreCompleto,
         nivel: solicitante.fundacion.nivel,
-        area: solicitante.fundacion.areaFormal,
-        cargo: solicitante.fundacion.cargoFormal
+        area: solicitante.fundacion.area,
+        cargo: solicitante.fundacion.cargo
       }
     }));
   } catch (error) {
@@ -203,8 +225,11 @@ const rechazarSolicitud = async (req, res) => {
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden rechazar'));
     }
 
-    if (aprobador.fundacion.areaFormal !== solicitante.fundacion.areaFormal) {
-      return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
+    // Verificar misma área (excepto para Founder o nivel internacional)
+    if (aprobador.seguridad?.rolSistema !== 'Founder' && aprobador.fundacion.nivel !== 'internacional') {
+      if (aprobador.fundacion.area !== solicitante.fundacion.area) {
+        return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
+      }
     }
 
     // Rechazar solicitud
@@ -254,8 +279,8 @@ const obtenerMiEstado = async (req, res) => {
       esMiembro: true,
       estadoAprobacion: user.fundacion.estadoAprobacion,
       nivel: user.fundacion.nivel,
-      area: user.fundacion.areaFormal,
-      cargo: user.fundacion.cargoFormal,
+      area: user.fundacion.area,
+      cargo: user.fundacion.cargo,
       territorio: user.fundacion.territorio,
       fechaAprobacion: user.fundacion.fechaAprobacion,
       aprobadoPor: user.fundacion.aprobadoPor,

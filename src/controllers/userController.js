@@ -55,14 +55,16 @@ const searchUsers = async (req, res) => {
 
     const users = await User.find({
       $or: [
-        { nombre: searchRegex },
-        { apellido: searchRegex },
+        { 'nombres.primero': searchRegex },
+        { 'nombres.segundo': searchRegex },
+        { 'apellidos.primero': searchRegex },
+        { 'apellidos.segundo': searchRegex },
         { email: searchRegex },
-        { legajo: searchRegex }
+        { 'social.username': searchRegex }
       ],
-      estado: 'activo'
+      'seguridad.estadoCuenta': 'activo' // Usar el campo correcto para estado
     })
-      .select('-password -estado -__v')
+      .select('nombres apellidos email social.fotoPerfil') // Seleccionar solo lo necesario
       .limit(20);
 
     res.json(formatSuccessResponse('Búsqueda completada', users));
@@ -187,8 +189,18 @@ const updateProfile = async (req, res) => {
       }
     }
 
+    // Actualizar flag de miembro fundación
+    if (req.body.esMiembroFundacion !== undefined) {
+      updates['esMiembroFundacion'] = req.body.esMiembroFundacion;
+    }
+
     // Actualizar perfil de fundación si se proporciona
     if (req.body.fundacion) {
+      // Si no es el Founder, cualquier cambio requiere nueva aprobación
+      if (req.user?.seguridad?.rolSistema !== 'Founder') {
+        updates['fundacion.estadoAprobacion'] = 'pendiente';
+      }
+
       if (req.body.fundacion.codigoEmpleado !== undefined) {
         updates['fundacion.codigoEmpleado'] = req.body.fundacion.codigoEmpleado;
       }

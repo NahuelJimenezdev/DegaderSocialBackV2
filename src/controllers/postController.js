@@ -1,5 +1,6 @@
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
+const Group = require('../models/Group');
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
 /**
@@ -8,13 +9,28 @@ const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObj
  */
 const createPost = async (req, res) => {
   try {
+    console.log('📝 [CREATE POST] Request received');
+    console.log('📝 [CREATE POST] Body keys:', Object.keys(req.body));
+    console.log('📝 [CREATE POST] Has images:', !!req.body.images, 'Count:', req.body.images?.length);
+
     const { contenido, privacidad = 'publico', etiquetas, grupo, images = [], videos = [] } = req.body;
 
-    // Validar datos
-    const validation = validatePostData({ contenido, privacidad });
+    console.log('📝 [CREATE POST] Extracted data:', {
+      contenido: contenido?.substring(0, 50),
+      privacidad,
+      imageCount: images.length,
+      videoCount: videos.length,
+      hasGrupo: !!grupo
+    });
+
+    // Validar datos - IMPORTANTE: pasar images y videos al validador
+    const validation = validatePostData({ contenido, privacidad, images, videos });
     if (!validation.isValid) {
+      console.log('❌ [CREATE POST] Validation failed:', validation.errors);
       return res.status(400).json(formatErrorResponse('Datos inválidos', validation.errors));
     }
+
+    console.log('✅ [CREATE POST] Validation passed');
 
     const postData = {
       usuario: req.userId,
@@ -25,33 +41,54 @@ const createPost = async (req, res) => {
 
     // Agregar imágenes en formato base64 (nuevo sistema)
     if (Array.isArray(images) && images.length > 0) {
-      postData.images = images;
+      console.log('📸 [CREATE POST] Adding', images.length, 'images');
+      // El esquema espera objetos { url: String }, no strings directos
+      postData.images = images.map(img => ({ url: img }));
     }
 
     // Agregar videos en formato base64 (nuevo sistema)
     if (Array.isArray(videos) && videos.length > 0) {
-      postData.videos = videos;
+      console.log('🎥 [CREATE POST] Adding', videos.length, 'videos');
+      // El esquema espera objetos { url: String }, no strings directos
+      postData.videos = videos.map(vid => ({ url: vid }));
     }
 
     // Mantener compatibilidad con sistema legacy de multer
     if (req.file) {
+      console.log('📎 [CREATE POST] Legacy file upload detected');
       postData.imagen = `/uploads/posts/${req.file.filename}`;
     }
 
     // Agregar grupo si se especificó
     if (grupo && isValidObjectId(grupo)) {
+      console.log('👥 [CREATE POST] Adding to group:', grupo);
       postData.grupo = grupo;
     }
 
+    console.log('💾 [CREATE POST] Creating post in database...');
     const post = new Post(postData);
     await post.save();
+    console.log('✅ [CREATE POST] Post saved with ID:', post._id);
 
     // Poblar usuario
-    await post.populate('usuario', 'nombres apellidos social');
+    await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil');
+    console.log('✅ [CREATE POST] Post populated');
+
+    // Emitir nuevo post en tiempo real
+    try {
+      if (global.emitPostUpdate) {
+        global.emitPostUpdate(post);
+      }
+    } catch (socketError) {
+      console.error('⚠️ [CREATE POST] Socket emit error:', socketError);
+    }
 
     res.status(201).json(formatSuccessResponse('Publicación creada exitosamente', post));
   } catch (error) {
-    console.error('Error al crear publicación:', error);
+    console.error('❌ [CREATE POST] ERROR:', error);
+    console.error('❌ [CREATE POST] Error name:', error.name);
+    console.error('❌ [CREATE POST] Error message:', error.message);
+    console.error('❌ [CREATE POST] Error stack:', error.stack);
     res.status(500).json(formatErrorResponse('Error al crear publicación', [error.message]));
   }
 };
@@ -82,18 +119,34 @@ const getFeed = async (req, res) => {
     // Incluir el propio usuario en el feed
     const userIds = [req.userId, ...friendIds];
 
+    // Obtener grupos del usuario
+    const userGroups = await Group.find({
+      'miembros.usuario': req.userId
+    }).select('_id');
+
+    const userGroupIds = userGroups.map(g => g._id);
+
     // Obtener publicaciones
     const posts = await Post.find({
       $or: [
-        { usuario: { $in: userIds }, privacidad: { $in: ['publico', 'amigos'] } },
-        { usuario: req.userId } // Incluir todas las propias
+        // 1. Posts de amigos en su perfil (sin grupo o grupo null)
+        {
+          usuario: { $in: friendIds },
+          privacidad: { $in: ['publico', 'amigos'] },
+          $or: [{ grupo: { $exists: false } }, { grupo: null }]
+        },
+        // 2. Mis posts (en cualquier lado)
+        { usuario: req.userId },
+        // 3. Posts de grupos donde soy miembro
+        { grupo: { $in: userGroupIds } }
       ]
     })
-      .populate('usuario', 'nombres apellidos social')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
         path: 'comentarios.usuario',
-        select: 'nombres apellidos social'
+        select: 'nombres.primero apellidos.primero social.fotoPerfil'
       })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
@@ -101,8 +154,13 @@ const getFeed = async (req, res) => {
 
     const total = await Post.countDocuments({
       $or: [
-        { usuario: { $in: userIds }, privacidad: { $in: ['publico', 'amigos'] } },
-        { usuario: req.userId }
+        {
+          usuario: { $in: friendIds },
+          privacidad: { $in: ['publico', 'amigos'] },
+          $or: [{ grupo: { $exists: false } }, { grupo: null }]
+        },
+        { usuario: req.userId },
+        { grupo: { $in: userGroupIds } }
       ]
     });
 
@@ -148,10 +206,11 @@ const getUserPosts = async (req, res) => {
       usuario: userId,
       ...privacyFilter
     })
-      .populate('usuario', 'nombres apellidos social')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('grupo', 'nombre tipo')
       .populate({
         path: 'comentarios.usuario',
-        select: 'nombres apellidos social'
+        select: 'nombres.primero apellidos.primero social.fotoPerfil'
       })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
@@ -181,6 +240,66 @@ const getUserPosts = async (req, res) => {
 };
 
 /**
+ * Obtener publicaciones de un grupo
+ * GET /api/publicaciones/grupo/:groupId
+ */
+const getGroupPosts = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    if (!isValidObjectId(groupId)) {
+      return res.status(400).json(formatErrorResponse('ID de grupo inválido'));
+    }
+
+    // Verificar si el usuario es miembro del grupo (para grupos privados/secretos)
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    if (group.tipo !== 'publico') {
+      const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
+      if (!isMember && !group.creador.equals(req.userId)) {
+        return res.status(403).json(formatErrorResponse('No tienes acceso a las publicaciones de este grupo'));
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find({ grupo: groupId })
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('grupo', 'nombre tipo')
+      .populate('postOriginal')
+      .populate({
+        path: 'comentarios.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil'
+      })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    const total = await Post.countDocuments({ grupo: groupId });
+
+    res.json({
+      success: true,
+      data: {
+        posts,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener publicaciones del grupo:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener publicaciones del grupo', [error.message]));
+  }
+};
+
+/**
  * Obtener publicación por ID
  * GET /api/publicaciones/:id
  */
@@ -193,11 +312,12 @@ const getPostById = async (req, res) => {
     }
 
     const post = await Post.findById(id)
-      .populate('usuario', 'nombres apellidos social')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
         path: 'comentarios.usuario',
-        select: 'nombres apellidos social'
+        select: 'nombres.primero apellidos.primero social.fotoPerfil'
       });
 
     if (!post) {
@@ -235,6 +355,16 @@ const toggleLike = async (req, res) => {
       // Quitar like
       post.likes.splice(likeIndex, 1);
       await post.save();
+
+      // Emitir actualización del post en tiempo real
+      try {
+        if (global.emitPostUpdate) {
+          global.emitPostUpdate(post);
+        }
+      } catch (socketError) {
+        console.error('⚠️ [LIKE] Socket emit error:', socketError);
+      }
+
       return res.json(formatSuccessResponse('Like removido', { liked: false, totalLikes: post.likes.length }));
     } else {
       // Dar like
@@ -254,6 +384,16 @@ const toggleLike = async (req, res) => {
           }
         });
         await notification.save();
+
+        // Emitir notificación en tiempo real
+        if (global.emitNotification) {
+          global.emitNotification(post.usuario.toString(), notification);
+        }
+      }
+
+      // Emitir actualización del post en tiempo real
+      if (global.emitPostUpdate) {
+        global.emitPostUpdate(post);
       }
 
       return res.json(formatSuccessResponse('Like agregado', { liked: true, totalLikes: post.likes.length }));
@@ -265,20 +405,21 @@ const toggleLike = async (req, res) => {
 };
 
 /**
- * Comentar publicación
+ * Comentar publicación o responder a un comentario
  * POST /api/publicaciones/:id/comment
+ * Body: { contenido, parentCommentId? }
  */
 const addComment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { contenido } = req.body;
+    const { contenido, parentCommentId, image } = req.body;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    if (!contenido || contenido.trim().length === 0) {
-      return res.status(400).json(formatErrorResponse('El contenido del comentario es obligatorio'));
+    if ((!contenido || contenido.trim().length === 0) && !image) {
+      return res.status(400).json(formatErrorResponse('El comentario debe tener texto o una imagen'));
     }
 
     const post = await Post.findById(id);
@@ -287,10 +428,24 @@ const addComment = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
     }
 
+    // Si es una respuesta, verificar que el comentario padre existe y no sea ya una respuesta
+    if (parentCommentId) {
+      const parentComment = post.comentarios.id(parentCommentId);
+      if (!parentComment) {
+        return res.status(404).json(formatErrorResponse('Comentario padre no encontrado'));
+      }
+      // Verificar que el padre no sea ya una respuesta (máximo 2 niveles)
+      if (parentComment.parentComment) {
+        return res.status(400).json(formatErrorResponse('No se pueden anidar más de 2 niveles de comentarios'));
+      }
+    }
+
     const comment = {
       usuario: req.userId,
-      contenido: contenido.trim(),
-      likes: []
+      contenido: contenido ? contenido.trim() : '',
+      image: image || null,
+      likes: [],
+      parentComment: parentCommentId || null
     };
 
     post.comentarios.push(comment);
@@ -299,22 +454,63 @@ const addComment = async (req, res) => {
     // Poblar el comentario recién agregado
     await post.populate({
       path: 'comentarios.usuario',
-      select: 'nombres apellidos social'
+      select: 'nombres.primero apellidos.primero social.fotoPerfil'
     });
 
     // Crear notificación
-    if (!post.usuario.equals(req.userId)) {
-      const notification = new Notification({
-        receptor: post.usuario,
-        emisor: req.userId,
-        tipo: 'comentario_post',
-        contenido: 'comentó tu publicación',
-        referencia: {
-          tipo: 'Post',
-          id: post._id
+    try {
+      if (parentCommentId) {
+        // Notificar al autor del comentario padre
+        const parentComment = post.comentarios.id(parentCommentId);
+        // parentComment.usuario es un ObjectId (no poblado), así que usamos .equals directamente
+        if (parentComment && parentComment.usuario && !parentComment.usuario.equals(req.userId)) {
+          const notification = new Notification({
+            receptor: parentComment.usuario, // Usar el ID directamente
+            emisor: req.userId,
+            tipo: 'respuesta_comentario',
+            contenido: 'respondió a tu comentario',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            }
+          });
+          await notification.save();
+
+          // Emitir notificación en tiempo real
+          if (global.emitNotification) {
+            global.emitNotification(parentComment.usuario.toString(), notification);
+          }
         }
-      });
-      await notification.save();
+      } else if (!post.usuario.equals(req.userId)) {
+        // Notificar al autor del post
+        const notification = new Notification({
+          receptor: post.usuario,
+          emisor: req.userId,
+          tipo: 'comentario_post',
+          contenido: 'comentó tu publicación',
+          referencia: {
+            tipo: 'Post',
+            id: post._id
+          }
+        });
+        await notification.save();
+
+        // Emitir notificación en tiempo real
+        if (global.emitNotification) {
+          global.emitNotification(post.usuario.toString(), notification);
+        }
+      }
+    } catch (notifError) {
+      console.error('⚠️ [COMMENT] Notification error:', notifError);
+    }
+
+    // Emitir actualización del post en tiempo real
+    try {
+      if (global.emitPostUpdate) {
+        global.emitPostUpdate(post);
+      }
+    } catch (socketError) {
+      console.error('⚠️ [COMMENT] Socket emit error:', socketError);
     }
 
     const newComment = post.comentarios[post.comentarios.length - 1];
@@ -365,10 +561,10 @@ const sharePost = async (req, res) => {
 
     // Poblar datos
     await sharedPost.populate([
-      { path: 'usuario', select: 'nombres apellidos social' },
+      { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
       {
         path: 'postOriginal',
-        populate: { path: 'usuario', select: 'nombres apellidos social' }
+        populate: { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
       }
     ]);
 
@@ -385,6 +581,21 @@ const sharePost = async (req, res) => {
         }
       });
       await notification.save();
+
+      // Emitir notificación en tiempo real
+      if (global.emitNotification) {
+        global.emitNotification(originalPost.usuario.toString(), notification);
+      }
+    }
+
+    // Emitir actualización del post original en tiempo real (para actualizar contador de compartidos)
+    if (global.emitPostUpdate) {
+      global.emitPostUpdate(originalPost);
+    }
+
+    // Emitir el nuevo post compartido al feed
+    if (global.emitPostUpdate) {
+      global.emitPostUpdate(sharedPost);
     }
 
     res.status(201).json(formatSuccessResponse('Publicación compartida exitosamente', sharedPost));
@@ -419,6 +630,11 @@ const deletePost = async (req, res) => {
 
     await Post.findByIdAndDelete(id);
 
+    // Emitir evento de eliminación (opcional, si el frontend lo maneja)
+    // if (global.emitPostDelete) {
+    //   global.emitPostDelete(id);
+    // }
+
     res.json(formatSuccessResponse('Publicación eliminada exitosamente'));
   } catch (error) {
     console.error('Error al eliminar publicación:', error);
@@ -430,6 +646,7 @@ module.exports = {
   createPost,
   getFeed,
   getUserPosts,
+  getGroupPosts,
   getPostById,
   toggleLike,
   addComment,

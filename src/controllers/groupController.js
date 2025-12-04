@@ -28,8 +28,8 @@ const getAllGroups = async (req, res) => {
     if (categoria) filter.categoria = categoria;
 
     const groups = await Group.find(filter)
-      .populate('creador', 'nombre apellido avatar')
-      .populate('miembros.usuario', 'nombre apellido avatar')
+      .populate('creador', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('miembros.usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
@@ -79,11 +79,11 @@ const getGroupById = async (req, res) => {
     }
 
     const group = await Group.findById(id)
-      .populate('creador', 'nombre apellido avatar')
-      .populate('administradores', 'nombre apellido avatar')
-      .populate('moderadores', 'nombre apellido avatar')
-      .populate('miembros.usuario', 'nombre apellido avatar')
-      .populate('solicitudesPendientes.usuario', 'nombre apellido avatar');
+      .populate('creador', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('administradores', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('moderadores', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('miembros.usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('solicitudesPendientes.usuario', 'nombres.primero apellidos.primero social.fotoPerfil');
 
     if (!group) {
       return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
@@ -127,6 +127,43 @@ const getGroupById = async (req, res) => {
       createdAt: s.fecha,
       status: 'pending'
     }));
+
+    // Calcular estadísticas del grupo
+    const GroupMessage = require('../models/GroupMessage');
+
+    // Contar mensajes totales
+    const messageCount = await GroupMessage.countDocuments({
+      grupo: id,
+      isDeleted: false
+    });
+
+    // Contar archivos compartidos (mensajes con archivos)
+    const fileCount = await GroupMessage.countDocuments({
+      grupo: id,
+      isDeleted: false,
+      'files.0': { $exists: true }
+    });
+
+    // Calcular nivel de actividad (mensajes en los últimos 7 días)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const recentMessages = await GroupMessage.countDocuments({
+      grupo: id,
+      isDeleted: false,
+      createdAt: { $gte: sevenDaysAgo }
+    });
+
+    // Calcular porcentaje de actividad (basado en promedio de mensajes por miembro)
+    const memberCount = groupObj.members.length || 1;
+    const avgMessagesPerMember = recentMessages / memberCount;
+    // Si hay más de 2 mensajes por miembro en 7 días, es alta actividad
+    const activityLevel = Math.min(100, Math.round((avgMessagesPerMember / 2) * 100));
+
+    // Agregar estadísticas al objeto de respuesta
+    groupObj.messageCount = messageCount;
+    groupObj.fileCount = fileCount;
+    groupObj.activityLevel = activityLevel;
 
     res.json(formatSuccessResponse('Grupo encontrado', groupObj));
   } catch (error) {
@@ -183,8 +220,8 @@ const createGroup = async (req, res) => {
     console.log('✅ Grupo guardado exitosamente con ID:', group._id);
 
     await group.populate([
-      { path: 'creador', select: 'nombre apellido avatar' },
-      { path: 'miembros.usuario', select: 'nombre apellido avatar' }
+      { path: 'creador', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+      { path: 'miembros.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
     ]);
 
     // Transformar grupo para compatibilidad con frontend
@@ -255,9 +292,15 @@ const updateGroup = async (req, res) => {
     await group.save();
 
     await group.populate([
-      { path: 'creador', select: 'nombre apellido avatar' },
-      { path: 'miembros.usuario', select: 'nombre apellido avatar' }
+      { path: 'creador', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+      { path: 'miembros.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
     ]);
+
+    // Emitir evento de actualización de grupo
+    if (global.io) {
+      global.io.to(id).emit('groupUpdated', group);
+      console.log(`📡 [SOCKET] Evento groupUpdated emitido para grupo ${id}`);
+    }
 
     res.json(formatSuccessResponse('Grupo actualizado exitosamente', group));
   } catch (error) {
@@ -616,16 +659,16 @@ const getMessages = async (req, res) => {
 
     // Obtener mensajes
     const messages = await GroupMessage.find(query)
-      .populate('author', 'nombres apellidos social')
+      .populate('author', 'nombres.primero apellidos.primero social.fotoPerfil')
       .populate({
         path: 'replyTo',
         select: 'content author',
         populate: {
           path: 'author',
-          select: 'nombres apellidos social'
+          select: 'nombres.primero apellidos.primero social.fotoPerfil'
         }
       })
-      .populate('reactions.usuario', 'nombres apellidos')
+      .populate('reactions.usuario', 'nombres.primero apellidos.primero')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit));
 
@@ -697,13 +740,13 @@ const sendMessage = async (req, res) => {
 
     // Poblar datos
     await message.populate([
-      { path: 'author', select: 'nombres apellidos social' },
+      { path: 'author', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
       {
         path: 'replyTo',
         select: 'content author',
         populate: {
           path: 'author',
-          select: 'nombres apellidos social'
+          select: 'nombres.primero apellidos.primero social.fotoPerfil'
         }
       }
     ]);
@@ -890,13 +933,13 @@ const toggleStarMessage = async (req, res) => {
 
     // Poblar author para que el frontend tenga toda la información
     await message.populate([
-      { path: 'author', select: 'nombres apellidos social' },
+      { path: 'author', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
       {
         path: 'replyTo',
         select: 'content author',
         populate: {
           path: 'author',
-          select: 'nombres apellidos social'
+          select: 'nombres.primero apellidos.primero social.fotoPerfil'
         }
       }
     ]);
@@ -1127,12 +1170,33 @@ const getDestacados = async (req, res) => {
       grupo: id,
       starredBy: req.userId
     })
-      .populate('author', 'nombre apellido avatar')
-      .populate('replyTo')
-      .populate('reactions.usuario', 'nombre apellido')
+      .populate('author', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate({
+        path: 'replyTo',
+        select: 'content author',
+        populate: {
+          path: 'author',
+          select: 'nombres.primero apellidos.primero social.fotoPerfil'
+        }
+      })
+      .populate('reactions.usuario', 'nombres.primero apellidos.primero')
       .sort({ createdAt: -1 }); // Más recientes primero
 
-    res.json(formatSuccessResponse('Mensajes destacados obtenidos', destacados));
+    // Transformar mensajes para agregar attachments desde files
+    const transformedDestacados = destacados.map(msg => {
+      const msgObj = msg.toObject();
+      if (msgObj.files && msgObj.files.length > 0) {
+        msgObj.attachments = msgObj.files.map(f => ({
+          type: f.tipo,
+          url: f.url,
+          name: f.nombre,
+          size: f.tamaño
+        }));
+      }
+      return msgObj;
+    });
+
+    res.json(formatSuccessResponse('Mensajes destacados obtenidos', transformedDestacados));
   } catch (error) {
     console.error('Error al obtener destacados:', error);
     res.status(500).json(formatErrorResponse('Error al obtener destacados', [error.message]));
@@ -1619,8 +1683,15 @@ const sendMessageWithFiles = async (req, res) => {
 
     // Poblar datos
     await message.populate([
-      { path: 'author', select: 'nombre apellido avatar' },
-      { path: 'replyTo', select: 'content author' }
+      { path: 'author', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+      {
+        path: 'replyTo',
+        select: 'content author',
+        populate: {
+          path: 'author',
+          select: 'nombres.primero apellidos.primero social.fotoPerfil'
+        }
+      }
     ]);
 
     // Transformar a objeto y agregar attachments para compatibilidad con frontend

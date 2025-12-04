@@ -42,6 +42,9 @@ const getAllNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
         // Para respuestas a solicitudes de grupo, el mensaje ya está completo
         mensaje = n.contenido;
+      } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
+        // Para notificaciones de iglesia, usar el contenido tal cual
+        mensaje = n.contenido;
       } else if (n.contenido) {
         mensaje = `${nombreCompleto} ${n.contenido}`;
       }
@@ -50,8 +53,17 @@ const getAllNotifications = async (req, res) => {
         _id: n._id,
         tipo: n.tipo === 'solicitud_amistad' || n.tipo === 'amistad_aceptada' ? 'amistad' : n.tipo,
         mensaje: mensaje,
+        contenido: n.contenido, // Agregar contenido original
         leido: n.leida,
         fechaCreacion: n.createdAt,
+        createdAt: n.createdAt, // Agregar createdAt para compatibilidad
+        // Incluir objeto emisor completo para notificaciones de iglesia
+        emisor: n.emisor ? {
+          _id: n.emisor._id,
+          nombres: n.emisor.nombres,
+          apellidos: n.emisor.apellidos,
+          social: n.emisor.social
+        } : null,
         remitenteId: n.emisor ? {
           _id: n.emisor._id,
           nombre: n.emisor.nombres?.primero,
@@ -62,7 +74,10 @@ const getAllNotifications = async (req, res) => {
           nombre: nombreCompleto,
           avatar: n.emisor?.social?.fotoPerfil,
           fromUserId: n.emisor?._id
-        }
+        },
+        // Incluir referencia y metadata para notificaciones de iglesia
+        referencia: n.referencia,
+        metadata: n.metadata
       };
     });
 
@@ -122,6 +137,9 @@ const getUnreadNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
         // Para respuestas a solicitudes de grupo, el mensaje ya está completo
         mensaje = n.contenido;
+      } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
+        // Para notificaciones de iglesia, usar el contenido tal cual
+        mensaje = n.contenido;
       } else if (n.contenido) {
         mensaje = `${nombreCompleto} ${n.contenido}`;
       }
@@ -130,8 +148,17 @@ const getUnreadNotifications = async (req, res) => {
         _id: n._id,
         tipo: n.tipo === 'solicitud_amistad' || n.tipo === 'amistad_aceptada' ? 'amistad' : n.tipo,
         mensaje: mensaje,
+        contenido: n.contenido, // Agregar contenido original
         leido: n.leida,
         fechaCreacion: n.createdAt,
+        createdAt: n.createdAt, // Agregar createdAt para compatibilidad
+        // Incluir objeto emisor completo para notificaciones de iglesia
+        emisor: n.emisor ? {
+          _id: n.emisor._id,
+          nombres: n.emisor.nombres,
+          apellidos: n.emisor.apellidos,
+          social: n.emisor.social
+        } : null,
         remitenteId: n.emisor ? {
           _id: n.emisor._id,
           nombre: n.emisor.nombres?.primero,
@@ -142,7 +169,10 @@ const getUnreadNotifications = async (req, res) => {
           nombre: nombreCompleto,
           avatar: n.emisor?.social?.fotoPerfil,
           fromUserId: n.emisor?._id
-        }
+        },
+        // Incluir referencia y metadata para notificaciones de iglesia
+        referencia: n.referencia,
+        metadata: n.metadata
       };
     });
 

@@ -26,6 +26,7 @@ const conditionalUpload = (req, res, next) => {
 router.post('/', conditionalUpload, postController.createPost);
 router.get('/feed', postController.getFeed);
 router.get('/user/:userId', postController.getUserPosts);
+router.get('/grupo/:groupId', postController.getGroupPosts);
 router.get('/:id', postController.getPostById);
 router.delete('/:id', postController.deletePost);
 

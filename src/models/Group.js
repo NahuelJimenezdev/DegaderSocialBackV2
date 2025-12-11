@@ -75,7 +75,10 @@ const groupSchema = new mongoose.Schema({
   },
   estadisticas: {
     totalPublicaciones: { type: Number, default: 0 },
-    publicacionesEsteMes: { type: Number, default: 0 }
+    publicacionesEsteMes: { type: Number, default: 0 },
+    totalMensajes: { type: Number, default: 0 },
+    totalArchivos: { type: Number, default: 0 },
+    nivelActividad: { type: Number, default: 0, min: 0, max: 100 }
   }
 }, {
   timestamps: true,

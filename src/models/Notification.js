@@ -26,6 +26,7 @@ const notificationSchema = new mongoose.Schema({
       'solicitud_grupo',
       'solicitud_grupo_aprobada',
       'solicitud_grupo_rechazada',
+      'promocion_admin_grupo',
       'nuevo_miembro_grupo',
       'nuevo_mensaje',
       'evento',

@@ -128,23 +128,8 @@ const getGroupById = async (req, res) => {
       status: 'pending'
     }));
 
-    // Calcular estadísticas del grupo
+    // Calcular nivel de actividad en tiempo real (mensajes en los últimos 7 días)
     const GroupMessage = require('../models/GroupMessage');
-
-    // Contar mensajes totales
-    const messageCount = await GroupMessage.countDocuments({
-      grupo: id,
-      isDeleted: false
-    });
-
-    // Contar archivos compartidos (mensajes con archivos)
-    const fileCount = await GroupMessage.countDocuments({
-      grupo: id,
-      isDeleted: false,
-      'files.0': { $exists: true }
-    });
-
-    // Calcular nivel de actividad (mensajes en los últimos 7 días)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -160,9 +145,14 @@ const getGroupById = async (req, res) => {
     // Si hay más de 2 mensajes por miembro en 7 días, es alta actividad
     const activityLevel = Math.min(100, Math.round((avgMessagesPerMember / 2) * 100));
 
-    // Agregar estadísticas al objeto de respuesta
-    groupObj.messageCount = messageCount;
-    groupObj.fileCount = fileCount;
+    // Actualizar nivel de actividad en el modelo
+    await Group.findByIdAndUpdate(id, {
+      'estadisticas.nivelActividad': activityLevel
+    });
+
+    // Agregar estadísticas al objeto de respuesta (usar datos del modelo)
+    groupObj.messageCount = groupObj.estadisticas?.totalMensajes || 0;
+    groupObj.fileCount = groupObj.estadisticas?.totalArchivos || 0;
     groupObj.activityLevel = activityLevel;
 
     res.json(formatSuccessResponse('Grupo encontrado', groupObj));
@@ -369,6 +359,7 @@ const joinGroup = async (req, res) => {
 
       console.log('📧 [JOIN] Enviando notificaciones a:', uniqueTargets.length, 'usuarios');
 
+      // Crear y guardar notificaciones
       const adminNotifications = uniqueTargets.map(targetId => {
         return new Notification({
           receptor: targetId,
@@ -382,17 +373,17 @@ const joinGroup = async (req, res) => {
         }).save();
       });
 
-      await Promise.all(adminNotifications);
+      const savedNotifications = await Promise.all(adminNotifications);
 
-      // Emitir notificaciones por Socket.IO
-      if (global.emitNotification) {
-        uniqueTargets.forEach(targetId => {
-          global.emitNotification(targetId, {
-            tipo: 'solicitud_grupo',
-            contenido: 'Nueva solicitud para unirse al grupo',
-            grupo: group._id
-          });
-        });
+      // IMPORTANTE: Popula emisor y grupo ANTES de emitir por Socket.IO
+      for (const notification of savedNotifications) {
+        await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil username');
+        await notification.populate('referencia.id', 'nombre imagen');
+
+        // Emitir notificación por Socket.IO con datos completos
+        if (global.emitNotification) {
+          global.emitNotification(notification.receptor.toString(), notification);
+        }
       }
 
       console.log('✅ [JOIN] Solicitud enviada exitosamente');
@@ -737,6 +728,16 @@ const sendMessage = async (req, res) => {
 
     const message = new GroupMessage(messageData);
     await message.save();
+
+    // Incrementar contador de mensajes
+    const updateFields = { $inc: { 'estadisticas.totalMensajes': 1 } };
+
+    // Si tiene archivos, incrementar contador de archivos
+    if (files && files.length > 0) {
+      updateFields.$inc['estadisticas.totalArchivos'] = files.length;
+    }
+
+    await Group.findByIdAndUpdate(id, updateFields);
 
     // Poblar datos
     await message.populate([
@@ -1354,6 +1355,37 @@ const updateMemberRole = async (req, res) => {
 
     await group.save();
 
+    // 📧 Enviar notificación si se promovió a administrador
+    if (role === 'admin') {
+      try {
+        const notification = new Notification({
+          receptor: memberId,
+          emisor: req.userId,
+          tipo: 'promocion_admin_grupo',
+          contenido: 'te nombró administrador del grupo',
+          referencia: {
+            tipo: 'Group',
+            id: group._id
+          }
+        });
+
+        await notification.save();
+
+        // IMPORTANTE: Popula emisor y grupo ANTES de emitir por Socket.IO
+        await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil username');
+        await notification.populate('referencia.id', 'nombre imagen');
+
+        // Emitir notificación en tiempo real
+        if (global.emitNotification) {
+          global.emitNotification(memberId.toString(), notification);
+        }
+
+        console.log(`📧 [UPDATE ROLE] Notificación de promoción enviada a ${memberId}`);
+      } catch (notifError) {
+        console.error('⚠️ [UPDATE ROLE] Error al enviar notificación (continuando):', notifError.message);
+      }
+    }
+
     console.log(`✅ [UPDATE ROLE] Rol actualizado exitosamente a '${group.miembros[memberIndex].rol}'`);
     res.json(formatSuccessResponse('Rol actualizado exitosamente', group));
   } catch (error) {
@@ -1680,6 +1712,16 @@ const sendMessageWithFiles = async (req, res) => {
 
     const message = new GroupMessage(messageData);
     await message.save();
+
+    // Incrementar contador de mensajes
+    const updateFields = { $inc: { 'estadisticas.totalMensajes': 1 } };
+
+    // Si tiene archivos, incrementar contador de archivos
+    if (files && files.length > 0) {
+      updateFields.$inc['estadisticas.totalArchivos'] = files.length;
+    }
+
+    await Group.findByIdAndUpdate(id, updateFields);
 
     // Poblar datos
     await message.populate([

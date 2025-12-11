@@ -299,7 +299,7 @@ UserV2Schema.methods.toJSON = function () {
 };
 
 // Middleware para hashear la contraseña antes de guardar
-UserV2Schema.pre('save', async function(next) {
+UserV2Schema.pre('save', async function (next) {
   // Solo hashear si la contraseña fue modificada o es nueva
   if (!this.isModified('password')) return next();
 
@@ -312,7 +312,7 @@ UserV2Schema.pre('save', async function(next) {
 });
 
 // Método para comparar contraseñas
-UserV2Schema.methods.comparePassword = async function(candidatePassword) {
+UserV2Schema.methods.comparePassword = async function (candidatePassword) {
   try {
     return await argon2.verify(this.password, candidatePassword);
   } catch (error) {
@@ -326,7 +326,7 @@ UserV2Schema.methods.comparePassword = async function(candidatePassword) {
 
 // Búsquedas básicas
 UserV2Schema.index({ "nombres.primero": 1, "apellidos.primero": 1 });
-UserV2Schema.index({ "social.username": 1 });
+// UserV2Schema.index({ "social.username": 1 }); // Comentado por duplicidad con unique: true en schema
 
 // Búsquedas Geográficas y Organizacionales (Fundación)
 // Permite: "Buscar directores regionales en Colombia"

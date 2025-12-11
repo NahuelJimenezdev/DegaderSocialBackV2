@@ -64,7 +64,7 @@ const searchUsers = async (req, res) => {
       ],
       'seguridad.estadoCuenta': 'activo' // Usar el campo correcto para estado
     })
-      .select('nombres apellidos email social.fotoPerfil') // Seleccionar solo lo necesario
+      .select('nombres.primero nombres.segundo apellidos.primero apellidos.segundo email social.fotoPerfil social.username') // Seleccionar campos específicos de UserV2
       .limit(20);
 
     res.json(formatSuccessResponse('Búsqueda completada', users));

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,13 +7,36 @@ const path = require('path');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const logger = require('./config/logger');
 
 const app = express();
 const httpServer = createServer(app);
 
 // Configuración del puerto
 const PORT = process.env.PORT || 3001;
+
+// Security Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Permitir carga de recursos cross-origin (imágenes, etc.)
+}));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: {
+    status: 429,
+    error: 'Too many requests, please try again later.'
+  }
+});
+
+// Apply rate limiting to all requests
+app.use('/api/', limiter);
 
 // Configurar Socket.IO con CORS
 const io = new Server(httpServer, {
@@ -35,16 +59,21 @@ app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
+  optionsSuccessStatus: 200 // Para navegadores legacy
 }));
 
 // Middlewares
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(morgan('dev'));
+app.use(morgan('combined', { stream: { write: message => logger.http(message.trim()) } }));
 
-// Servir archivos estáticos (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Servir archivos estáticos (uploads) con CORS
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
@@ -92,7 +121,7 @@ app.use('/api/notificaciones', notificationRoutes);
 app.use('/api/conversaciones', conversationRoutes);
 app.use('/api/buscar', searchRoutes);
 app.use('/api/folders', folderRoutes);
-app.use('/api/meetings', meetingRoutes);
+app.use('/api/reuniones', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
 app.use('/api/iglesias', iglesiaRoutes);
 
@@ -106,7 +135,7 @@ app.use((req, res) => {
 
 // Manejador de errores global
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error(`${err.status || 500} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
   res.status(err.status || 500).json({
     error: err.message || 'Error interno del servidor',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
@@ -114,7 +143,9 @@ app.use((err, req, res, next) => {
 });
 
 // Conexión a MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/degader', {
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rvdlva0.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
+
+mongoose.connect(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })

@@ -39,6 +39,10 @@ const getAllNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_grupo') {
         // Para solicitudes de grupo, agregar el nombre del usuario que solicita
         mensaje = `${nombreCompleto} ${n.contenido}`;
+      } else if (n.tipo === 'promocion_admin_grupo') {
+        // Para promoción a admin, incluir nombre del grupo
+        const nombreGrupo = n.referencia?.id?.nombre || 'el grupo';
+        mensaje = `${nombreCompleto} ${n.contenido} "${nombreGrupo}"`;
       } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
         // Para respuestas a solicitudes de grupo, el mensaje ya está completo
         mensaje = n.contenido;

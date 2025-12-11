@@ -359,6 +359,13 @@ const toggleLike = async (req, res) => {
       // Emitir actualización del post en tiempo real
       try {
         if (global.emitPostUpdate) {
+          // Poblar antes de emitir
+          await post.populate([
+            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+            { path: 'grupo', select: 'nombre tipo' },
+            { path: 'postOriginal' },
+            { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+          ]);
           global.emitPostUpdate(post);
         }
       } catch (socketError) {
@@ -385,15 +392,33 @@ const toggleLike = async (req, res) => {
         });
         await notification.save();
 
+        // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
+        const notificationPopulated = await Notification.findById(notification._id)
+          .populate({
+            path: 'emisor',
+            select: 'nombres apellidos social.fotoPerfil username'
+          });
+
         // Emitir notificación en tiempo real
         if (global.emitNotification) {
-          global.emitNotification(post.usuario.toString(), notification);
+          global.emitNotification(post.usuario.toString(), notificationPopulated);
         }
       }
 
       // Emitir actualización del post en tiempo real
-      if (global.emitPostUpdate) {
-        global.emitPostUpdate(post);
+      try {
+        if (global.emitPostUpdate) {
+          // Poblar antes de emitir
+          await post.populate([
+            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+            { path: 'grupo', select: 'nombre tipo' },
+            { path: 'postOriginal' },
+            { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+          ]);
+          global.emitPostUpdate(post);
+        }
+      } catch (socketError) {
+        console.error('⚠️ [LIKE] Socket emit error:', socketError);
       }
 
       return res.json(formatSuccessResponse('Like agregado', { liked: true, totalLikes: post.likes.length }));
@@ -451,21 +476,24 @@ const addComment = async (req, res) => {
     post.comentarios.push(comment);
     await post.save();
 
-    // Poblar el comentario recién agregado
-    await post.populate({
-      path: 'comentarios.usuario',
-      select: 'nombres.primero apellidos.primero social.fotoPerfil'
-    });
+    // Poblar todo el post antes de emitir actualización global
+    // Esto asegura que el frontend reciba datos consistentes (usuario poblado, grupo, etc.)
+    await post.populate([
+      { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+      { path: 'grupo', select: 'nombre tipo' },
+      { path: 'postOriginal' },
+      { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+    ]);
 
     // Crear notificación
     try {
       if (parentCommentId) {
         // Notificar al autor del comentario padre
         const parentComment = post.comentarios.id(parentCommentId);
-        // parentComment.usuario es un ObjectId (no poblado), así que usamos .equals directamente
-        if (parentComment && parentComment.usuario && !parentComment.usuario.equals(req.userId)) {
+        // parentComment.usuario es un ObjectId (ya poblado arriba, así que verificamos ID)
+        if (parentComment && parentComment.usuario && !parentComment.usuario._id.equals(req.userId)) {
           const notification = new Notification({
-            receptor: parentComment.usuario, // Usar el ID directamente
+            receptor: parentComment.usuario._id,
             emisor: req.userId,
             tipo: 'respuesta_comentario',
             contenido: 'respondió a tu comentario',
@@ -476,15 +504,22 @@ const addComment = async (req, res) => {
           });
           await notification.save();
 
+          // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
+          const notificationPopulated = await Notification.findById(notification._id)
+            .populate({
+              path: 'emisor',
+              select: 'nombres apellidos social.fotoPerfil username'
+            });
+
           // Emitir notificación en tiempo real
           if (global.emitNotification) {
-            global.emitNotification(parentComment.usuario.toString(), notification);
+            global.emitNotification(parentComment.usuario._id.toString(), notificationPopulated);
           }
         }
-      } else if (!post.usuario.equals(req.userId)) {
+      } else if (!post.usuario._id.equals(req.userId)) {
         // Notificar al autor del post
         const notification = new Notification({
-          receptor: post.usuario,
+          receptor: post.usuario._id,
           emisor: req.userId,
           tipo: 'comentario_post',
           contenido: 'comentó tu publicación',
@@ -495,9 +530,16 @@ const addComment = async (req, res) => {
         });
         await notification.save();
 
+        // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
+        const notificationPopulated = await Notification.findById(notification._id)
+          .populate({
+            path: 'emisor',
+            select: 'nombres apellidos social.fotoPerfil username'
+          });
+
         // Emitir notificación en tiempo real
         if (global.emitNotification) {
-          global.emitNotification(post.usuario.toString(), notification);
+          global.emitNotification(post.usuario._id.toString(), notificationPopulated);
         }
       }
     } catch (notifError) {
@@ -513,6 +555,7 @@ const addComment = async (req, res) => {
       console.error('⚠️ [COMMENT] Socket emit error:', socketError);
     }
 
+    // Para la respuesta HTTP devolvemos solo el comentario nuevo
     const newComment = post.comentarios[post.comentarios.length - 1];
 
     res.status(201).json(formatSuccessResponse('Comentario agregado', newComment));
@@ -559,7 +602,7 @@ const sharePost = async (req, res) => {
     });
     await originalPost.save();
 
-    // Poblar datos
+    // Poblar datos del post compartido
     await sharedPost.populate([
       { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
       {
@@ -582,14 +625,28 @@ const sharePost = async (req, res) => {
       });
       await notification.save();
 
+      // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
+      const notificationPopulated = await Notification.findById(notification._id)
+        .populate({
+          path: 'emisor',
+          select: 'nombres apellidos social.fotoPerfil username'
+        });
+
       // Emitir notificación en tiempo real
       if (global.emitNotification) {
-        global.emitNotification(originalPost.usuario.toString(), notification);
+        global.emitNotification(originalPost.usuario.toString(), notificationPopulated);
       }
     }
 
     // Emitir actualización del post original en tiempo real (para actualizar contador de compartidos)
     if (global.emitPostUpdate) {
+      // Poblar original antes de emitir
+      await originalPost.populate([
+        { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+        { path: 'grupo', select: 'nombre tipo' },
+        { path: 'postOriginal' },
+        { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+      ]);
       global.emitPostUpdate(originalPost);
     }
 

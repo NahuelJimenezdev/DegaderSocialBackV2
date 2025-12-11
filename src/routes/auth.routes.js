@@ -3,9 +3,11 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth.middleware');
 
+const { registerValidation, loginValidation } = require('../middleware/validators/auth.validator');
+
 // Rutas públicas
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/register', registerValidation, authController.register);
+router.post('/login', loginValidation, authController.login);
 
 // Rutas protegidas
 router.get('/profile', authenticate, authController.getProfile);

@@ -60,6 +60,10 @@ const validateRegisterData = (data) => {
     errors.push('La contraseña debe tener al menos 6 caracteres');
   }
 
+  if (!data.fechaNacimiento) {
+    errors.push('La fecha de nacimiento es obligatoria');
+  }
+
   return {
     isValid: errors.length === 0,
     errors

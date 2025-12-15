@@ -217,6 +217,37 @@ const SeguridadSchema = new Schema({
   versionTerminos: { type: Number, default: 1 }
 }, { _id: false });
 
+// 6. Perfil Publicitario (Para Sistema de Anuncios Segmentados)
+const PerfilPublicitarioSchema = new Schema({
+  // Intereses inferidos automáticamente basados en actividad
+  intereses: [{ type: String, trim: true }], // ['religión', 'deportes', 'tecnología', 'música']
+
+  // Ubicación para anuncios locales (con consentimiento)
+  ubicacion: {
+    ciudad: { type: String, trim: true },
+    pais: { type: String, trim: true },
+    coordenadas: {
+      type: { type: String, default: 'Point' },
+      coordinates: [Number] // [lng, lat] - Orden importante para MongoDB geoespacial
+    },
+    consentimientoUbicacion: { type: Boolean, default: false }
+  },
+
+  // Preferencias de publicidad (GDPR/CCPA compliance)
+  consentimientoPublicidad: { type: Boolean, default: true }, // Acepta ver anuncios
+  publicidadPersonalizada: { type: Boolean, default: true }, // Acepta segmentación
+
+  // Historial de interacciones con anuncios (para evitar repetición)
+  anunciosVistos: [{
+    anuncioId: { type: Schema.Types.ObjectId, ref: 'Ad' },
+    vecesVisto: { type: Number, default: 0 },
+    ultimaVista: { type: Date, default: Date.now }
+  }],
+
+  // Metadata
+  ultimaActualizacionIntereses: { type: Date, default: Date.now }
+}, { _id: false });
+
 // ==========================================
 // 🔹 SCHEMA PRINCIPAL
 // ==========================================
@@ -251,12 +282,13 @@ const UserV2Schema = new Schema({
   eclesiastico: { type: PerfilEclesiasticoSchema }, // Opcional, solo si esMiembroIglesia
   social: { type: PerfilSocialSchema, default: () => ({}) },
   seguridad: { type: SeguridadSchema, default: () => ({}) },
+  perfilPublicitario: { type: PerfilPublicitarioSchema, default: () => ({}) }, // Para sistema de anuncios
 
   // Relaciones Sociales (Arrays de IDs)
   // Se mantienen como arrays de IDs por compatibilidad, aunque se recomienda mover a colecciones pivote para escalabilidad masiva
-  amigos: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  amigos: [{ type: Schema.Types.ObjectId, ref: 'UserV2' }],
   solicitudesAmistad: [{
-    usuario: { type: Schema.Types.ObjectId, ref: 'User' },
+    usuario: { type: Schema.Types.ObjectId, ref: 'UserV2' },
     estado: { type: String, enum: ['enviada', 'recibida'] },
     fecha: { type: Date, default: Date.now }
   }],
@@ -346,5 +378,12 @@ UserV2Schema.index({
 });
 
 const UserV2 = model('UserV2', UserV2Schema);
+
+// Registrar alias 'User' apuntando a la misma colección para compatibilidad con notificaciones antiguas
+try {
+  model('User');
+} catch (error) {
+  model('User', UserV2Schema, UserV2.collection.name);
+}
 
 module.exports = UserV2;

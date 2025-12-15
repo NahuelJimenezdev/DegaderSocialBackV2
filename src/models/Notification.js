@@ -34,7 +34,8 @@ const notificationSchema = new mongoose.Schema({
       'respuesta_comentario',
       'solicitud_iglesia',
       'solicitud_iglesia_aprobada',
-      'solicitud_iglesia_rechazada'
+      'solicitud_iglesia_rechazada',
+      'nuevo_anuncio'
     ],
     required: true
   },
@@ -46,7 +47,7 @@ const notificationSchema = new mongoose.Schema({
   referencia: {
     tipo: {
       type: String,
-      enum: ['Post', 'User', 'Group', 'Conversation', 'Comment', 'Meeting', 'Iglesia']
+      enum: ['Post', 'UserV2', 'Group', 'Conversation', 'Comment', 'Meeting', 'Iglesia', 'Ad']
     },
     id: {
       type: mongoose.Schema.Types.ObjectId,

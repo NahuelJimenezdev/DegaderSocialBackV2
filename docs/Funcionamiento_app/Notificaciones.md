@@ -934,6 +934,131 @@ const NotificationCard = ({ notificacion }) => {
 };
 ```
 
+```
+
+---
+
+## 📢 Notificaciones de Publicidad
+
+Esta sección documenta las notificaciones relacionadas con el sistema de publicidad (Ads).
+
+---
+
+### **1. Nuevo Anuncio Creado**
+
+**Tipo:** `nuevo_anuncio`
+
+**Quién la recibe:** Usuario con rol `Founder` (administrador del sistema)
+
+**Estructura Backend:**
+```javascript
+{
+  receptor: founderId,
+  emisor: clienteId,              // Usuario que creó el anuncio
+  tipo: 'nuevo_anuncio',
+  contenido: 'quiere generar un nuevo anuncio!',
+  referencia: {
+    tipo: 'Ad',
+    id: adId                      // ID del anuncio creado
+  }
+}
+```
+
+**Populate Requerido:**
+```javascript
+await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil username');
+await notification.populate('referencia.id', 'nombreCliente imagenUrl');
+```
+
+**Lo que DEBE mostrar el Frontend:**
+```
+[Foto de Ibrahim] Ibrahim Jiménez quiere generar un nuevo anuncio! "Librería del 12 de Octubre"
+[Botón: Ir al Panel]
+```
+
+**Datos Necesarios:**
+- ✅ Foto del cliente: `emisor.social.fotoPerfil`
+- ✅ Nombre del cliente: `emisor.nombres.primero + emisor.apellidos.primero`
+- ✅ Nombre del anuncio: `referencia.id.nombreCliente`
+- ✅ Imagen del anuncio: `referencia.id.imagenUrl` (opcional)
+
+**Comportamiento al Hacer Click:**
+- **NO** mostrar botones de Aceptar/Rechazar en la notificación
+- Redirigir directamente a `/admin/publicidad` (Panel de Administración de Publicidad)
+- El Founder aprueba/rechaza desde el panel, no desde la notificación
+
+**Implementación en `NotificationsDropdown.jsx`:**
+```javascript
+// En handleProfileClick
+if (notificacion.tipo === 'nuevo_anuncio') {
+    console.log('📢 Navegando a admin panel de publicidad');
+    navigate('/admin/publicidad');
+    setOpen(false);
+    return;
+}
+```
+
+**Implementación en `notificationController.js`:**
+```javascript
+// En getAllNotifications - transformación de mensaje
+} else if (n.tipo === 'nuevo_anuncio') {
+  const nombreAnuncio = n.referencia?.id?.nombreCliente || 'un anuncio';
+  mensaje = `${nombreCompleto} ${n.contenido} "${nombreAnuncio}"`;
+}
+```
+
+**Implementación en `adController.js`:**
+```javascript
+// Después de crear el anuncio exitosamente
+if (!isFounder) {
+  const founderUser = await UserV2.findOne({ 'seguridad.rolSistema': 'Founder' });
+  
+  if (founderUser) {
+    const notificacion = await Notification.create({
+      emisor: clienteId,
+      receptor: founderUser._id,
+      tipo: 'nuevo_anuncio',
+      contenido: 'quiere generar un nuevo anuncio!',
+      referencia: {
+        tipo: 'Ad',
+        id: newAd._id
+      },
+      leida: false
+    });
+
+    // Popular para socket
+    const notificacionPopulada = await Notification.findById(notificacion._id)
+      .populate('emisor', 'nombres apellidos social.fotoPerfil username')
+      .populate('referencia.id', 'nombreCliente imagenUrl');
+
+    // Emitir evento Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`notifications:${founderUser._id}`).emit('nueva-notificacion', notificacionPopulada);
+    }
+  }
+}
+```
+
+---
+
+### ⚠️ Errores Comunes en Notificaciones de Publicidad
+
+#### Error 1: Notificación no se crea
+**Causa:** El usuario que crea el anuncio ES el Founder
+**Solución:** Solo crear notificación si `!isFounder`
+
+#### Error 2: No muestra nombre del anuncio
+**Causa:** No se populó `referencia.id`
+**Solución:**
+```javascript
+.populate('referencia.id', 'nombreCliente imagenUrl')
+```
+
+#### Error 3: Click en notificación no navega
+**Causa:** Tipo de notificación no manejado en `handleProfileClick`
+**Solución:** Agregar el bloque `if (notificacion.tipo === 'nuevo_anuncio')` en `NotificationsDropdown.jsx`
+
 ---
 
 **Última actualización:** Diciembre 2024  

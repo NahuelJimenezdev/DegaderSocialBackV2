@@ -26,7 +26,7 @@ app.use(helmet({
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  max: 1000, // Relaxed limit for development: 1000 requests per 15 minutes
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: {
@@ -89,6 +89,7 @@ const folderRoutes = require('./routes/folder.routes');
 const meetingRoutes = require('./routes/meeting.routes.js');
 const fundacionRoutes = require('./routes/fundacion.routes');
 const iglesiaRoutes = require('./routes/iglesia.routes');
+const adRoutes = require('./routes/ad.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -124,6 +125,7 @@ app.use('/api/folders', folderRoutes);
 app.use('/api/reuniones', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
 app.use('/api/iglesias', iglesiaRoutes);
+app.use('/api/ads', adRoutes); // Sistema de publicidad
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {
@@ -143,12 +145,9 @@ app.use((err, req, res, next) => {
 });
 
 // Conexión a MongoDB
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rvdlva0.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.pcisms7.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
-mongoose.connect(uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(uri)
   .then(() => {
     console.log('✅ Conectado a MongoDB');
 

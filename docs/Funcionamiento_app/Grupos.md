@@ -389,145 +389,43 @@ POST   /api/publicaciones/grupo/:id     // Crear post en grupo
 | Fecha de Creación | `groupData.createdAt` | ✅ Real |
 | Propietario | `groupData.members` (rol 'owner') | ✅ Real |
 
-### Estadísticas
+### Estadísticas (Datos Reales ✅)
 
-| Métrica | Fuente | Estado | Solución |
+| Métrica | Fuente | Estado | Detalles |
 |---------|--------|--------|----------|
-| **Miembros Totales** | `groupData.members.length` | ✅ Real | - |
-| **Administradores** | Cuenta de `role === 'admin'` o `'owner'` | ✅ Real | - |
-| **Solicitudes Pendientes** | `groupData.joinRequests` filtrado por `status === 'pending'` | ✅ Real | - |
-| **Mensajes** | `groupData.messageCount` | ⚠️ Placeholder | Ver solución abajo |
-| **Archivos** | `groupData.fileCount` | ⚠️ Placeholder | Ver solución abajo |
-| **Actividad** | `groupData.activityLevel` | ⚠️ Placeholder | Ver solución abajo |
+| **Miembros Totales** | `groupData.members.length` | ✅ Real | Directo del array members |
+| **Administradores** | `role === 'admin' || 'owner'` | ✅ Real | Filtrado de members |
+| **Solicitudes Pendientes** | `groupData.joinRequests` | ✅ Real | Filtrado por status='pending' |
+| **Mensajes** | `group.estadisticas.totalMensajes` | ✅ Real | Contador en modelo (ver abajo) |
+| **Archivos** | `group.estadisticas.totalArchivos` | ✅ Real | Contador en modelo (ver abajo) |
+| **Actividad** | `group.estadisticas.nivelActividad` | ✅ Real | Calculado en tiempo real 0-100% |
 
 ---
 
-## 🔧 Soluciones para Datos Placeholder
+## 🔧 Implementación de Estadísticas (Opción 2 - Implementada)
 
-### Opción 1: Calcular en Tiempo Real (Frontend)
+Se ha implementado la **Opción 2**: Campos en el modelo con actualización automática.
 
-**Ventaja:** No requiere cambios en el modelo
-**Desventaja:** Requiere llamadas API adicionales
+### 1. Modelo de Grupo
+Campos agregados a `estadisticas`:
+- `totalMensajes`
+- `totalArchivos`
+- `nivelActividad`
 
-```javascript
-// En GroupInfo.jsx
-const [messageCount, setMessageCount] = useState(0);
-const [fileCount, setFileCount] = useState(0);
+### 2. Actualización Automática
+- **Mensajes/Archivos:** Se incrementan (`$inc`) automáticamente al usar `sendMessage` y `sendMessageWithFiles`.
+- **Actividad:** Se calcula en tiempo real al consultar el grupo (`getGroupById`) basado en mensajes de últimos 7 días.
 
-useEffect(() => {
-  const loadStats = async () => {
-    try {
-      // Obtener mensajes
-      const messages = await groupService.getMessages(groupData._id);
-      setMessageCount(messages.length);
-      
-      // Obtener archivos (si tienes endpoint)
-      const files = await groupService.getFiles(groupData._id);
-      setFileCount(files.length);
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    }
-  };
-  
-  if (groupData?._id) {
-    loadStats();
-  }
-}, [groupData?._id]);
-```
-
----
-
-### Opción 2: Agregar Campos al Modelo (Backend)
-
-**Ventaja:** Más eficiente, datos siempre disponibles
-**Desventaja:** Requiere mantener contadores actualizados
+### 3. Recuperación de Datos
+Si los contadores no existen o están en 0 (grupos antiguos), el sistema los inicializa automáticamente contando todos los documentos existentes.
 
 ```javascript
-// En Group.js - agregar a estadisticas
-estadisticas: {
-  totalPublicaciones: { type: Number, default: 0 },
-  publicacionesEsteMes: { type: Number, default: 0 },
-  totalMensajes: { type: Number, default: 0 },        // ✅ NUEVO
-  totalArchivos: { type: Number, default: 0 },        // ✅ NUEVO
-  nivelActividad: { type: Number, default: 0, min: 0, max: 100 }  // ✅ NUEVO
+// Ejemplo de lógica implementada en getGroupById
+if (!messageCount || messageCount === 0) {
+  // Inicializa contando todo si es necesario
+  const total = await GroupMessage.countDocuments({ grupo: id });
+  await Group.findByIdAndUpdate(id, { 'estadisticas.totalMensajes': total });
 }
-```
-
-**Actualizar contadores:**
-```javascript
-// En groupController.js - al enviar mensaje
-await Group.findByIdAndUpdate(groupId, {
-  $inc: { 'estadisticas.totalMensajes': 1 }
-});
-
-// En groupController.js - al subir archivo
-await Group.findByIdAndUpdate(groupId, {
-  $inc: { 'estadisticas.totalArchivos': 1 }
-});
-
-// Calcular nivel de actividad (cron job o al consultar)
-const calculateActivityLevel = (group) => {
-  const daysSinceCreation = (Date.now() - group.createdAt) / (1000 * 60 * 60 * 24);
-  const messagesPerDay = group.estadisticas.totalMensajes / daysSinceCreation;
-  const postsPerDay = group.estadisticas.totalPublicaciones / daysSinceCreation;
-  
-  // Fórmula simple: más mensajes y posts = mayor actividad
-  const activityScore = Math.min(100, (messagesPerDay * 10) + (postsPerDay * 20));
-  return Math.round(activityScore);
-};
-```
-
----
-
-### Opción 3: Usar Virtuals (Backend)
-
-**Ventaja:** Se calcula automáticamente al consultar
-**Desventaja:** Puede ser lento con muchos datos
-
-```javascript
-// En Group.js - agregar virtuals
-groupSchema.virtual('messageCount').get(async function() {
-  const GroupMessage = mongoose.model('GroupMessage');
-  return await GroupMessage.countDocuments({ grupo: this._id });
-});
-
-groupSchema.virtual('fileCount').get(async function() {
-  const GroupMessage = mongoose.model('GroupMessage');
-  return await GroupMessage.countDocuments({ 
-    grupo: this._id,
-    'attachments.0': { $exists: true }
-  });
-});
-```
-
----
-
-## 🎯 Recomendación
-
-**Para Mensajes y Archivos:**
-- Usar **Opción 2** (campos en modelo con contadores)
-- Actualizar contadores con `$inc` al crear/eliminar
-
-**Para Nivel de Actividad:**
-- Usar **Opción 2** con cálculo periódico (cron job diario)
-- O calcular en tiempo real al consultar el grupo
-
-**Implementación Sugerida:**
-```javascript
-// Backend - groupController.js
-const getGroupById = async (req, res) => {
-  const group = await Group.findById(req.params.id)
-    .populate('creador', 'nombres apellidos social.fotoPerfil')
-    .populate('administradores', 'nombres apellidos social.fotoPerfil')
-    .populate('miembros.usuario', 'nombres apellidos social.fotoPerfil');
-  
-  // Calcular nivel de actividad en tiempo real
-  if (group) {
-    group.estadisticas.nivelActividad = calculateActivityLevel(group);
-  }
-  
-  res.json(group);
-};
 ```
 
 ---

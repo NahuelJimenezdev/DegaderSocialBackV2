@@ -120,7 +120,7 @@ router.post('/solicitar', async (req, res) => {
       tipo: 'solicitud_amistad',
       contenido: 'te envió una solicitud de amistad',
       referencia: {
-        tipo: 'User',
+        tipo: 'UserV2',
         id: currentUserId
       }
     });
@@ -205,7 +205,7 @@ router.post('/aceptar', async (req, res) => {
       tipo: 'amistad_aceptada',
       contenido: 'aceptó tu solicitud de amistad',
       referencia: {
-        tipo: 'User',
+        tipo: 'UserV2',
         id: currentUserId
       }
     });

@@ -21,6 +21,9 @@ class SocketService {
 
   handleConnection(socket) {
     console.log('🔌 Cliente conectado:', socket.id);
+    console.log('   Transporte:', socket.conn.transport.name);
+    console.log('   IP:', socket.handshake.address);
+    console.log('   Headers:', JSON.stringify(socket.handshake.headers, null, 2));
 
     // Autenticación
     socket.on('authenticate', (data) => this.handleAuthenticate(socket, data));
@@ -35,7 +38,9 @@ class SocketService {
 
     // Desconexión
     socket.on('disconnect', () => this.handleDisconnect(socket));
-    socket.on('error', (error) => console.error('❌ Error en socket:', error));
+    socket.on('error', (error) => {
+      console.error('❌ Error en socket:', socket.id, error);
+    });
   }
 
   async handleAuthenticate(socket, data) {
@@ -54,6 +59,9 @@ class SocketService {
       // Guardar relación userId <-> socketId
       socket.userId = userId;
       this.connectedUsers.set(userId.toString(), socket.id);
+
+      // Unirse a la sala personal del usuario (para eventos generales dirigidos al usuario)
+      socket.join(`user:${userId}`);
 
       console.log(`✅ Usuario autenticado: ${userId} -> Socket: ${socket.id}`);
       socket.emit('authenticated', { userId, message: 'Autenticado correctamente' });

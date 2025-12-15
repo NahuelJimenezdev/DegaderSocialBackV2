@@ -145,14 +145,56 @@ const getGroupById = async (req, res) => {
     // Si hay más de 2 mensajes por miembro en 7 días, es alta actividad
     const activityLevel = Math.min(100, Math.round((avgMessagesPerMember / 2) * 100));
 
-    // Actualizar nivel de actividad en el modelo
-    await Group.findByIdAndUpdate(id, {
-      'estadisticas.nivelActividad': activityLevel
-    });
+    // Inicializar contadores si no existen o están en 0
+    let messageCount = groupObj.estadisticas?.totalMensajes;
+    let fileCount = groupObj.estadisticas?.totalArchivos;
 
-    // Agregar estadísticas al objeto de respuesta (usar datos del modelo)
-    groupObj.messageCount = groupObj.estadisticas?.totalMensajes || 0;
-    groupObj.fileCount = groupObj.estadisticas?.totalArchivos || 0;
+    // Solo recalcular si los contadores no existen o están en 0
+    if (!messageCount || messageCount === 0 || !fileCount || fileCount === 0) {
+      console.log(`🔄 Inicializando contadores para grupo ${id}...`);
+
+      // Contar todos los mensajes del grupo
+      const totalMessages = await GroupMessage.countDocuments({
+        grupo: id
+      });
+
+      // Contar mensajes con archivos
+      const totalFiles = await GroupMessage.countDocuments({
+        grupo: id,
+        'files.0': { $exists: true }
+      });
+
+      console.log(`📊 Contadores inicializados:`, {
+        totalMessages,
+        totalFiles,
+        activityLevel
+      });
+
+      // Actualizar en el modelo
+      await Group.findByIdAndUpdate(id, {
+        'estadisticas.totalMensajes': totalMessages,
+        'estadisticas.totalArchivos': totalFiles,
+        'estadisticas.nivelActividad': activityLevel
+      });
+
+      messageCount = totalMessages;
+      fileCount = totalFiles;
+    } else {
+      // Usar contadores existentes y solo actualizar actividad
+      console.log(`✅ Contadores actuales:`, {
+        messageCount,
+        fileCount,
+        activityLevel
+      });
+
+      await Group.findByIdAndUpdate(id, {
+        'estadisticas.nivelActividad': activityLevel
+      });
+    }
+
+    // Agregar estadísticas al objeto de respuesta
+    groupObj.messageCount = messageCount;
+    groupObj.fileCount = fileCount;
     groupObj.activityLevel = activityLevel;
 
     res.json(formatSuccessResponse('Grupo encontrado', groupObj));

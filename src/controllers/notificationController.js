@@ -12,6 +12,7 @@ const getAllNotifications = async (req, res) => {
 
     const notifications = await Notification.find({ receptor: req.userId })
       .populate('emisor', 'nombres apellidos social.fotoPerfil')
+      .populate('referencia.id')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
@@ -37,8 +38,9 @@ const getAllNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_cancelada') {
         mensaje = `${nombreCompleto} canceló la solicitud de amistad`;
       } else if (n.tipo === 'solicitud_grupo') {
-        // Para solicitudes de grupo, agregar el nombre del usuario que solicita
-        mensaje = `${nombreCompleto} ${n.contenido}`;
+        // Para solicitudes de grupo, agregar el nombre del usuario y del grupo
+        const nombreGrupo = n.referencia?.id?.nombre || 'un grupo';
+        mensaje = `${nombreCompleto} solicitó unirse al grupo "${nombreGrupo}"`;
       } else if (n.tipo === 'promocion_admin_grupo') {
         // Para promoción a admin, incluir nombre del grupo
         const nombreGrupo = n.referencia?.id?.nombre || 'el grupo';
@@ -49,6 +51,10 @@ const getAllNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
         // Para notificaciones de iglesia, usar el contenido tal cual
         mensaje = n.contenido;
+      } else if (n.tipo === 'nuevo_anuncio') {
+        // Notificación de nuevo anuncio
+        const nombreAnuncio = n.referencia?.id?.nombreCliente || 'un anuncio';
+        mensaje = `${nombreCompleto} ${n.contenido} "${nombreAnuncio}"`;
       } else if (n.contenido) {
         mensaje = `${nombreCompleto} ${n.contenido}`;
       }
@@ -114,6 +120,7 @@ const getUnreadNotifications = async (req, res) => {
       leida: false
     })
       .populate('emisor', 'nombres apellidos social.fotoPerfil')
+      .populate('referencia.id')
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -136,8 +143,9 @@ const getUnreadNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_cancelada') {
         mensaje = `${nombreCompleto} canceló la solicitud de amistad`;
       } else if (n.tipo === 'solicitud_grupo') {
-        // Para solicitudes de grupo, agregar el nombre del usuario que solicita
-        mensaje = `${nombreCompleto} ${n.contenido}`;
+        // Para solicitudes de grupo, agregar el nombre del usuario y del grupo
+        const nombreGrupo = n.referencia?.id?.nombre || 'un grupo';
+        mensaje = `${nombreCompleto} solicitó unirse al grupo "${nombreGrupo}"`;
       } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
         // Para respuestas a solicitudes de grupo, el mensaje ya está completo
         mensaje = n.contenido;

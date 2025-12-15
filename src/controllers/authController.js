@@ -20,7 +20,7 @@ const generateToken = (userId) => {
  */
 const register = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, legajo, area, cargo } = req.body;
+    const { nombre, apellido, email, password, fechaNacimiento } = req.body;
 
     // Validar datos
     const validation = validateRegisterData(req.body);
@@ -44,6 +44,7 @@ const register = async (req, res) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       personal: {
+        fechaNacimiento: fechaNacimiento,
         ubicacion: {}
       },
       social: {},
@@ -53,16 +54,7 @@ const register = async (req, res) => {
       }
     });
 
-    // Si vienen datos de fundación, agregarlos
-    if (legajo || area || cargo) {
-      user.esMiembroFundacion = true;
-      user.fundacion = {
-        activo: true,
-        codigoEmpleado: legajo,
-        area: area,
-        cargo: cargo
-      };
-    }
+
 
     await user.save();
 

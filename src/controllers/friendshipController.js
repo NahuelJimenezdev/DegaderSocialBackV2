@@ -58,7 +58,7 @@ const sendFriendRequest = async (req, res) => {
       tipo: 'solicitud_amistad',
       contenido: 'te envió una solicitud de amistad',
       referencia: {
-        tipo: 'User',
+        tipo: 'UserV2',
         id: req.userId
       }
     });
@@ -142,7 +142,7 @@ const acceptFriendRequest = async (req, res) => {
       tipo: 'amistad_aceptada',
       contenido: 'aceptó tu solicitud de amistad',
       referencia: {
-        tipo: 'User',
+        tipo: 'UserV2',
         id: req.userId
       }
     });
@@ -246,17 +246,26 @@ const getFriends = async (req, res) => {
       .sort({ fechaAceptacion: -1 });
 
     // Formatear respuesta para obtener solo el amigo (no el usuario actual)
-    const friends = friendships.map(friendship => {
-      const friend = friendship.solicitante._id.equals(req.userId)
-        ? friendship.receptor
-        : friendship.solicitante;
+    const friends = friendships
+      .filter(friendship => {
+        // Filtrar amistades donde alguno de los usuarios fue eliminado
+        if (!friendship.solicitante || !friendship.receptor) {
+          console.warn(`⚠️ Amistad con usuario eliminado encontrada: ${friendship._id}`);
+          return false;
+        }
+        return true;
+      })
+      .map(friendship => {
+        const friend = friendship.solicitante._id.equals(req.userId)
+          ? friendship.receptor
+          : friendship.solicitante;
 
-      return {
-        ...friend.toObject(),
-        fechaAmistad: friendship.fechaAceptacion,
-        friendshipId: friendship._id
-      };
-    });
+        return {
+          ...friend.toObject(),
+          fechaAmistad: friendship.fechaAceptacion,
+          friendshipId: friendship._id
+        };
+      });
 
     res.json(formatSuccessResponse('Amigos obtenidos', friends));
   } catch (error) {
@@ -303,7 +312,7 @@ const removeFriend = async (req, res) => {
           tipo: 'amistad_eliminada',
           contenido: 'eliminó la amistad',
           referencia: {
-            tipo: 'User',
+            tipo: 'UserV2',
             id: req.userId
           }
         });
@@ -330,7 +339,7 @@ const removeFriend = async (req, res) => {
             tipo: 'solicitud_cancelada',
             contenido: 'canceló la solicitud de amistad',
             referencia: {
-              tipo: 'User',
+              tipo: 'UserV2',
               id: req.userId
             }
           });

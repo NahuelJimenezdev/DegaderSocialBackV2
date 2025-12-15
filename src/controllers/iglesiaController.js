@@ -136,7 +136,7 @@ const unirseIglesia = async (req, res) => {
 
     // Crear notificación para el pastor
     const Notification = require('../models/Notification');
-    await Notification.create({
+    const nuevaNotificacion = await Notification.create({
       receptor: iglesia.pastorPrincipal._id,
       emisor: req.userId,
       tipo: 'solicitud_iglesia',
@@ -154,6 +154,7 @@ const unirseIglesia = async (req, res) => {
     // Emitir evento socket al pastor
     const io = req.app.get('io');
     if (io) {
+      // 1. Evento específico para la vista de iglesia (recarga lista miembros)
       io.to(`user:${iglesia.pastorPrincipal._id}`).emit('nuevaSolicitudIglesia', {
         iglesiaId: iglesia._id,
         iglesiaNombre: iglesia.nombre,
@@ -163,6 +164,21 @@ const unirseIglesia = async (req, res) => {
           apellidos: solicitante.apellidos
         }
       });
+
+      // 2. Evento genérico para la campanita de notificaciones (Dropdown)
+      try {
+        const fullNotification = await Notification.findById(nuevaNotificacion._id)
+          .populate('emisor', 'nombres apellidos social.fotoPerfil')
+          .populate('receptor', 'nombres apellidos social.fotoPerfil');
+
+        if (fullNotification) {
+          // Usar 'notifications:userId' porque es donde el frontend NotificationsDropdown escucha
+          io.to(`notifications:${iglesia.pastorPrincipal._id}`).emit('newNotification', fullNotification);
+          console.log('🔔 Notificación enviada a socket notifications:', iglesia.pastorPrincipal._id);
+        }
+      } catch (err) {
+        console.error('Error emitiendo newNotification:', err);
+      }
     }
 
     // Devolver iglesia actualizada
@@ -294,6 +310,20 @@ const gestionarSolicitud = async (req, res) => {
       }
     }
 
+    // 🧹 Limpieza: Eliminar la notificación original de solicitud para que no vuelva a aparecer
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.deleteMany({
+        receptor: req.userId,
+        emisor: userId,
+        tipo: 'solicitud_iglesia',
+        'referencia.id': iglesia._id
+      });
+      console.log('🧹 gestionarSolicitud - Notificación original eliminada');
+    } catch (cleanupErr) {
+      console.warn('⚠️ Error limpiando notificación original:', cleanupErr);
+    }
+
     console.log('🔄 gestionarSolicitud - Guardando iglesia...');
     await iglesia.save();
     console.log('✅ gestionarSolicitud - Iglesia guardada');
@@ -302,11 +332,11 @@ const gestionarSolicitud = async (req, res) => {
     const Notification = require('../models/Notification');
     const tipoNotificacion = accion === 'aprobar' ? 'solicitud_iglesia_aprobada' : 'solicitud_iglesia_rechazada';
     const contenido = accion === 'aprobar'
-      ? `Tu solicitud para unirte a ${iglesia.nombre} ha sido aprobada`
-      : `Tu solicitud para unirte a ${iglesia.nombre} ha sido rechazada`;
+      ? `¡Felicidades! Has sido aceptado como miembro en la iglesia ${iglesia.nombre}.`
+      : `Tu solicitud para unirte a la iglesia ${iglesia.nombre} no fue aceptada en esta ocasión.`;
 
     console.log('🔄 gestionarSolicitud - Creando notificación...');
-    await Notification.create({
+    const nuevaNotificacion = await Notification.create({
       receptor: userId,
       emisor: req.userId,
       tipo: tipoNotificacion,
@@ -317,6 +347,7 @@ const gestionarSolicitud = async (req, res) => {
       },
       metadata: {
         iglesiaNombre: iglesia.nombre,
+        iglesiaLogo: iglesia.logo, // ✅ Agregar logo para mostrar en notificación
         accion
       }
     });
@@ -339,6 +370,22 @@ const gestionarSolicitud = async (req, res) => {
         solicitudesPendientes: iglesia.solicitudes.length,
         applicantId: userId // ID del usuario cuya solicitud fue procesada
       });
+
+      // ✅ NUEVO: Emitir evento 'newNotification' para que aparezca en la campanita del usuario
+      try {
+        const fullNotification = await Notification.findById(nuevaNotificacion._id)
+          .populate('emisor', 'nombres apellidos social.fotoPerfil')
+          .populate('receptor', 'nombres apellidos social.fotoPerfil');
+
+        if (fullNotification) {
+          // Usar 'notifications:userId' porque es donde el frontend NotificationsDropdown escucha
+          io.to(`notifications:${userId}`).emit('newNotification', fullNotification);
+          console.log('🔔 Notificación de respuesta enviada a socket notifications:', userId);
+        }
+      } catch (err) {
+        console.error('Error emitiendo newNotification respuesta:', err);
+      }
+
       console.log('✅ gestionarSolicitud - Eventos socket emitidos');
     } else {
       console.log('⚠️ gestionarSolicitud - Socket.io no disponible');

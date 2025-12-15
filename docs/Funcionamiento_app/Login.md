@@ -39,7 +39,26 @@ const User = require('../models/User.model.js');
 4. Genera un token JWT
 5. Retorna el token y datos del usuario
 
-#### 3. **Rutas de Autenticación**
+### Proceso de Registro
+**Campos Requeridos del Formulario:**
+- `nombre` (Se mapea a `nombres.primero`)
+- `apellido` (Se mapea a `apellidos.primero`)
+- `email` (Debe ser único)
+- `fechaNacimiento` (Requerido para cálculo de edad)
+- `password` (Mínimo 6 caracteres)
+- `confirmPassword` (Debe coincidir con `password`)
+
+**Validaciones Frontend:**
+- Todos los campos son obligatorios.
+- Las contraseñas deben coincidir.
+- Email con formato válido.
+
+**Flujo de Registro:**
+1. Frontend envía datos a `POST /api/auth/register`.
+2. Backend valida duplicidad de email/username.
+3. Se crea usuario con estructura `UserV2`.
+4. Se genera token JWT automático para login inmediato.
+5. Redirección al feed/inicio.
 **Archivo:** `src/routes/auth.routes.js`
 
 **Endpoints:**

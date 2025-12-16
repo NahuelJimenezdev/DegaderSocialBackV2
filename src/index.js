@@ -62,10 +62,32 @@ app.use(cors({
   optionsSuccessStatus: 200 // Para navegadores legacy
 }));
 
+// Log de CORS
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    console.log('🔓 CORS request from:', origin);
+  }
+  next();
+});
+
 // Middlewares
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.http(message.trim()) } }));
+
+// Middleware de logging para debug
+app.use((req, res, next) => {
+  console.log(`\n🌐 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('📍 Origin:', req.headers.origin || 'No origin header');
+  console.log('🔑 Authorization:', req.headers.authorization ? 'Present' : 'Not present');
+  if (req.body && Object.keys(req.body).length > 0) {
+    const bodyLog = { ...req.body };
+    if (bodyLog.password) bodyLog.password = '***';
+    console.log('📦 Body:', bodyLog);
+  }
+  next();
+});
 
 // Servir archivos estáticos (uploads) con CORS
 app.use('/uploads', (req, res, next) => {
@@ -145,7 +167,14 @@ app.use((err, req, res, next) => {
 });
 
 // Conexión a MongoDB
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.pcisms7.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
+const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
+
+// Debug: Mostrar la URI (sin la contraseña por seguridad)
+console.log('🔍 Intentando conectar a MongoDB...');
+console.log(`   Usuario: ${process.env.DB_USER}`);
+console.log(`   Cluster: ${DB_CLUSTER}`);
+console.log(`   Base de datos: ${process.env.DB_NAME}`);
 
 mongoose.connect(uri)
   .then(() => {

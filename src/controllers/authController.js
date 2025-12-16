@@ -34,15 +34,13 @@ const register = async (req, res) => {
       return res.status(400).json(formatErrorResponse('El email ya está registrado'));
     }
 
-    // Hash de la contraseña con argon2
-    const hashedPassword = await argon2.hash(password);
-
     // Crear usuario con nueva estructura
+    // NOTA: NO hasheamos la contraseña aquí porque el middleware pre('save') del modelo lo hace automáticamente
     const user = new User({
       nombres: { primero: nombre },
       apellidos: { primero: apellido },
       email: email.toLowerCase(),
-      password: hashedPassword,
+      password: password, // ← Contraseña en texto plano, el modelo la hasheará
       personal: {
         fechaNacimiento: fechaNacimiento,
         ubicacion: {}
@@ -53,8 +51,6 @@ const register = async (req, res) => {
         rolSistema: 'usuario'
       }
     });
-
-
 
     await user.save();
 
@@ -84,26 +80,62 @@ const register = async (req, res) => {
  * POST /api/auth/login
  */
 const login = async (req, res) => {
+  console.log('🔐 ===== INICIO LOGIN =====');
+  console.log('📥 Request recibido:', {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: { email: req.body.email, password: '***' }
+  });
+
   try {
     const { email, password } = req.body;
 
     // Validar campos
     if (!email || !password) {
+      console.log('❌ Validación fallida: Campos faltantes');
       return res.status(400).json(formatErrorResponse('Email y contraseña son obligatorios'));
     }
 
+    console.log('🔍 Buscando usuario con email:', email.toLowerCase());
+
     // Buscar usuario (incluir password)
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+
     if (!user) {
+      console.log('❌ Usuario no encontrado para email:', email.toLowerCase());
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
     }
 
+    console.log('✅ Usuario encontrado:', {
+      id: user._id,
+      email: user.email,
+      nombre: `${user.nombres.primero} ${user.apellidos.primero}`,
+      rolSistema: user.seguridad?.rolSistema
+    });
+
+    // Verificar contraseña con argon2
+    console.log('🔑 Verificando contraseña...');
+    const isPasswordValid = await argon2.verify(user.password, password);
+
+    if (!isPasswordValid) {
+      console.log('❌ Contraseña inválida para usuario:', email);
+      return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
+    }
+
+    console.log('✅ Contraseña válida');
+
     // Generar token
+    console.log('🎫 Generando token JWT...');
     const token = generateToken(user._id);
+    console.log('✅ Token generado');
 
     // Remover password de la respuesta
     const userResponse = user.toObject();
     delete userResponse.password;
+
+    console.log('📤 Enviando respuesta exitosa');
+    console.log('🔐 ===== FIN LOGIN EXITOSO =====\n');
 
     res.json({
       success: true,
@@ -114,7 +146,9 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('💥 ERROR EN LOGIN:', error);
+    console.error('Stack trace:', error.stack);
+    console.log('🔐 ===== FIN LOGIN CON ERROR =====\n');
     res.status(500).json(formatErrorResponse('Error al iniciar sesión', [error.message]));
   }
 };
@@ -163,8 +197,8 @@ const changePassword = async (req, res) => {
       return res.status(401).json(formatErrorResponse('Contraseña actual incorrecta'));
     }
 
-    // Hash de la nueva contraseña
-    user.password = await argon2.hash(newPassword);
+    // Asignar nueva contraseña (el middleware pre('save') la hasheará automáticamente)
+    user.password = newPassword;
     await user.save();
 
     res.json(formatSuccessResponse('Contraseña actualizada exitosamente'));

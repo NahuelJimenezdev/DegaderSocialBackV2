@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const Friendship = require('../models/Friendship'); // Importar Friendship
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const path = require('path');
 const fs = require('fs');
@@ -84,6 +85,22 @@ const getUserById = async (req, res) => {
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    // Verificar si hay bloqueo
+    const currentUserId = req.user ? req.user._id : null;
+    if (currentUserId && currentUserId.toString() !== id) {
+      const blockedFriendship = await Friendship.findOne({
+        $or: [
+          { solicitante: currentUserId, receptor: id, estado: 'bloqueada' },
+          { solicitante: id, receptor: currentUserId, estado: 'bloqueada' }
+        ]
+      });
+
+      if (blockedFriendship) {
+        // Retornar 404 para simular que el usuario no existe (invisibilidad)
+        return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+      }
     }
 
     const user = await User.findById(id).select('-password');

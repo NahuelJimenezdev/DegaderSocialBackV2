@@ -211,6 +211,7 @@ const SeguridadSchema = new Schema({
 
   // Auditoría
   ultimoLogin: { type: Date },
+  ultimaConexion: { type: Date }, // Para estado online/offline en tiempo real
   ipUltimoLogin: { type: String },
   intentosFallidos: { type: Number, default: 0 },
   cambioPassword: { type: Date },

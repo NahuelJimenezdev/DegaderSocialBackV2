@@ -64,3 +64,9 @@ Thumbs.db
 
 # Misc
 .cache/
+
+# Security - Admin/Founder Scripts (NEVER COMMIT THESE)
+# These scripts can create admin/founder users and should NEVER be in the repository
+scripts/
+src/scripts/
+*.seed.js

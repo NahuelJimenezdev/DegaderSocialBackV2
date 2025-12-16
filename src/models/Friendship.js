@@ -16,8 +16,25 @@ const friendshipSchema = new mongoose.Schema({
     enum: ['pendiente', 'aceptada', 'rechazada', 'bloqueada'],
     default: 'pendiente'
   },
+  bloqueadoPor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserV2'
+  },
   fechaAceptacion: {
     type: Date
+  },
+  // Campos para gestión de amigos (cada usuario tiene su propia configuración)
+  favoritos: {
+    solicitante: { type: Boolean, default: false },
+    receptor: { type: Boolean, default: false }
+  },
+  fijado: {
+    solicitante: { type: Boolean, default: false },
+    receptor: { type: Boolean, default: false }
+  },
+  silenciado: {
+    solicitante: { type: Boolean, default: false },
+    receptor: { type: Boolean, default: false }
   }
 }, {
   timestamps: true

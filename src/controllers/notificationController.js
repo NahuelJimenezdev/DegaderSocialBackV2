@@ -231,7 +231,9 @@ const markAsRead = async (req, res) => {
     const notification = await Notification.findById(id);
 
     if (!notification) {
-      return res.status(404).json(formatErrorResponse('Notificación no encontrada'));
+      // Si la notificación no existe, devolver éxito (ya fue eliminada)
+      console.log(`Notificación ${id} no encontrada - probablemente ya fue eliminada`);
+      return res.json(formatSuccessResponse('Notificación procesada', { leida: true }));
     }
 
     // Verificar que la notificación pertenece al usuario
@@ -239,6 +241,7 @@ const markAsRead = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permiso para modificar esta notificación'));
     }
 
+    // Solo actualizar si no está leída
     if (!notification.leida) {
       notification.leida = true;
       notification.fechaLeida = new Date();
@@ -248,6 +251,10 @@ const markAsRead = async (req, res) => {
     res.json(formatSuccessResponse('Notificación marcada como leída', notification));
   } catch (error) {
     console.error('Error al marcar notificación:', error);
+    // Si es un error de cast (ID inválido de MongoDB), devolver 400
+    if (error.name === 'CastError') {
+      return res.status(400).json(formatErrorResponse('ID de notificación inválido'));
+    }
     res.status(500).json(formatErrorResponse('Error al marcar notificación', [error.message]));
   }
 };

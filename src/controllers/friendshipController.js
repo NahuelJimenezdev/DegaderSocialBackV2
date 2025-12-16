@@ -34,6 +34,9 @@ const sendFriendRequest = async (req, res) => {
     });
 
     if (existingRequest) {
+      if (existingRequest.estado === 'bloqueada') {
+        return res.status(403).json(formatErrorResponse('No es posible enviar la solicitud. Usuario bloqueado.'));
+      }
       if (existingRequest.estado === 'aceptada') {
         return res.status(400).json(formatErrorResponse('Ya son amigos'));
       }
@@ -233,16 +236,20 @@ const rejectFriendRequest = async (req, res) => {
  * Obtener lista de amigos
  * GET /api/amistades/friends
  */
+// Obtener lista de amigos
 const getFriends = async (req, res) => {
   try {
     const friendships = await Friendship.find({
       $or: [
         { solicitante: req.userId, estado: 'aceptada' },
-        { receptor: req.userId, estado: 'aceptada' }
+        { receptor: req.userId, estado: 'aceptada' },
+        // Incluir bloqueados por el usuario actual (asimetría)
+        { solicitante: req.userId, estado: 'bloqueada', bloqueadoPor: req.userId },
+        { receptor: req.userId, estado: 'bloqueada', bloqueadoPor: req.userId }
       ]
     })
-      .populate('solicitante', 'nombres apellidos social email ultimaConexion personal')
-      .populate('receptor', 'nombres apellidos social email ultimaConexion personal')
+      .populate('solicitante', 'nombres apellidos social email seguridad.ultimaConexion personal')
+      .populate('receptor', 'nombres apellidos social email seguridad.ultimaConexion personal')
       .sort({ fechaAceptacion: -1 });
 
     // Formatear respuesta para obtener solo el amigo (no el usuario actual)
@@ -256,14 +263,25 @@ const getFriends = async (req, res) => {
         return true;
       })
       .map(friendship => {
-        const friend = friendship.solicitante._id.equals(req.userId)
+        const isSolicitante = friendship.solicitante._id.equals(req.userId);
+        const friend = isSolicitante
           ? friendship.receptor
           : friendship.solicitante;
+
+        // Obtener configuración según el rol del usuario
+        const userConfig = isSolicitante ? 'solicitante' : 'receptor';
+
+        const isBlocked = friendship.estado === 'bloqueada';
 
         return {
           ...friend.toObject(),
           fechaAmistad: friendship.fechaAceptacion,
-          friendshipId: friendship._id
+          friendshipId: friendship._id,
+          // Agregar campos de gestión de amigos
+          isFavorite: friendship.favoritos[userConfig] || false,
+          isPinned: friendship.fijado[userConfig] || false,
+          isMuted: friendship.silenciado[userConfig] || false,
+          isBlocked // Flag para el frontend
         };
       });
 

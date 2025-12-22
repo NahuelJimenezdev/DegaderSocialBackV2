@@ -181,7 +181,7 @@ mongoose.connect(uri)
     console.log('✅ Conectado a MongoDB');
 
     // Inicio del servidor con Socket.IO (solo después de conectar a DB)
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Servidor HTTP corriendo en http://localhost:${PORT}`);
       console.log(`🔌 Socket.IO habilitado`);
       console.log(`📝 Ambiente: ${process.env.NODE_ENV || 'development'}`);

@@ -33,6 +33,7 @@ class SocketService {
     // Suscripciones
     socket.on('subscribeNotifications', (data) => this.handleSubscribeNotifications(socket, data));
     socket.on('subscribeConversation', (data) => this.handleSubscribeConversation(socket, data));
+    socket.on('unsubscribeConversation', (data) => this.handleUnsubscribeConversation(socket, data));
     socket.on('subscribeGroup', (data) => this.handleSubscribeGroup(socket, data));
     socket.on('unsubscribeGroup', (data) => this.handleUnsubscribeGroup(socket, data));
     socket.on('subscribeMeetings', (data) => this.handleSubscribeMeetings(socket, data));
@@ -99,6 +100,13 @@ class SocketService {
     if (socket.userId) {
       socket.join(`conversation:${conversationId}`);
       console.log(`💬 Usuario ${socket.userId} se unió a conversación ${conversationId}`);
+    }
+  }
+
+  handleUnsubscribeConversation(socket, { conversationId }) {
+    if (socket.userId) {
+      socket.leave(`conversation:${conversationId}`);
+      console.log(`💬 Usuario ${socket.userId} salió de conversación ${conversationId}`);
     }
   }
 

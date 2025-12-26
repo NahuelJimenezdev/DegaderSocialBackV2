@@ -17,16 +17,8 @@ uploadDirs.forEach(dir => {
   }
 });
 
-// Configuración de almacenamiento para avatares
-const avatarStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/avatars');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'avatar-' + req.userId + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configuración de almacenamiento para avatares (en memoria para R2)
+const avatarStorage = multer.memoryStorage();
 
 // Configuración de almacenamiento para banners
 const bannerStorage = multer.diskStorage({

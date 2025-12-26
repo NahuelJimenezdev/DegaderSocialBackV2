@@ -20,6 +20,8 @@
   "homepage": "https://github.com/NahuelJimenezdev/DegaderSocialBackV2#readme",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.958.0",
+    "@aws-sdk/s3-request-presigner": "^3.958.0",
     "argon2": "^0.44.0",
     "axios": "^1.13.1",
     "cheerio": "^1.1.2",

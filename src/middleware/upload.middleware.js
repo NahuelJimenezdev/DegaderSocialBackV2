@@ -42,16 +42,8 @@ const postStorage = multer.diskStorage({
   }
 });
 
-// Configuración de almacenamiento para grupos
-const groupStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/groups');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'group-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configuración de almacenamiento para grupos (en memoria para R2)
+const groupStorage = multer.memoryStorage();
 
 // Configuración de almacenamiento para mensajes
 const messageStorage = multer.diskStorage({

@@ -8,35 +8,89 @@ const argon2 = require('argon2');
 
 const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 
-// Jerarquía Fundación
+// Niveles jerárquicos Fundación
 const NIVELES_FUNDACION = [
   "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal"
 ];
 
 const AREAS_FUNDACION = [
   // Directivo General
-  "Dirección Ejecutiva", "Junta Directiva", "Secretaría Ejecutiva", "Licitación y Adquisiciones",
+  "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
   // Órganos de Control
-  "Control Interno y Seguimiento", "Asuntos Éticos",
+  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos",
   // Organismos Internacionales
   "Salvación Mundial", "Misión Internacional de Paz",
   // Áreas por nivel nacional/regional/departamental/municipal
-  "Planeación Estratégica y Proyectos", "Asuntos Étnicos", "Infraestructura", "Sostenibilidad Ambiental", "Recursos Humanos y Seguridad Laboral", "Jurídica", "Salud", "Psicosocial", "Protección Animal", "Educación", "Financiera", "Imagen Corporativa y Comunicación", "Seguridad"
+  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad"
+];
+
+// Subdirecciones / Unidades internas
+const SUBAREAS_FUNDACION = [
+  "Dirección Psicosocial", "Dirección de Protección Animal", "Gerencia Clínica", "Gerencia Clínica Veterinaria", "Interventoría Interna", "Interventoría Externa"
+];
+
+
+
+// Programas
+const PROGRAMAS_FUNDACION = [
+  "Banco de Proyectos",
+  "Programa de Conexión y Desarrollo Informático",
+  "Programa de Estrategias Comerciales de Desarrollo Productivo",
+
+  "Programas de Asuntos y Competencia Laboral",
+  "Programas de Bienestar y Seguridad Laboral",
+  "Programa de Gestión Documental y Almacén",
+
+  "Contratación",
+  "Banco de Oferentes",
+  "Programa de Jueces de Paz",
+
+  "Programas de Salud",
+  "Programas de Salud Mental",
+  "Programas de Salud Sexual y Reproductiva",
+  "Programas de Acompañamiento Productivo",
+
+  "Programas de Promoción y Prevención en la Salud Animal",
+
+  "Programas de Educación",
+  "Programas de Cultura y Turismo",
+  "Gerencias Universitarias",
+
+  "Programas de Tesorería",
+  "Programas de Contabilidad",
+
+  "Comunicaciones de Prensa",
+  "Programas de Radio y Televisión"
 ];
 
 const CARGOS_FUNDACION = [
   // Directivo General
-  "Director Ejecutivo", "Directivo Nacional", "Secretaría Ejecutiva", "Equipo de Licitación y Adquisiciones",
-  // Órganos de Control
-  "Auditor de Control Interno", "Miembro Comité Ético",
-  // Organismos Internacionales
-  "Delegado Salvación Mundial", "Delegado Misión Internacional de Paz",
-  // Direcciones por nivel
-  "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal",
-  // Roles funcionales
-  "Profesional", "Encargado", "Asistente", "Voluntario"
-];
+  "Director Ejecutivo",
+  "Secretario Ejecutivo",
+  "Miembro de Junta Directiva",
 
+  // Direcciones por nivel
+  "Director Nacional",
+  "Director Regional",
+  "Director Departamental",
+  "Coordinador Municipal",
+
+  // Director General (Pastor) - Rol territorial
+  "Director General (Pastor)",
+
+  // Órganos de Control
+  "Auditor",
+  "Miembro Comité Ético",
+  "Delegado Internacional"
+];
+// Roles funcionales (qué hace)
+const ROLES_FUNCIONALES = [
+  "profesional",
+  "encargado",
+  "asistente",
+  "voluntario",
+  "pastor"
+];
 
 // Jerarquía Eclesiástica
 const MINISTERIOS = [
@@ -92,7 +146,10 @@ const PerfilFundacionSchema = new Schema({
   area: {
     type: String,
     enum: AREAS_FUNDACION,
-    required: function () { return this.activo; }
+    required: function () {
+      // Área es opcional para Director General (Pastor) - pastores territoriales
+      return this.activo && this.cargo !== 'Director General (Pastor)';
+    }
   },
 
   cargo: {

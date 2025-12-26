@@ -2,6 +2,7 @@ const Group = require('../models/Group');
 const GroupMessage = require('../models/GroupMessage');
 const Notification = require('../models/Notification');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
+const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 
 /**
  * Obtener todos los grupos
@@ -242,8 +243,9 @@ const createGroup = async (req, res) => {
 
     // Agregar imagen si se subió
     if (req.file) {
-      groupData.imagen = `/uploads/groups/${req.file.filename}`;
-      console.log('🖼️ Imagen agregada:', groupData.imagen);
+      const imageUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'groups');
+      groupData.imagen = imageUrl;
+      console.log('🖼️ Imagen agregada a R2:', groupData.imagen);
     }
 
     const group = new Group(groupData);
@@ -318,7 +320,16 @@ const updateGroup = async (req, res) => {
 
     // Actualizar imagen si se subió
     if (req.file) {
-      group.imagen = `/uploads/groups/${req.file.filename}`;
+      // Eliminar imagen anterior de R2 si existe
+      if (group.imagen && group.imagen.startsWith('https://')) {
+        try {
+          await deleteFromR2(group.imagen);
+        } catch (error) {
+          console.error('Error al eliminar imagen anterior de R2:', error);
+        }
+      }
+      const imageUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'groups');
+      group.imagen = imageUrl;
     }
 
     await group.save();
@@ -613,8 +624,18 @@ const uploadGroupAvatar = async (req, res) => {
       return res.status(400).json(formatErrorResponse('No se proporcionó ninguna imagen'));
     }
 
-    // Actualizar la imagen
-    group.imagen = `/uploads/groups/${req.file.filename}`;
+    // Eliminar imagen anterior de R2 si existe
+    if (group.imagen && group.imagen.startsWith('https://')) {
+      try {
+        await deleteFromR2(group.imagen);
+      } catch (error) {
+        console.error('Error al eliminar imagen anterior de R2:', error);
+      }
+    }
+
+    // Subir nueva imagen a R2
+    const imageUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'groups');
+    group.imagen = imageUrl;
     await group.save();
 
     res.json(formatSuccessResponse('Avatar actualizado exitosamente', { imagen: group.imagen }));

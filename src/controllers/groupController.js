@@ -1736,20 +1736,23 @@ const sendMessageWithFiles = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
     }
 
-    // Procesar archivos subidos
-    const files = (req.files || []).map(file => {
+    // Procesar archivos subidos y subirlos a R2
+    const files = await Promise.all((req.files || []).map(async (file) => {
       let tipo = 'file';
       if (file.mimetype.startsWith('image/')) tipo = 'image';
       else if (file.mimetype.startsWith('video/')) tipo = 'video';
       else if (file.mimetype.startsWith('audio/')) tipo = 'audio';
 
+      // Subir archivo a R2
+      const fileUrl = await uploadToR2(file.buffer, file.originalname, 'group-attachments');
+
       return {
-        url: `/uploads/group_attachments/${file.filename}`,
+        url: fileUrl,
         nombre: file.originalname,
         tipo: tipo,
         tamaño: file.size
       };
-    });
+    }));
 
     // Determinar el tipo de mensaje
     let tipoMensaje = 'texto';

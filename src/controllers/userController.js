@@ -4,7 +4,7 @@ const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require(
 const { enviarNotificacionesJerarquicas } = require('../utils/fundacionNotifications');
 const path = require('path');
 const fs = require('fs');
-
+const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 /**
  * Obtener todos los usuarios (con paginación)
  * GET /api/usuarios
@@ -312,7 +312,7 @@ const uploadAvatar = async (req, res) => {
     }
 
     // Actualizar avatar en el perfil social
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    const avatarUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'avatars');
 
     // Inicializar social si no existe
     if (!user.social) {
@@ -362,7 +362,7 @@ const uploadBanner = async (req, res) => {
     }
 
     // Actualizar banner en el perfil social
-    const bannerUrl = `/uploads/banners/${req.file.filename}`;
+    const bannerUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'banners');
 
     // Inicializar social si no existe
     if (!user.social) {

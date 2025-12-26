@@ -122,20 +122,8 @@ const uploadMessageFile = multer({
   limits: limits
 }).single('archivo');
 
-// Configuración de almacenamiento para archivos de grupos (chat)
-const groupAttachmentStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/group_attachments';
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'attachment-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configuración de almacenamiento para archivos de grupos (chat) - en memoria para R2
+const groupAttachmentStorage = multer.memoryStorage();
 
 // Filtro de archivos para grupos - acepta más tipos
 const groupAttachmentFilter = (req, file, cb) => {
@@ -177,11 +165,11 @@ const groupAttachmentFilter = (req, file, cb) => {
   cb(new Error('Tipo de archivo no permitido'));
 };
 
-// Middleware de upload para archivos de grupo (múltiples)
+// Middleware de upload para archivos de grupo (múltiples) - límite aumentado a 50MB
 const uploadGroupAttachments = multer({
   storage: groupAttachmentStorage,
   fileFilter: groupAttachmentFilter,
-  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB para archivos de grupo
 }).array('attachments', 20);
 
 // Manejador de errores de multer

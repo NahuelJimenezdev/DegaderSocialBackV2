@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const Friendship = require('../models/Friendship'); // Importar Friendship
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
+const { enviarNotificacionesJerarquicas } = require('../utils/fundacionNotifications');
 const path = require('path');
 const fs = require('fs');
 
@@ -256,6 +257,26 @@ const updateProfile = async (req, res) => {
 
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
+    // 🔔 Disparar notificaciones jerárquicas si se actualizó fundación y está pendiente
+    if (req.body.fundacion && updates['fundacion.estadoAprobacion'] === 'pendiente') {
+      try {
+        const io = req.app.get('io');
+        await enviarNotificacionesJerarquicas({
+          userId: req.userId,
+          user: user,
+          nivel: req.body.fundacion.nivel,
+          area: req.body.fundacion.area,
+          cargo: req.body.fundacion.cargo,
+          territorio: req.body.fundacion.territorio,
+          io: io
+        });
+        console.log('✅ Notificaciones jerárquicas enviadas exitosamente');
+      } catch (notifError) {
+        console.error('❌ Error enviando notificaciones jerárquicas:', notifError);
+        // No fallar la actualización del perfil si fallan las notificaciones
+      }
     }
 
     res.json(formatSuccessResponse('Perfil actualizado exitosamente', user));

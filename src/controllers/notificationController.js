@@ -51,6 +51,9 @@ const getAllNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
         // Para notificaciones de iglesia, usar el contenido tal cual
         mensaje = n.contenido;
+      } else if (n.tipo === 'solicitud_fundacion' || n.tipo === 'solicitud_fundacion_aprobada' || n.tipo === 'solicitud_fundacion_rechazada') {
+        // Para notificaciones de fundación, usar el contenido tal cual
+        mensaje = n.contenido;
       } else if (n.tipo === 'nuevo_anuncio') {
         // Notificación de nuevo anuncio
         const nombreAnuncio = n.referencia?.id?.nombreCliente || 'un anuncio';
@@ -151,6 +154,9 @@ const getUnreadNotifications = async (req, res) => {
         mensaje = n.contenido;
       } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
         // Para notificaciones de iglesia, usar el contenido tal cual
+        mensaje = n.contenido;
+      } else if (n.tipo === 'solicitud_fundacion' || n.tipo === 'solicitud_fundacion_aprobada' || n.tipo === 'solicitud_fundacion_rechazada') {
+        // Para notificaciones de fundación, usar el contenido tal cual
         mensaje = n.contenido;
       } else if (n.contenido) {
         mensaje = `${nombreCompleto} ${n.contenido}`;

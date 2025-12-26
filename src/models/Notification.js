@@ -35,6 +35,9 @@ const notificationSchema = new mongoose.Schema({
       'solicitud_iglesia',
       'solicitud_iglesia_aprobada',
       'solicitud_iglesia_rechazada',
+      'solicitud_fundacion',
+      'solicitud_fundacion_aprobada',
+      'solicitud_fundacion_rechazada',
       'nuevo_anuncio'
     ],
     required: true

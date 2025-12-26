@@ -6,7 +6,8 @@ const {
   listarSolicitudes,
   aprobarSolicitud,
   rechazarSolicitud,
-  obtenerMiEstado
+  obtenerMiEstado,
+  getAllSolicitudesAdmin
 } = require('../controllers/fundacionController');
 
 // Todas las rutas requieren autenticación
@@ -41,5 +42,11 @@ router.put('/aprobar/:userId', aprobarSolicitud);
  * Rechazar solicitud de un usuario
  */
 router.put('/rechazar/:userId', rechazarSolicitud);
+
+/**
+ * GET /api/fundacion/admin/todas-solicitudes
+ * Obtener TODAS las solicitudes (Solo Founder)
+ */
+router.get('/admin/todas-solicitudes', getAllSolicitudesAdmin);
 
 module.exports = router;

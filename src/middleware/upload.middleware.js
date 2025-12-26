@@ -165,11 +165,11 @@ const groupAttachmentFilter = (req, file, cb) => {
   cb(new Error('Tipo de archivo no permitido'));
 };
 
-// Middleware de upload para archivos de grupo (múltiples) - límite aumentado a 50MB
+// Middleware de upload para archivos de grupo (múltiples) - límite aumentado a 100MB
 const uploadGroupAttachments = multer({
   storage: groupAttachmentStorage,
   fileFilter: groupAttachmentFilter,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB para archivos de grupo
+  limits: { fileSize: 100 * 1024 * 1024 } // 100 MB para archivos de grupo
 }).array('attachments', 20);
 
 // Manejador de errores de multer

@@ -10,30 +10,28 @@ const UserV2 = require('../models/User.model');
 
 // Áreas institucionales oficiales
 const AREAS = [
-  'Dirección Ejecutiva',
-  'Junta Directiva',
-  'Secretaría Ejecutiva',
-  'Licitación y Adquisiciones',
+  "Dirección Ejecutiva",
+  "Secretaría Ejecutiva",
+  "Junta Directiva",
+  "Equipo de Licitación y Adquisiciones",
 
-  'Control Interno y Seguimiento',
-  'Asuntos Éticos',
+  "Dirección de Control Interno y Seguimiento",
+  "Dirección de Asuntos Éticos",
 
-  'Salvación Mundial',
-  'Misión Internacional de Paz',
+  "Salvación Mundial",
+  "Misión Internacional de Paz",
 
-  'Planeación Estratégica y Proyectos',
-  'Asuntos Étnicos',
-  'Infraestructura',
-  'Sostenibilidad Ambiental',
-  'Recursos Humanos y Seguridad Laboral',
-  'Jurídica',
-  'Salud',
-  'Psicosocial',
-  'Protección Animal',
-  'Educación',
-  'Financiera',
-  'Imagen Corporativa y Comunicación',
-  'Seguridad'
+  "Dirección de Planeación Estratégica y Proyectos",
+  "Dirección de Asuntos Étnicos", // Agregado "Dirección de"
+  "Dirección de Infraestructura", // Agregado "Dirección de"
+  "Dirección de Sostenibilidad Ambiental", // Agregado "Dirección de"
+  "Dirección de Recursos Humanos y Seguridad Laboral", // Agregado "Dirección de"
+  "Dirección Jurídica", // Agregado "Dirección" (ya estaba, verificar)
+  "Dirección de Salud", // Agregado "Dirección de"
+  "Dirección de Educación", // Agregado "Dirección de"
+  "Dirección Financiera", // Agregado "Dirección"
+  "Dirección de Imagen Corporativa y Comunicación", // Agregado "Dirección de"
+  "Dirección de Seguridad" // Agregado "Dirección de"
 ];
 
 // Cargos institucionales oficiales

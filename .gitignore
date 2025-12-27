@@ -67,6 +67,15 @@ Thumbs.db
 
 # Security - Admin/Founder Scripts (NEVER COMMIT THESE)
 # These scripts can create admin/founder users and should NEVER be in the repository
-scripts/
-src/scripts/
+scripts/addCoins.js
+scripts/addCoins_daniela.js
+scripts/recargar_daniela.js
+scripts/resetDBAndCreateFounder.js
+scripts/resetPassword.js
+scripts/testFundacionNotif.js
+scripts/updateFounder.js
+scripts/seedFounder.js
+scripts/checkUsers.js
+scripts/clearChurchNotifications.js
+scripts/migrateUserData.js
 *.seed.js

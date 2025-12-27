@@ -131,19 +131,7 @@ const uploadMessageFile = multer({
   limits: limits
 }).single('archivo');
 
-// Middleware de upload para conversaciones - NUEVO (múltiples archivos para R2)
-const conversationFileStorage = multer.memoryStorage();
-
-const uploadConversationFiles = multer({
-  storage: conversationFileStorage,
-  fileFilter: groupAttachmentFilter, // Acepta más tipos de archivos
-  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB por archivo
-}).array('attachments', 5); // Hasta 5 archivos
-
-// Configuración de almacenamiento para archivos de grupos (chat) - en memoria para R2
-const groupAttachmentStorage = multer.memoryStorage();
-
-// Filtro de archivos para grupos - acepta más tipos
+// Filtro de archivos para grupos - acepta más tipos (MOVIDO AQUÍ)
 const groupAttachmentFilter = (req, file, cb) => {
   const allowedMime = [
     // Imágenes, videos y audio
@@ -182,6 +170,18 @@ const groupAttachmentFilter = (req, file, cb) => {
   }
   cb(new Error('Tipo de archivo no permitido'));
 };
+
+// Middleware de upload para conversaciones - NUEVO (múltiples archivos para R2)
+const conversationFileStorage = multer.memoryStorage();
+
+const uploadConversationFiles = multer({
+  storage: conversationFileStorage,
+  fileFilter: groupAttachmentFilter, // Ahora está declarado arriba
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB por archivo
+}).array('attachments', 5); // Hasta 5 archivos
+
+// Configuración de almacenamiento para archivos de grupos (chat) - en memoria para R2
+const groupAttachmentStorage = multer.memoryStorage();
 
 // Middleware de upload para archivos de grupo (múltiples) - límite aumentado a 100MB
 const uploadGroupAttachments = multer({

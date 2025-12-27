@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const postController = require('../controllers/postController');
 const { authenticate } = require('../middleware/auth.middleware');
-const { uploadPostImage, handleUploadError } = require('../middleware/upload.middleware');
+const { uploadPostImage, uploadPostMedia, handleUploadError } = require('../middleware/upload.middleware');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
@@ -11,13 +11,13 @@ router.use(authenticate);
 const conditionalUpload = (req, res, next) => {
   const contentType = req.headers['content-type'] || '';
   if (contentType.includes('multipart/form-data')) {
-    // Si es FormData, usar multer
-    uploadPostImage(req, res, (err) => {
+    // Si es FormData, usar multer para múltiples archivos (R2)
+    uploadPostMedia(req, res, (err) => {
       if (err) return handleUploadError(err, req, res, next);
       next();
     });
   } else {
-    // Si es JSON, pasar directo
+    // Si es JSON (base64), pasar directo
     next();
   }
 };

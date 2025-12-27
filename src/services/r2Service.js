@@ -43,15 +43,36 @@ const deleteFromR2 = async (fileUrl) => {
 
 function getContentType(extension) {
   const types = {
+    // Imágenes
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
     '.png': 'image/png',
     '.gif': 'image/gif',
     '.webp': 'image/webp',
     '.svg': 'image/svg+xml',
-    '.pdf': 'application/pdf',
+    '.bmp': 'image/bmp',
+    '.ico': 'image/x-icon',
+    // Videos
     '.mp4': 'video/mp4',
     '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+    '.avi': 'video/x-msvideo',
+    '.wmv': 'video/x-ms-wmv',
+    '.mkv': 'video/x-matroska',
+    // Audio
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    // Documentos
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.txt': 'text/plain',
   };
   return types[extension.toLowerCase()] || 'application/octet-stream';
 }

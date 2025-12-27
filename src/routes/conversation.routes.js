@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const conversationController = require('../controllers/conversationController');
 const { authenticate } = require('../middleware/auth.middleware');
-const { uploadMessageFile, handleUploadError } = require('../middleware/upload.middleware');
+const { uploadMessageFile, uploadConversationFiles, handleUploadError } = require('../middleware/upload.middleware');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
@@ -14,7 +14,8 @@ router.get('/pending-count', conversationController.getPendingCount);
 router.get('/:id', conversationController.getConversationById);
 
 router.post('/with/:userId', conversationController.getOrCreateConversation);
-router.post('/:id/message', uploadMessageFile, handleUploadError, conversationController.sendMessage);
+// Usar uploadConversationFiles para múltiples archivos (R2)
+router.post('/:id/message', uploadConversationFiles, handleUploadError, conversationController.sendMessage);
 
 router.put('/:id/read', conversationController.markAsRead);
 router.put('/:id/archive', conversationController.archiveConversation);

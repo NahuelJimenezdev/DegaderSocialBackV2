@@ -2,6 +2,7 @@ const Iglesia = require('../models/Iglesia');
 const IglesiaMessage = require('../models/IglesiaMessage');
 const UserV2 = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
+const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 
 /**
  * Crear una nueva iglesia
@@ -225,17 +226,27 @@ const updateIglesia = async (req, res) => {
       console.error('❌ Error parsing JSON fields:', parseError);
     }
 
-    // Manejar archivos subidos
+    // Manejar archivos subidos a R2
     if (req.files) {
       if (req.files.logo && req.files.logo[0]) {
-        const logoPath = `/uploads/iglesias/${req.files.logo[0].filename}`;
-        console.log('🖼️ Setting logo:', logoPath);
-        iglesia.logo = logoPath;
+        console.log('📤 [UPDATE IGLESIA] Subiendo logo a R2...');
+        try {
+          const logoUrl = await uploadToR2(req.files.logo[0].buffer, req.files.logo[0].originalname, 'iglesias');
+          console.log('✅ [UPDATE IGLESIA] Logo subido a R2:', logoUrl);
+          iglesia.logo = logoUrl;
+        } catch (uploadError) {
+          console.error('❌ [UPDATE IGLESIA] Error al subir logo:', uploadError);
+        }
       }
       if (req.files.portada && req.files.portada[0]) {
-        const portadaPath = `/uploads/iglesias/${req.files.portada[0].filename}`;
-        console.log('🖼️ Setting portada:', portadaPath);
-        iglesia.portada = portadaPath;
+        console.log('📤 [UPDATE IGLESIA] Subiendo portada a R2...');
+        try {
+          const portadaUrl = await uploadToR2(req.files.portada[0].buffer, req.files.portada[0].originalname, 'iglesias');
+          console.log('✅ [UPDATE IGLESIA] Portada subida a R2:', portadaUrl);
+          iglesia.portada = portadaUrl;
+        } catch (uploadError) {
+          console.error('❌ [UPDATE IGLESIA] Error al subir portada:', uploadError);
+        }
       }
     }
 
@@ -471,15 +482,29 @@ const sendMessage = async (req, res) => {
       messageData.replyTo = replyTo;
     }
 
-    // Manejar archivos (si se implementa upload middleware)
+    // Manejar archivos - Subir a R2
     if (req.files && req.files.length > 0) {
+      console.log('📤 [SEND MESSAGE] Subiendo', req.files.length, 'archivos a R2...');
       messageData.tipo = 'archivo';
-      messageData.files = req.files.map(file => ({
-        url: `uploads/iglesias/${file.filename}`,
-        nombre: file.originalname,
-        tipo: file.mimetype,
-        tamaño: file.size
-      }));
+
+      const uploadPromises = req.files.map(async (file) => {
+        try {
+          const fileUrl = await uploadToR2(file.buffer, file.originalname, 'iglesias/messages');
+          console.log('✅ [SEND MESSAGE] Archivo subido a R2:', fileUrl);
+          return {
+            url: fileUrl,
+            nombre: file.originalname,
+            tipo: file.mimetype,
+            tamaño: file.size
+          };
+        } catch (uploadError) {
+          console.error('❌ [SEND MESSAGE] Error al subir archivo:', uploadError);
+          return null;
+        }
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      messageData.files = uploadedFiles.filter(f => f !== null);
     }
 
     const newMessage = new IglesiaMessage(messageData);

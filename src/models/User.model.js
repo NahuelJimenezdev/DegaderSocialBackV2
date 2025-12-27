@@ -70,6 +70,7 @@ const CARGOS_FUNDACION = [
   "Miembro de Junta Directiva",
 
   // Direcciones por nivel
+  "Director", // Agregado para compatibilidad con select de nivel nacional
   "Director Nacional",
   "Director Regional",
   "Director Departamental",

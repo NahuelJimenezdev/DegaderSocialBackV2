@@ -101,12 +101,21 @@ const uploadBanner = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5 MB para banners
 }).single('banner');
 
-// Middleware de upload para posts
+// Middleware de upload para posts (legacy - single file)
 const uploadPostImage = multer({
   storage: postStorage,
   fileFilter: mediaFileFilter,
   limits: limits
 }).single('imagen');
+
+// Middleware de upload para posts - NUEVO (múltiples archivos para R2)
+const postMediaStorage = multer.memoryStorage();
+
+const uploadPostMedia = multer({
+  storage: postMediaStorage,
+  fileFilter: mediaFileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB por archivo
+}).array('media', 10); // Hasta 10 archivos (imágenes + videos)
 
 // Middleware de upload para grupos (acepta 'imagen' o 'avatar')
 const uploadGroupImage = multer({
@@ -121,6 +130,15 @@ const uploadMessageFile = multer({
   fileFilter: mediaFileFilter,
   limits: limits
 }).single('archivo');
+
+// Middleware de upload para conversaciones - NUEVO (múltiples archivos para R2)
+const conversationFileStorage = multer.memoryStorage();
+
+const uploadConversationFiles = multer({
+  storage: conversationFileStorage,
+  fileFilter: groupAttachmentFilter, // Acepta más tipos de archivos
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB por archivo
+}).array('attachments', 5); // Hasta 5 archivos
 
 // Configuración de almacenamiento para archivos de grupos (chat) - en memoria para R2
 const groupAttachmentStorage = multer.memoryStorage();
@@ -198,8 +216,10 @@ module.exports = {
   uploadAvatar,
   uploadBanner,
   uploadPostImage,
+  uploadPostMedia,
   uploadGroupImage,
   uploadMessageFile,
+  uploadConversationFiles,
   uploadGroupAttachments,
   handleUploadError
 };

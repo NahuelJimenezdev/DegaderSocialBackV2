@@ -2,6 +2,7 @@ const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const Group = require('../models/Group');
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
+const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 
 /**
  * Crear publicación
@@ -11,7 +12,8 @@ const createPost = async (req, res) => {
   try {
     console.log('📝 [CREATE POST] Request received');
     console.log('📝 [CREATE POST] Body keys:', Object.keys(req.body));
-    console.log('📝 [CREATE POST] Has images:', !!req.body.images, 'Count:', req.body.images?.length);
+    console.log('📝 [CREATE POST] Files:', req.files ? req.files.length : 0);
+    console.log('📝 [CREATE POST] Has images (base64):', !!req.body.images, 'Count:', req.body.images?.length);
 
     const { contenido, privacidad = 'publico', etiquetas, grupo, images = [], videos = [] } = req.body;
 
@@ -20,6 +22,7 @@ const createPost = async (req, res) => {
       privacidad,
       imageCount: images.length,
       videoCount: videos.length,
+      filesCount: req.files?.length || 0,
       hasGrupo: !!grupo
     });
 
@@ -39,23 +42,58 @@ const createPost = async (req, res) => {
       etiquetas: etiquetas ? etiquetas.split(',').map(t => t.trim()) : []
     };
 
-    // Agregar imágenes en formato base64 (nuevo sistema)
-    if (Array.isArray(images) && images.length > 0) {
-      console.log('📸 [CREATE POST] Adding', images.length, 'images');
-      // El esquema espera objetos { url: String }, no strings directos
-      postData.images = images.map(img => ({ url: img }));
+    // 🆕 PROCESAR ARCHIVOS SUBIDOS A R2 (prioridad sobre base64)
+    if (req.files && req.files.length > 0) {
+      console.log('📤 [CREATE POST] Uploading', req.files.length, 'files to R2...');
+
+      const uploadedImages = [];
+      const uploadedVideos = [];
+
+      for (const file of req.files) {
+        try {
+          const fileUrl = await uploadToR2(file.buffer, file.originalname, 'posts');
+          console.log('✅ [CREATE POST] File uploaded to R2:', fileUrl);
+
+          // Clasificar por tipo de archivo
+          if (file.mimetype.startsWith('image/')) {
+            uploadedImages.push({ url: fileUrl });
+          } else if (file.mimetype.startsWith('video/')) {
+            uploadedVideos.push({ url: fileUrl });
+          }
+        } catch (uploadError) {
+          console.error('❌ [CREATE POST] Error uploading file to R2:', uploadError);
+          // Continuar con los demás archivos
+        }
+      }
+
+      if (uploadedImages.length > 0) {
+        postData.images = uploadedImages;
+        console.log('📸 [CREATE POST] Added', uploadedImages.length, 'images from R2');
+      }
+
+      if (uploadedVideos.length > 0) {
+        postData.videos = uploadedVideos;
+        console.log('🎥 [CREATE POST] Added', uploadedVideos.length, 'videos from R2');
+      }
+    }
+    // Si no hay archivos subidos, usar base64 del body
+    else {
+      // Agregar imágenes en formato base64 (sistema legacy)
+      if (Array.isArray(images) && images.length > 0) {
+        console.log('📸 [CREATE POST] Adding', images.length, 'images (base64)');
+        postData.images = images.map(img => ({ url: img }));
+      }
+
+      // Agregar videos en formato base64 (sistema legacy)
+      if (Array.isArray(videos) && videos.length > 0) {
+        console.log('🎥 [CREATE POST] Adding', videos.length, 'videos (base64)');
+        postData.videos = videos.map(vid => ({ url: vid }));
+      }
     }
 
-    // Agregar videos en formato base64 (nuevo sistema)
-    if (Array.isArray(videos) && videos.length > 0) {
-      console.log('🎥 [CREATE POST] Adding', videos.length, 'videos');
-      // El esquema espera objetos { url: String }, no strings directos
-      postData.videos = videos.map(vid => ({ url: vid }));
-    }
-
-    // Mantener compatibilidad con sistema legacy de multer
+    // Mantener compatibilidad con sistema legacy de multer (single file)
     if (req.file) {
-      console.log('📎 [CREATE POST] Legacy file upload detected');
+      console.log('📎 [CREATE POST] Legacy single file upload detected');
       postData.imagen = `/uploads/posts/${req.file.filename}`;
     }
 

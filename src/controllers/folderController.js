@@ -5,24 +5,10 @@ const path = require('path');
 const fs = require('fs');
 const { formatSuccessResponse, formatErrorResponse } = require('../utils/responseFormatter');
 const { resolverUsuariosPorJerarquia, obtenerEstructuraJerarquia } = require('../services/jerarquiaResolver');
+const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 
-// Configuración de multer para subida de archivos
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../../uploads/folders', req.params.id);
-    // Crear directorio si no existe
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, extension);
-    cb(null, `${baseName}-${uniqueSuffix}${extension}`);
-  }
-});
+// Configuración de multer para subida de archivos a R2
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -521,17 +507,16 @@ const subirArchivo = async (req, res) => {
     const { id } = req.params;
     const userId = req.userId;
 
+    console.log('📤 [UPLOAD FILE] Carpeta:', id, 'Usuario:', userId);
+
     const carpeta = await Folder.findById(id);
 
     if (!carpeta || !carpeta.activa) {
-      // Si falla, borrar el archivo subido por multer para no dejar basura
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(404).json(formatErrorResponse('Carpeta no encontrada'));
     }
 
     // Verificar permisos de escritura
     if (!await carpeta.tienePermiso(userId, 'escritura')) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(403).json(formatErrorResponse('No tienes permisos para subir archivos a esta carpeta'));
     }
 
@@ -539,19 +524,21 @@ const subirArchivo = async (req, res) => {
       return res.status(400).json(formatErrorResponse('No se ha proporcionado ningún archivo'));
     }
 
-    // Crear URL del archivo
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
-    const relativePath = `uploads/folders/${id}/${req.file.filename}`;
-    const fileUrl = `${baseUrl}/${relativePath}`;
+    console.log('📤 [UPLOAD FILE] Subiendo a R2:', req.file.originalname);
+
+    // Subir archivo a Cloudflare R2
+    const fileUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'folders');
+
+    console.log('✅ [UPLOAD FILE] Archivo subido a R2:', fileUrl);
 
     // Crear objeto archivo
     const nuevoArchivo = {
-      filename: req.file.filename,
+      filename: req.file.originalname, // Nombre original
       originalName: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype,
       tipo: determinarTipoArchivo(req.file.mimetype),
-      url: fileUrl,
+      url: fileUrl, // URL de R2
       uploadedBy: userId,
       uploadedAt: new Date()
     };
@@ -559,16 +546,12 @@ const subirArchivo = async (req, res) => {
     carpeta.archivos.push(nuevoArchivo);
     await carpeta.save();
 
-    console.log(`📤 Archivo "${req.file.originalname}" subido a carpeta "${carpeta.nombre}"`);
+    console.log(`✅ Archivo "${req.file.originalname}" subido a carpeta "${carpeta.nombre}"`);
 
     res.status(201).json(formatSuccessResponse('Archivo subido exitosamente', nuevoArchivo));
 
   } catch (error) {
-    console.error('Error al subir archivo:', error);
-    // Limpiar archivo si hubo error
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
+    console.error('❌ [UPLOAD FILE] Error:', error);
     res.status(500).json(formatErrorResponse('Error al subir archivo', [error.message]));
   }
 };
@@ -581,6 +564,8 @@ const eliminarArchivo = async (req, res) => {
   try {
     const { id, fileId } = req.params;
     const userId = req.userId;
+
+    console.log('🗑️ [DELETE FILE] Carpeta:', id, 'Archivo:', fileId);
 
     const carpeta = await Folder.findById(id);
 
@@ -604,19 +589,26 @@ const eliminarArchivo = async (req, res) => {
 
     const archivo = carpeta.archivos[archivoIndex];
 
-    // Eliminar archivo físico
-    const filePath = path.join(__dirname, '../../uploads/folders', id, archivo.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Eliminar archivo de R2 si la URL es de R2
+    if (archivo.url && archivo.url.includes('r2.dev')) {
+      try {
+        console.log('🗑️ [DELETE FILE] Eliminando de R2:', archivo.url);
+        await deleteFromR2(archivo.url);
+        console.log('✅ [DELETE FILE] Archivo eliminado de R2');
+      } catch (r2Error) {
+        console.error('⚠️ [DELETE FILE] Error al eliminar de R2:', r2Error);
+        // Continuar aunque falle el borrado de R2
+      }
     }
 
     // Eliminar metadata
     carpeta.archivos.splice(archivoIndex, 1);
     await carpeta.save();
 
+    console.log('✅ Archivo eliminado exitosamente');
     res.json(formatSuccessResponse('Archivo eliminado exitosamente'));
   } catch (error) {
-    console.error('Error al eliminar archivo:', error);
+    console.error('❌ [DELETE FILE] Error:', error);
     res.status(500).json(formatErrorResponse('Error al eliminar archivo', [error.message]));
   }
 };

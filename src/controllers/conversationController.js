@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Friendship = require('../models/Friendship');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
+const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 
 /**
  * Obtener todas las conversaciones del usuario
@@ -191,12 +192,16 @@ const sendMessage = async (req, res) => {
     const { id } = req.params;
     const { contenido, tipo = 'texto' } = req.body;
 
+    console.log('💬 [SEND MESSAGE] Conversación:', id);
+    console.log('💬 [SEND MESSAGE] Archivos:', req.files ? req.files.length : 0);
+
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    if (!contenido || contenido.trim().length === 0) {
-      return res.status(400).json(formatErrorResponse('El contenido del mensaje es obligatorio'));
+    // Validar que haya contenido o archivos
+    if ((!contenido || contenido.trim().length === 0) && (!req.files || req.files.length === 0)) {
+      return res.status(400).json(formatErrorResponse('El mensaje debe tener contenido o archivos adjuntos'));
     }
 
     const conversation = await Conversation.findById(id);
@@ -213,26 +218,64 @@ const sendMessage = async (req, res) => {
 
     const mensaje = {
       emisor: req.userId,
-      contenido: contenido.trim(),
+      contenido: contenido ? contenido.trim() : '',
       tipo,
       leido: false
     };
 
-    // Agregar archivo si se subió
-    if (req.file) {
-      // Detectar tipo de archivo automáticamente
-      const esImagen = req.file.mimetype.startsWith('image/');
-      const esVideo = req.file.mimetype.startsWith('video/');
+    // 🆕 PROCESAR ARCHIVOS SUBIDOS A R2 (múltiples archivos)
+    if (req.files && req.files.length > 0) {
+      console.log('📤 [SEND MESSAGE] Subiendo', req.files.length, 'archivos a R2...');
 
-      mensaje.tipo = esImagen ? 'imagen' : esVideo ? 'video' : 'archivo';
-      mensaje.archivo = {
-        url: `uploads/messages/${req.file.filename}`,
-        nombre: req.file.originalname,
-        tipo: req.file.mimetype,
-        tamaño: req.file.size
-      };
+      const file = req.files[0]; // Por ahora, tomar el primer archivo
+
+      try {
+        const fileUrl = await uploadToR2(file.buffer, file.originalname, 'messages');
+        console.log('✅ [SEND MESSAGE] Archivo subido a R2:', fileUrl);
+
+        // Detectar tipo de archivo automáticamente
+        const esImagen = file.mimetype.startsWith('image/');
+        const esVideo = file.mimetype.startsWith('video/');
+        const esAudio = file.mimetype.startsWith('audio/');
+
+        mensaje.tipo = esImagen ? 'imagen' : esVideo ? 'video' : esAudio ? 'audio' : 'archivo';
+        mensaje.archivo = {
+          url: fileUrl,
+          nombre: file.originalname,
+          tipo: file.mimetype,
+          tamaño: file.size
+        };
+      } catch (uploadError) {
+        console.error('❌ [SEND MESSAGE] Error al subir archivo a R2:', uploadError);
+        return res.status(500).json(formatErrorResponse('Error al subir archivo', [uploadError.message]));
+      }
+    }
+    // Mantener compatibilidad con sistema legacy (single file)
+    else if (req.file) {
+      console.log('📎 [SEND MESSAGE] Archivo legacy detectado');
+
+      try {
+        const fileUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'messages');
+        console.log('✅ [SEND MESSAGE] Archivo legacy subido a R2:', fileUrl);
+
+        const esImagen = req.file.mimetype.startsWith('image/');
+        const esVideo = req.file.mimetype.startsWith('video/');
+        const esAudio = req.file.mimetype.startsWith('audio/');
+
+        mensaje.tipo = esImagen ? 'imagen' : esVideo ? 'video' : esAudio ? 'audio' : 'archivo';
+        mensaje.archivo = {
+          url: fileUrl,
+          nombre: req.file.originalname,
+          tipo: req.file.mimetype,
+          tamaño: req.file.size
+        };
+      } catch (uploadError) {
+        console.error('❌ [SEND MESSAGE] Error al subir archivo legacy a R2:', uploadError);
+        return res.status(500).json(formatErrorResponse('Error al subir archivo', [uploadError.message]));
+      }
     }
 
+    console.log('💾 [SEND MESSAGE] Guardando mensaje...');
     await conversation.agregarMensaje(mensaje);
 
     await conversation.populate([
@@ -241,6 +284,7 @@ const sendMessage = async (req, res) => {
     ]);
 
     const newMessage = conversation.mensajes[conversation.mensajes.length - 1];
+    console.log('✅ [SEND MESSAGE] Mensaje guardado con ID:', newMessage._id);
 
     // Emitir mensaje en tiempo real a través de Socket.IO
     if (global.emitMessage) {
@@ -258,7 +302,7 @@ const sendMessage = async (req, res) => {
 
     res.status(201).json(formatSuccessResponse('Mensaje enviado', newMessage));
   } catch (error) {
-    console.error('Error al enviar mensaje:', error);
+    console.error('❌ [SEND MESSAGE] Error:', error);
     res.status(500).json(formatErrorResponse('Error al enviar mensaje', [error.message]));
   }
 };

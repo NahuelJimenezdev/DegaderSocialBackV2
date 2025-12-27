@@ -13,7 +13,7 @@ const messageSchema = new mongoose.Schema({
   },
   tipo: {
     type: String,
-    enum: ['texto', 'imagen', 'archivo', 'video'],
+    enum: ['texto', 'imagen', 'archivo', 'video', 'audio'],
     default: 'texto'
   },
   archivo: {
@@ -122,7 +122,7 @@ const conversationSchema = new mongoose.Schema({
 });
 
 // Virtual para contar mensajes
-conversationSchema.virtual('totalMensajes').get(function() {
+conversationSchema.virtual('totalMensajes').get(function () {
   return this.mensajes.length;
 });
 
@@ -131,7 +131,7 @@ conversationSchema.index({ participantes: 1 });
 conversationSchema.index({ 'ultimoMensaje.fecha': -1 });
 
 // Método para agregar mensaje
-conversationSchema.methods.agregarMensaje = function(mensaje) {
+conversationSchema.methods.agregarMensaje = function (mensaje) {
   this.mensajes.push(mensaje);
   this.ultimoMensaje = {
     contenido: mensaje.contenido,
@@ -157,7 +157,7 @@ conversationSchema.methods.agregarMensaje = function(mensaje) {
 };
 
 // Método para marcar mensajes como leídos
-conversationSchema.methods.marcarComoLeido = function(usuarioId) {
+conversationSchema.methods.marcarComoLeido = function (usuarioId) {
   const mensajesNoLeidos = this.mensajesNoLeidos.find(
     m => m.usuario.equals(usuarioId)
   );

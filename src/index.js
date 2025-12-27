@@ -13,6 +13,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('./config/logger');
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (required for rate-limit behind Nginx/Cloudflare)
 const httpServer = createServer(app);
 
 // Configuración del puerto

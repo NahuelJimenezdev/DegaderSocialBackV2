@@ -482,7 +482,22 @@ const addComment = async (req, res) => {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    if ((!contenido || contenido.trim().length === 0) && !image) {
+    // Procesar imagen si viene en req.files (FormData con R2)
+    let imageUrl = image || null;
+
+    if (req.files && req.files.length > 0) {
+      try {
+        const file = req.files[0];
+        imageUrl = await uploadToR2(file.buffer, file.originalname, 'comments');
+        console.log('✅ [ADD COMMENT] Image uploaded to R2:', imageUrl);
+      } catch (uploadError) {
+        console.error('❌ [ADD COMMENT] Error uploading image to R2:', uploadError);
+        return res.status(500).json(formatErrorResponse('Error al subir la imagen'));
+      }
+    }
+
+    // Validar que haya contenido o imagen
+    if ((!contenido || contenido.trim().length === 0) && !imageUrl) {
       return res.status(400).json(formatErrorResponse('El comentario debe tener texto o una imagen'));
     }
 
@@ -507,7 +522,7 @@ const addComment = async (req, res) => {
     const comment = {
       usuario: req.userId,
       contenido: contenido ? contenido.trim() : '',
-      image: image || null,
+      image: imageUrl,
       likes: [],
       parentComment: parentCommentId || null
     };

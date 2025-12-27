@@ -76,8 +76,10 @@ const validateRegisterData = (data) => {
 const validatePostData = (data) => {
   const errors = [];
 
-  // El contenido es obligatorio SOLO si no hay imágenes ni videos
-  const hasMedia = (data.images && data.images.length > 0) || (data.videos && data.videos.length > 0);
+  // El contenido es obligatorio SOLO si no hay imágenes, videos ni archivos
+  const hasMedia = (data.images && data.images.length > 0) ||
+    (data.videos && data.videos.length > 0) ||
+    (data.hasFiles === true);
 
   if (!hasMedia && (!data.contenido || data.contenido.trim().length === 0)) {
     errors.push('El contenido es obligatorio si no hay imágenes o videos');

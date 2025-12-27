@@ -26,8 +26,9 @@ const createPost = async (req, res) => {
       hasGrupo: !!grupo
     });
 
-    // Validar datos - IMPORTANTE: pasar images y videos al validador
-    const validation = validatePostData({ contenido, privacidad, images, videos });
+    // Validar datos - IMPORTANTE: considerar archivos en req.files además de base64
+    const hasFiles = req.files && req.files.length > 0;
+    const validation = validatePostData({ contenido, privacidad, images, videos, hasFiles });
     if (!validation.isValid) {
       console.log('❌ [CREATE POST] Validation failed:', validation.errors);
       return res.status(400).json(formatErrorResponse('Datos inválidos', validation.errors));

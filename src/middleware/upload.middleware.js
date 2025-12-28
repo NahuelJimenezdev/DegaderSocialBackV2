@@ -20,41 +20,17 @@ uploadDirs.forEach(dir => {
 // Configuración de almacenamiento para avatares (en memoria para R2)
 const avatarStorage = multer.memoryStorage();
 
-// Configuración de almacenamiento para banners
-const bannerStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/banners');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'banner-' + req.userId + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configuración de almacenamiento para banners (en memoria para R2)
+const bannerStorage = multer.memoryStorage();
 
-// Configuración de almacenamiento para posts
-const postStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/posts');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'post-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configuración de almacenamiento para posts (legacy - ahora usa memoryStorage por si acaso)
+const postStorage = multer.memoryStorage();
 
 // Configuración de almacenamiento para grupos (en memoria para R2)
 const groupStorage = multer.memoryStorage();
 
-// Configuración de almacenamiento para mensajes
-const messageStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/messages');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'message-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configuración de almacenamiento para mensajes (legacy - ahora usa memoryStorage por si acaso)
+const messageStorage = multer.memoryStorage();
 
 // Filtro de archivos - solo imágenes
 const imageFileFilter = (req, file, cb) => {

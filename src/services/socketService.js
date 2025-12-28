@@ -185,11 +185,51 @@ class SocketService {
     console.log(`📅 Actualización de reunión emitida a ${attendeeIds.length} usuarios - Tipo: ${eventType}`);
   }
 
-  emitPostUpdate(post) {
+  async emitPostUpdate(post) {
     if (!this.io) return;
-    // Emitir a todos los clientes conectados (feed público)
-    this.io.emit('post_updated', post);
-    console.log(`📢 Post actualizado emitido: ${post._id}`);
+
+    try {
+      const authorId = post.usuario?._id || post.usuario;
+
+      // Si el post es de un grupo, emitir a todos los miembros del grupo
+      if (post.grupo) {
+        this.io.to(`group:${post.grupo}`).emit('post_updated', post);
+        console.log(`📢 Post de grupo emitido: ${post._id} -> Grupo: ${post.grupo}`);
+        return;
+      }
+
+      // Buscar amigos del autor
+      const friendships = await Friendship.find({
+        $or: [
+          { solicitante: authorId, estado: 'aceptada' },
+          { receptor: authorId, estado: 'aceptada' }
+        ]
+      }).select('solicitante receptor');
+
+      // Extraer IDs de amigos
+      const friendIds = friendships.map(friendship => {
+        if (friendship.solicitante.toString() === authorId.toString()) {
+          return friendship.receptor.toString();
+        } else {
+          return friendship.solicitante.toString();
+        }
+      });
+
+      // Emitir al autor mismo
+      this.io.to(`user:${authorId}`).emit('post_updated', post);
+
+      // Emitir a cada amigo
+      friendIds.forEach(friendId => {
+        this.io.to(`user:${friendId}`).emit('post_updated', post);
+      });
+
+      console.log(`📢 Post emitido: ${post._id} -> Autor + ${friendIds.length} amigos`);
+    } catch (error) {
+      console.error('❌ Error al emitir post update:', error);
+      // Fallback: emitir solo al autor
+      const authorId = post.usuario?._id || post.usuario;
+      this.io.to(`user:${authorId}`).emit('post_updated', post);
+    }
   }
 
   // Métodos para estado online/offline

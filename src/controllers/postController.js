@@ -539,6 +539,9 @@ const addComment = async (req, res) => {
       { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
     ]);
 
+    // Obtener el comentario recién creado (el último del array)
+    const newComment = post.comentarios[post.comentarios.length - 1];
+
     // Crear notificación
     try {
       if (parentCommentId) {
@@ -554,6 +557,9 @@ const addComment = async (req, res) => {
             referencia: {
               tipo: 'Post',
               id: post._id
+            },
+            metadata: {
+              commentId: newComment._id
             }
           });
           await notification.save();
@@ -580,6 +586,9 @@ const addComment = async (req, res) => {
           referencia: {
             tipo: 'Post',
             id: post._id
+          },
+          metadata: {
+            commentId: newComment._id
           }
         });
         await notification.save();
@@ -610,7 +619,7 @@ const addComment = async (req, res) => {
     }
 
     // Para la respuesta HTTP devolvemos solo el comentario nuevo
-    const newComment = post.comentarios[post.comentarios.length - 1];
+    // const newComment = post.comentarios[post.comentarios.length - 1]; // Already declared above
 
     res.status(201).json(formatSuccessResponse('Comentario agregado', newComment));
   } catch (error) {
@@ -753,13 +762,113 @@ const deletePost = async (req, res) => {
   }
 };
 
+
+/**
+ * Dar/quitar like a un comentario
+ * POST /api/publicaciones/:id/comment/:commentId/like
+ */
+const toggleCommentLike = async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(commentId)) {
+      return res.status(400).json(formatErrorResponse('IDs inválidos'));
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
+    }
+
+    const comment = post.comentarios.id(commentId);
+    if (!comment) {
+      return res.status(404).json(formatErrorResponse('Comentario no encontrado'));
+    }
+
+    // Inicializar array si no existe
+    if (!comment.likes) {
+      comment.likes = [];
+    }
+
+    // Asegurarse de comparar ObjectId con string o ObjectId
+    const likeIndex = comment.likes.findIndex(like => like.equals(req.userId));
+
+    if (likeIndex > -1) {
+      // Quitar like
+      comment.likes.splice(likeIndex, 1);
+      await post.save();
+    } else {
+      // Dar like
+      comment.likes.push(req.userId);
+      await post.save();
+
+      // Crear notificación si no es el propio usuario
+      // Asegurarse de que el usuario del comentario existe (poblado o no)
+      const commentUserId = comment.usuario._id || comment.usuario;
+      if (commentUserId && !commentUserId.equals(req.userId)) {
+        const notification = new Notification({
+          receptor: commentUserId,
+          emisor: req.userId,
+          tipo: 'like_comentario',
+          contenido: 'le dio like a tu comentario',
+          referencia: {
+            tipo: 'Post',
+            id: post._id
+          }
+        });
+        await notification.save();
+
+        // Popula emisor
+        const notificationPopulated = await Notification.findById(notification._id)
+          .populate({
+            path: 'emisor',
+            select: 'nombres apellidos social.fotoPerfil username'
+          });
+
+        // Emitir notificación en tiempo real
+        if (global.emitNotification) {
+          global.emitNotification(commentUserId.toString(), notificationPopulated);
+        }
+      }
+    }
+
+    // Emitir actualización del post
+    try {
+      if (global.emitPostUpdate) {
+        // Poblar antes de emitir
+        await post.populate([
+          { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+          { path: 'grupo', select: 'nombre tipo' },
+          { path: 'postOriginal' },
+          { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+        ]);
+        global.emitPostUpdate(post);
+      }
+    } catch (socketError) {
+      console.error('⚠️ [COMMENT LIKE] Socket emit error:', socketError);
+    }
+
+    return res.json(formatSuccessResponse('Like actualizado', {
+      liked: likeIndex === -1,
+      totalLikes: comment.likes.length
+    }));
+
+  } catch (error) {
+    console.error('Error al dar like a comentario:', error);
+    res.status(500).json(formatErrorResponse('Error al procesar like de comentario', [error.message]));
+  }
+};
+
 module.exports = {
   createPost,
   getFeed,
   getUserPosts,
   getGroupPosts,
   getPostById,
+  getPostById,
   toggleLike,
+  toggleCommentLike,
   addComment,
   sharePost,
   deletePost

@@ -32,6 +32,7 @@ router.delete('/:id', postController.deletePost);
 
 // Interacciones con publicaciones
 router.post('/:id/like', postController.toggleLike);
+router.post('/:id/comment/:commentId/like', postController.toggleCommentLike);
 router.post('/:id/comment', conditionalUpload, postController.addComment);
 router.post('/:id/share', postController.sharePost);
 

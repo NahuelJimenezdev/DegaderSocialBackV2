@@ -468,6 +468,7 @@ const toggleLike = async (req, res) => {
   }
 };
 
+
 /**
  * Comentar publicación o responder a un comentario
  * POST /api/publicaciones/:id/comment
@@ -542,17 +543,62 @@ const addComment = async (req, res) => {
     // Obtener el comentario recién creado (el último del array)
     const newComment = post.comentarios[post.comentarios.length - 1];
 
-    // Crear notificación
+
+    // LÓGICA HÍBRIDA DE NOTIFICACIONES
     try {
-      if (parentCommentId) {
+      // 1. Extraer menciones del contenido
+      const mentionRegex = /@(\w+)/g;
+      const mentions = [];
+      let match;
+      while ((match = mentionRegex.exec(contenido || '')) !== null) {
+        mentions.push(match[1]);
+      }
+      const uniqueMentions = [...new Set(mentions)];
+
+      // 2. Si hay menciones, buscar usuarios y notificar
+      if (uniqueMentions.length > 0) {
+        const User = require('../models/User');
+        const mentionedUsers = await User.find({
+          username: { $in: uniqueMentions },
+          _id: { $ne: req.userId } // No notificar al autor
+        }).select('_id');
+
+        for (const mentionedUser of mentionedUsers) {
+          const notification = new Notification({
+            receptor: mentionedUser._id,
+            emisor: req.userId,
+            tipo: 'mention_comment',
+            contenido: 'te mencionó en un comentario',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            },
+            metadata: {
+              commentId: newComment._id
+            }
+          });
+          await notification.save();
+
+          const notificationPopulated = await Notification.findById(notification._id)
+            .populate({
+              path: 'emisor',
+              select: 'nombres apellidos social.fotoPerfil username'
+            });
+
+          if (global.emitNotification) {
+            global.emitNotification(mentionedUser._id.toString(), notificationPopulated);
+          }
+        }
+      }
+      // 3. Si NO hay menciones, usar lógica tradicional
+      else if (parentCommentId) {
         // Notificar al autor del comentario padre
         const parentComment = post.comentarios.id(parentCommentId);
-        // parentComment.usuario es un ObjectId (ya poblado arriba, así que verificamos ID)
         if (parentComment && parentComment.usuario && !parentComment.usuario._id.equals(req.userId)) {
           const notification = new Notification({
             receptor: parentComment.usuario._id,
             emisor: req.userId,
-            tipo: 'respuesta_comentario',
+            tipo: 'reply_comment',
             contenido: 'respondió a tu comentario',
             referencia: {
               tipo: 'Post',
@@ -564,14 +610,12 @@ const addComment = async (req, res) => {
           });
           await notification.save();
 
-          // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
           const notificationPopulated = await Notification.findById(notification._id)
             .populate({
               path: 'emisor',
               select: 'nombres apellidos social.fotoPerfil username'
             });
 
-          // Emitir notificación en tiempo real
           if (global.emitNotification) {
             global.emitNotification(parentComment.usuario._id.toString(), notificationPopulated);
           }
@@ -581,7 +625,7 @@ const addComment = async (req, res) => {
         const notification = new Notification({
           receptor: post.usuario._id,
           emisor: req.userId,
-          tipo: 'comentario_post',
+          tipo: 'comment_post',
           contenido: 'comentó tu publicación',
           referencia: {
             tipo: 'Post',
@@ -593,14 +637,12 @@ const addComment = async (req, res) => {
         });
         await notification.save();
 
-        // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
         const notificationPopulated = await Notification.findById(notification._id)
           .populate({
             path: 'emisor',
             select: 'nombres apellidos social.fotoPerfil username'
           });
 
-        // Emitir notificación en tiempo real
         if (global.emitNotification) {
           global.emitNotification(post.usuario._id.toString(), notificationPopulated);
         }
@@ -865,7 +907,6 @@ module.exports = {
   getFeed,
   getUserPosts,
   getGroupPosts,
-  getPostById,
   getPostById,
   toggleLike,
   toggleCommentLike,

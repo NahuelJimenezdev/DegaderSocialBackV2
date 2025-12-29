@@ -248,8 +248,8 @@ const getFriends = async (req, res) => {
         { receptor: req.userId, estado: 'bloqueada', bloqueadoPor: req.userId }
       ]
     })
-      .populate('solicitante', 'nombres apellidos social email seguridad.ultimaConexion personal')
-      .populate('receptor', 'nombres apellidos social email seguridad.ultimaConexion personal')
+      .populate('solicitante', 'nombres apellidos social email seguridad.ultimaConexion personal username')
+      .populate('receptor', 'nombres apellidos social email seguridad.ultimaConexion personal username')
       .sort({ fechaAceptacion: -1 });
 
     // Formatear respuesta para obtener solo el amigo (no el usuario actual)

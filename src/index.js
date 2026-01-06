@@ -42,7 +42,12 @@ app.use('/api/', limiter);
 // Configurar Socket.IO con CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:3000',
+      'http://3.144.132.207'  // Servidor AWS en producción
+    ],
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -57,7 +62,12 @@ app.set('io', io);
 
 // Configurar CORS para Express (peticiones HTTP)
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://3.144.132.207'  // Servidor AWS en producción
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
   optionsSuccessStatus: 200 // Para navegadores legacy

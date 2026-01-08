@@ -331,6 +331,9 @@ const UserV2Schema = new Schema({
   },
   password: { type: String, required: true, select: false }, // Hash argon2
 
+  // Legacy support for root username
+  username: { type: String, sparse: true, trim: true },
+
   // Flags de Tipo de Usuario (Discriminadores Lógicos)
   esMiembroFundacion: { type: Boolean, default: false, index: true },
   esMiembroIglesia: { type: Boolean, default: false, index: true },

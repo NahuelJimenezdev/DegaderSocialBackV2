@@ -122,6 +122,75 @@ const createPost = async (req, res) => {
       console.error('⚠️ [CREATE POST] Socket emit error:', socketError);
     }
 
+    // 🔔 NOTIFICAR MENCIONES
+    try {
+      console.log('🔔 [CREATE POST] Checking for mentions in:', contenido);
+      // Regex para encontrar @username (letras, números, puntos, guiones bajos)
+      const mentionRegex = /@([a-zA-Z0-9._-]+)/g;
+      const extractedMentions = (contenido || '').match(mentionRegex);
+
+      if (extractedMentions && extractedMentions.length > 0) {
+        // Eliminar duplicados y quitar el '@'
+        const uniqueMentions = [...new Set(extractedMentions)].map(m => m.slice(1));
+        console.log('🔔 [CREATE POST] Mentions detected (clean):', uniqueMentions);
+
+        // CORRECCIÓN: Usar el nombre de archivo correcto (User.model.js)
+        const User = require('../models/User.model');
+        const mentionedUsers = await User.find({
+          $or: [
+            { 'social.username': { $in: uniqueMentions } },
+            { 'username': { $in: uniqueMentions } }
+          ],
+          _id: { $ne: req.userId }
+        }).select('_id username social.username');
+
+        console.log('🔔 [CREATE POST] Users found in DB:', mentionedUsers.length, mentionedUsers);
+
+        if (mentionedUsers.length === 0) {
+          // Fallback: check legacy 'username' field if social.username is empty
+          const legacyUsers = await User.find({
+            username: { $in: uniqueMentions },
+            _id: { $ne: req.userId }
+          }).select('_id username');
+          console.log('🔔 [CREATE POST] Users found via legacy username path:', legacyUsers.length);
+        }
+
+        for (const user of mentionedUsers) {
+          console.log('🔔 [CREATE POST] Creating notification for:', user._id);
+          const notification = new Notification({
+            receptor: user._id,
+            emisor: req.userId,
+            tipo: 'mencion',
+            contenido: 'te mencionó en una publicación',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            }
+          });
+          await notification.save();
+          console.log('🔔 [CREATE POST] Notification saved:', notification._id);
+
+          // Poblar y emitir
+          const notificationPopulated = await Notification.findById(notification._id)
+            .populate({
+              path: 'emisor',
+              select: 'nombres apellidos social.fotoPerfil username'
+            });
+
+          if (global.emitNotification) {
+            console.log('🔔 [CREATE POST] Emitting socket to:', user._id.toString());
+            global.emitNotification(user._id.toString(), notificationPopulated);
+          } else {
+            console.warn('⚠️ [CREATE POST] global.emitNotification is not defined');
+          }
+        }
+      } else {
+        console.log('🔔 [CREATE POST] No mentions found in regex match');
+      }
+    } catch (notifError) {
+      console.error('⚠️ [CREATE POST] Notification error:', notifError);
+    }
+
     res.status(201).json(formatSuccessResponse('Publicación creada exitosamente', post));
   } catch (error) {
     console.error('❌ [CREATE POST] ERROR:', error);
@@ -567,7 +636,7 @@ const addComment = async (req, res) => {
           const notification = new Notification({
             receptor: mentionedUser._id,
             emisor: req.userId,
-            tipo: 'mention_comment',
+            tipo: 'mencion', // CORREGIDO: 'mention_comment' no existe en enum
             contenido: 'te mencionó en un comentario',
             referencia: {
               tipo: 'Post',

@@ -4,12 +4,17 @@ const Friendship = require('../models/Friendship');
 const Notification = require('../models/Notification');
 const User = require('../models/User.model');
 const friendshipController = require('../controllers/friendshipController');
+const friendshipActionsController = require('../controllers/friendshipActionsController');
 const { authenticate } = require('../middleware/auth.middleware');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
 
 // Rutas nuevas (compatibilidad con amistadService.js)
+// Acciones de gestión de amigos
+router.get('/con-usuario/:userId', friendshipActionsController.getFriendshipWithUser);
+router.delete('/:friendshipId/remove', friendshipActionsController.removeFriendship);
+router.post('/:friendshipId/favorite', friendshipActionsController.toggleFavorite);
 router.get('/friends', friendshipController.getFriends); // Added missing route
 router.get('/status/:userId', friendshipController.getFriendshipStatus);
 router.post('/request', friendshipController.sendFriendRequest);

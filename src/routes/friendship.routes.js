@@ -18,6 +18,7 @@ router.post('/:id/accept', friendshipController.acceptFriendRequest);
 router.post('/:id/reject', friendshipController.rejectFriendRequest);
 
 // Acciones de gestión de amigos (ANTES de la ruta genérica /:friendId)
+router.get('/con-usuario/:userId', friendshipActionsController.getFriendshipWithUser);
 router.post('/:friendshipId/favorite', friendshipActionsController.toggleFavorite);
 router.post('/:friendshipId/pin', friendshipActionsController.togglePin);
 router.post('/:friendshipId/mute', friendshipActionsController.toggleMute);

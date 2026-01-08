@@ -488,7 +488,14 @@ const toggleSavePost = async (req, res) => {
   try {
     const { postId } = req.params;
 
+    console.log('💾 [SAVE POST] Intento de guardar:', {
+      postId,
+      userId: req.userId,
+      timestamp: new Date().toISOString()
+    });
+
     if (!isValidObjectId(postId)) {
+      console.log('❌ [SAVE POST] ID inválido:', postId);
       return res.status(400).json(formatErrorResponse('ID de publicación inválido'));
     }
 
@@ -497,23 +504,37 @@ const toggleSavePost = async (req, res) => {
     // Verificar que el post existe
     const post = await Post.findById(postId);
     if (!post) {
+      console.log('❌ [SAVE POST] Post no encontrado:', postId);
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
     }
+
+    console.log('✅ [SAVE POST] Post encontrado:', {
+      postId: post._id,
+      author: post.usuario,
+      privacy: post.privacidad
+    });
 
     const user = await User.findById(req.userId);
 
     if (!user) {
+      console.log('❌ [SAVE POST] Usuario no encontrado:', req.userId);
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
 
     // Verificar si ya está guardado
     const isSaved = user.savedPosts.includes(postId);
 
+    console.log('💾 [SAVE POST] Estado actual:', {
+      isSaved,
+      totalSaved: user.savedPosts.length
+    });
+
     if (isSaved) {
       // Quitar de guardados
       user.savedPosts = user.savedPosts.filter(id => id.toString() !== postId);
       await user.save();
 
+      console.log('✅ [SAVE POST] Post eliminado de guardados');
       res.json(formatSuccessResponse('Publicación eliminada de guardados', {
         saved: false,
         savedPosts: user.savedPosts
@@ -523,13 +544,14 @@ const toggleSavePost = async (req, res) => {
       user.savedPosts.push(postId);
       await user.save();
 
+      console.log('✅ [SAVE POST] Post guardado exitosamente');
       res.json(formatSuccessResponse('Publicación guardada exitosamente', {
         saved: true,
         savedPosts: user.savedPosts
       }));
     }
   } catch (error) {
-    console.error('Error al guardar publicación:', error);
+    console.error('❌ [SAVE POST] Error:', error);
     res.status(500).json(formatErrorResponse('Error al guardar publicación', [error.message]));
   }
 };
@@ -543,14 +565,25 @@ const getSavedPosts = async (req, res) => {
     const user = await User.findById(req.userId)
       .populate({
         path: 'savedPosts',
-        populate: {
-          path: 'usuario',
-          select: 'nombres apellidos social.fotoPerfil email'
-        }
+        populate: [
+          {
+            path: 'usuario',
+            select: 'nombres apellidos social.fotoPerfil social.username email'
+          },
+          {
+            path: 'grupo',
+            select: 'nombre tipo'
+          }
+        ]
       });
 
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
+    console.log('📦 [SAVED POSTS] Total guardados:', user.savedPosts?.length || 0);
+    if (user.savedPosts?.length > 0) {
+      console.log('📦 [SAVED POSTS] Primer post autor:', user.savedPosts[0]?.usuario);
     }
 
     res.json(formatSuccessResponse('Posts guardados obtenidos', {

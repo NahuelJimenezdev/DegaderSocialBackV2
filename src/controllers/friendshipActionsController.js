@@ -135,6 +135,50 @@ exports.toggleMute = async (req, res) => {
     }
 };
 
+// Obtener friendshipId con un usuario específico
+exports.getFriendshipWithUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const currentUserId = req.user.userId || req.user._id;
+
+        console.log('🔍 [GET FRIENDSHIP] Buscando amistad entre:', {
+            currentUser: currentUserId,
+            targetUser: userId
+        });
+
+        const friendship = await Friendship.findOne({
+            $or: [
+                { solicitante: currentUserId, receptor: userId, estado: 'aceptada' },
+                { solicitante: userId, receptor: currentUserId, estado: 'aceptada' }
+            ]
+        });
+
+        if (!friendship) {
+            console.log('❌ [GET FRIENDSHIP] No se encontró amistad');
+            return res.status(404).json({
+                success: false,
+                message: 'No hay amistad con este usuario'
+            });
+        }
+
+        console.log('✅ [GET FRIENDSHIP] Amistad encontrada:', friendship._id);
+
+        res.json({
+            success: true,
+            data: {
+                friendshipId: friendship._id,
+                friendship
+            }
+        });
+    } catch (error) {
+        console.error('❌ [GET FRIENDSHIP] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al buscar amistad'
+        });
+    }
+};
+
 // Eliminar amistad
 exports.removeFriendship = async (req, res) => {
     try {

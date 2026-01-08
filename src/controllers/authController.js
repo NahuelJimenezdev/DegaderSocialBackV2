@@ -15,6 +15,33 @@ const generateToken = (userId) => {
 };
 
 /**
+ * Dividir nombre completo en primero y segundo
+ * Ejemplo: "Nahuel Edgardo" => { primero: "Nahuel", segundo: "Edgardo" }
+ * Ejemplo: "Juan" => { primero: "Juan", segundo: "" }
+ * Ejemplo: "María José Teresa" => { primero: "María", segundo: "José Teresa" }
+ */
+const splitFullName = (fullName) => {
+  if (!fullName || typeof fullName !== 'string') {
+    return { primero: '', segundo: '' };
+  }
+
+  const parts = fullName.trim().split(/\s+/); // Dividir por espacios
+
+  if (parts.length === 0) {
+    return { primero: '', segundo: '' };
+  } else if (parts.length === 1) {
+    return { primero: parts[0], segundo: '' };
+  } else {
+    // Primer parte va a "primero", el resto va a "segundo"
+    return {
+      primero: parts[0],
+      segundo: parts.slice(1).join(' ')
+    };
+  }
+};
+
+
+/**
  * Registro de usuario
  * POST /api/auth/register
  */
@@ -34,11 +61,18 @@ const register = async (req, res) => {
       return res.status(400).json(formatErrorResponse('El email ya está registrado'));
     }
 
+    // Dividir nombres y apellidos automáticamente
+    const nombresObj = splitFullName(nombre);
+    const apellidosObj = splitFullName(apellido);
+
+    console.log('📝 Nombres divididos:', nombresObj);
+    console.log('📝 Apellidos divididos:', apellidosObj);
+
     // Crear usuario con nueva estructura
     // NOTA: NO hasheamos la contraseña aquí porque el middleware pre('save') del modelo lo hace automáticamente
     const user = new User({
-      nombres: { primero: nombre },
-      apellidos: { primero: apellido },
+      nombres: nombresObj,
+      apellidos: apellidosObj,
       email: email.toLowerCase(),
       password: password, // ← Contraseña en texto plano, el modelo la hasheará
       personal: {

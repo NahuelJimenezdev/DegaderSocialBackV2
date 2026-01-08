@@ -620,31 +620,36 @@ const addComment = async (req, res) => {
             global.emitNotification(parentComment.usuario._id.toString(), notificationPopulated);
           }
         }
-      } else if (!post.usuario._id.equals(req.userId)) {
-        // Notificar al autor del post
-        const notification = new Notification({
-          receptor: post.usuario._id,
-          emisor: req.userId,
-          tipo: 'comment_post',
-          contenido: 'comentó tu publicación',
-          referencia: {
-            tipo: 'Post',
-            id: post._id
-          },
-          metadata: {
-            commentId: newComment._id
-          }
-        });
-        await notification.save();
+      } else {
+        // Notificar al autor del post (comentario directo, no respuesta)
+        // Manejar tanto post.usuario poblado como ObjectId simple
+        const postAuthorId = post.usuario._id || post.usuario;
 
-        const notificationPopulated = await Notification.findById(notification._id)
-          .populate({
-            path: 'emisor',
-            select: 'nombres apellidos social.fotoPerfil username'
+        if (postAuthorId && !postAuthorId.equals(req.userId)) {
+          const notification = new Notification({
+            receptor: postAuthorId,
+            emisor: req.userId,
+            tipo: 'comentario_post',
+            contenido: 'comentó tu publicación',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            },
+            metadata: {
+              commentId: newComment._id
+            }
           });
+          await notification.save();
 
-        if (global.emitNotification) {
-          global.emitNotification(post.usuario._id.toString(), notificationPopulated);
+          const notificationPopulated = await Notification.findById(notification._id)
+            .populate({
+              path: 'emisor',
+              select: 'nombres apellidos social.fotoPerfil username'
+            });
+
+          if (global.emitNotification) {
+            global.emitNotification(postAuthorId.toString(), notificationPopulated);
+          }
         }
       }
     } catch (notifError) {

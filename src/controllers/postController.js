@@ -464,6 +464,29 @@ const toggleLike = async (req, res) => {
       post.likes.splice(likeIndex, 1);
       await post.save();
 
+      // 🆕 ELIMINAR NOTIFICACIÓN EXISTENTE (si existe)
+      try {
+        const deletedNotification = await Notification.findOneAndDelete({
+          emisor: req.userId,
+          receptor: post.usuario,
+          tipo: 'like_post',
+          'referencia.id': post._id
+        });
+
+        if (deletedNotification) {
+          console.log('🗑️ [UNLIKE] Notificación eliminada:', deletedNotification._id);
+          // Emitir evento de eliminación de notificación
+          if (global.emitNotification) {
+            global.emitNotification(post.usuario.toString(), {
+              tipo: 'notificacion_eliminada',
+              notificacionId: deletedNotification._id
+            });
+          }
+        }
+      } catch (notifError) {
+        console.error('⚠️ [UNLIKE] Error eliminando notificación:', notifError);
+      }
+
       // Emitir actualización del post en tiempo real
       try {
         if (global.emitPostUpdate) {
@@ -486,19 +509,37 @@ const toggleLike = async (req, res) => {
       post.likes.push(req.userId);
       await post.save();
 
-      // Crear notificación si no es el propio usuario
+      // 🆕 CREAR O ACTUALIZAR NOTIFICACIÓN (evitar duplicados)
       if (!post.usuario.equals(req.userId)) {
-        const notification = new Notification({
-          receptor: post.usuario,
+        // Buscar si ya existe una notificación de este usuario para este post
+        let notification = await Notification.findOne({
           emisor: req.userId,
+          receptor: post.usuario,
           tipo: 'like_post',
-          contenido: 'le dio like a tu publicación',
-          referencia: {
-            tipo: 'Post',
-            id: post._id
-          }
+          'referencia.id': post._id
         });
-        await notification.save();
+
+        if (notification) {
+          // Ya existe, solo actualizar timestamp
+          notification.updatedAt = new Date();
+          notification.leido = false; // Marcar como no leída de nuevo
+          await notification.save();
+          console.log('♻️ [LIKE] Notificación actualizada (re-like):', notification._id);
+        } else {
+          // No existe, crear nueva
+          notification = new Notification({
+            receptor: post.usuario,
+            emisor: req.userId,
+            tipo: 'like_post',
+            contenido: 'le dio like a tu publicación',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            }
+          });
+          await notification.save();
+          console.log('✅ [LIKE] Nueva notificación creada:', notification._id);
+        }
 
         // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
         const notificationPopulated = await Notification.findById(notification._id)
@@ -914,26 +955,68 @@ const toggleCommentLike = async (req, res) => {
       // Quitar like
       comment.likes.splice(likeIndex, 1);
       await post.save();
+
+      // 🆕 ELIMINAR NOTIFICACIÓN EXISTENTE (si existe)
+      try {
+        const commentUserId = comment.usuario._id || comment.usuario;
+        const deletedNotification = await Notification.findOneAndDelete({
+          emisor: req.userId,
+          receptor: commentUserId,
+          tipo: 'like_comentario',
+          'referencia.id': post._id
+        });
+
+        if (deletedNotification) {
+          console.log('🗑️ [UNLIKE COMMENT] Notificación eliminada:', deletedNotification._id);
+          // Emitir evento de eliminación de notificación
+          if (global.emitNotification) {
+            global.emitNotification(commentUserId.toString(), {
+              tipo: 'notificacion_eliminada',
+              notificacionId: deletedNotification._id
+            });
+          }
+        }
+      } catch (notifError) {
+        console.error('⚠️ [UNLIKE COMMENT] Error eliminando notificación:', notifError);
+      }
     } else {
       // Dar like
       comment.likes.push(req.userId);
       await post.save();
 
-      // Crear notificación si no es el propio usuario
+      // 🆕 CREAR O ACTUALIZAR NOTIFICACIÓN (evitar duplicados)
       // Asegurarse de que el usuario del comentario existe (poblado o no)
       const commentUserId = comment.usuario._id || comment.usuario;
       if (commentUserId && !commentUserId.equals(req.userId)) {
-        const notification = new Notification({
-          receptor: commentUserId,
+        // Buscar si ya existe una notificación de este usuario para este comentario
+        let notification = await Notification.findOne({
           emisor: req.userId,
+          receptor: commentUserId,
           tipo: 'like_comentario',
-          contenido: 'le dio like a tu comentario',
-          referencia: {
-            tipo: 'Post',
-            id: post._id
-          }
+          'referencia.id': post._id
         });
-        await notification.save();
+
+        if (notification) {
+          // Ya existe, solo actualizar timestamp
+          notification.updatedAt = new Date();
+          notification.leido = false; // Marcar como no leída de nuevo
+          await notification.save();
+          console.log('♻️ [LIKE COMMENT] Notificación actualizada (re-like):', notification._id);
+        } else {
+          // No existe, crear nueva
+          notification = new Notification({
+            receptor: commentUserId,
+            emisor: req.userId,
+            tipo: 'like_comentario',
+            contenido: 'le dio like a tu comentario',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            }
+          });
+          await notification.save();
+          console.log('✅ [LIKE COMMENT] Nueva notificación creada:', notification._id);
+        }
 
         // Popula emisor
         const notificationPopulated = await Notification.findById(notification._id)

@@ -33,6 +33,7 @@ const notificationSchema = new mongoose.Schema({
       'evento',
       'sistema',
       'respuesta_comentario',
+      'like_comentario',
       'solicitud_iglesia',
       'solicitud_iglesia_aprobada',
       'solicitud_iglesia_rechazada',

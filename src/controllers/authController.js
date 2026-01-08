@@ -41,6 +41,19 @@ const splitFullName = (fullName) => {
 };
 
 
+// Función auxiliar para generar username único
+const generateUniqueUsername = async (nombre, apellido) => {
+  let baseUsername = `${nombre.toLowerCase()}.${apellido.toLowerCase()}`.replace(/\s+/g, '').replace(/[^a-z0-9.]/g, '');
+  let username = baseUsername;
+  let counter = 1;
+
+  while (await User.findOne({ 'social.username': username })) {
+    username = `${baseUsername}${counter}`;
+    counter++;
+  }
+  return username;
+};
+
 /**
  * Registro de usuario
  * POST /api/auth/register
@@ -65,8 +78,12 @@ const register = async (req, res) => {
     const nombresObj = splitFullName(nombre);
     const apellidosObj = splitFullName(apellido);
 
+    // Generar username único
+    const username = await generateUniqueUsername(nombre, apellido);
+
     console.log('📝 Nombres divididos:', nombresObj);
     console.log('📝 Apellidos divididos:', apellidosObj);
+    console.log('📝 Username generado:', username);
 
     // Crear usuario con nueva estructura
     // NOTA: NO hasheamos la contraseña aquí porque el middleware pre('save') del modelo lo hace automáticamente
@@ -79,7 +96,9 @@ const register = async (req, res) => {
         fechaNacimiento: fechaNacimiento,
         ubicacion: {}
       },
-      social: {},
+      social: {
+        username: username // Guardar username generado
+      },
       seguridad: {
         estadoCuenta: 'activo',
         rolSistema: 'usuario'

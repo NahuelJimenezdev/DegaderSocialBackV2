@@ -110,7 +110,7 @@ const createPost = async (req, res) => {
     console.log('✅ [CREATE POST] Post saved with ID:', post._id);
 
     // Poblar usuario
-    await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil');
+    await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username');
     console.log('✅ [CREATE POST] Post populated');
 
     // Emitir nuevo post en tiempo real
@@ -249,7 +249,7 @@ const getFeed = async (req, res) => {
         { grupo: { $in: userGroupIds } }
       ]
     })
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -314,7 +314,7 @@ const getUserPosts = async (req, res) => {
       usuario: userId,
       ...privacyFilter
     })
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate({
         path: 'comentarios.usuario',
@@ -376,7 +376,7 @@ const getGroupPosts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const posts = await Post.find({ grupo: groupId })
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -420,7 +420,7 @@ const getPostById = async (req, res) => {
     }
 
     const post = await Post.findById(id)
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({

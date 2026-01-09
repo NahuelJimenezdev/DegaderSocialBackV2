@@ -374,6 +374,15 @@ const UserV2Schema = new Schema({
     default: []
   },
 
+  // Usuarios favoritos
+  usuariosFavoritos: {
+    type: [{
+      type: Schema.Types.ObjectId,
+      ref: 'UserV2'
+    }],
+    default: []
+  },
+
   // RollingCode / E-commerce (Legacy support)
   carrito: { type: Schema.Types.ObjectId, ref: 'Cart' },
   favoritos: [{ type: Schema.Types.ObjectId, ref: 'Product' }]

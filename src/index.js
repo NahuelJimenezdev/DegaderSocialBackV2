@@ -123,6 +123,7 @@ const meetingRoutes = require('./routes/meeting.routes.js');
 const fundacionRoutes = require('./routes/fundacion.routes');
 const iglesiaRoutes = require('./routes/iglesia.routes');
 const adRoutes = require('./routes/ad.routes');
+const favoritosRoutes = require('./routes/favoritos.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -147,6 +148,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', userRoutes);
+app.use('/api/favoritos', favoritosRoutes);
 app.use('/api/publicaciones', postRoutes);
 app.use('/api/amistades', amistadCompatRoutes);
 app.use('/api/friendships', friendshipRoutes);

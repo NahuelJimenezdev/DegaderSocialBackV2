@@ -331,8 +331,17 @@ const UserV2Schema = new Schema({
   },
   password: { type: String, required: true, select: false }, // Hash argon2
 
-  // Legacy support for root username
-  username: { type: String, sparse: true, trim: true },
+  // Username único para URLs amigables
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    minlength: [3, 'El username debe tener al menos 3 caracteres'],
+    maxlength: [30, 'El username no puede exceder 30 caracteres'],
+    match: [/^[a-z0-9._]+$/, 'El username solo puede contener letras minúsculas, números, puntos y guiones bajos']
+  },
 
   // Flags de Tipo de Usuario (Discriminadores Lógicos)
   esMiembroFundacion: { type: Boolean, default: false, index: true },

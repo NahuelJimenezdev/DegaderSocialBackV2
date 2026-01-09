@@ -118,6 +118,48 @@ const getUserById = async (req, res) => {
 };
 
 /**
+ * Obtener usuario por username
+ * GET /api/usuarios/username/:username
+ */
+const getUserByUsername = async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (!username || username.trim().length === 0) {
+      return res.status(400).json(formatErrorResponse('Username requerido'));
+    }
+
+    // Verificar si hay bloqueo
+    const currentUserId = req.user ? req.user._id : null;
+
+    const user = await User.findOne({ username: username.toLowerCase() }).select('-password');
+
+    if (!user) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
+    // Verificar bloqueo si es otro usuario
+    if (currentUserId && currentUserId.toString() !== user._id.toString()) {
+      const blockedFriendship = await Friendship.findOne({
+        $or: [
+          { solicitante: currentUserId, receptor: user._id, estado: 'bloqueada' },
+          { solicitante: user._id, receptor: currentUserId, estado: 'bloqueada' }
+        ]
+      });
+
+      if (blockedFriendship) {
+        return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+      }
+    }
+
+    res.json(formatSuccessResponse('Usuario encontrado', user));
+  } catch (error) {
+    console.error('Error al obtener usuario por username:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener usuario', [error.message]));
+  }
+};
+
+/**
  * Actualizar perfil del usuario autenticado
  * PUT /api/usuarios/profile
  */
@@ -600,6 +642,7 @@ module.exports = {
   getAllUsers,
   searchUsers,
   getUserById,
+  getUserByUsername,
   updateProfile,
   uploadAvatar,
   uploadBanner,

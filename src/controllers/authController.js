@@ -47,7 +47,7 @@ const generateUniqueUsername = async (nombre, apellido) => {
   let username = baseUsername;
   let counter = 1;
 
-  while (await User.findOne({ 'social.username': username })) {
+  while (await User.findOne({ username: username })) {
     username = `${baseUsername}${counter}`;
     counter++;
   }
@@ -92,12 +92,10 @@ const register = async (req, res) => {
       apellidos: apellidosObj,
       email: email.toLowerCase(),
       password: password, // ← Contraseña en texto plano, el modelo la hasheará
+      username: username, // Username en campo raíz
       personal: {
         fechaNacimiento: fechaNacimiento,
         ubicacion: {}
-      },
-      social: {
-        username: username // Guardar username generado
       },
       seguridad: {
         estadoCuenta: 'activo',

@@ -19,7 +19,11 @@ router.get('/saved-posts', userController.getSavedPosts);
 
 // Rutas de usuarios con parámetros dinámicos (deben ir DESPUÉS de las rutas específicas)
 router.get('/', userController.getAllUsers);
-router.get('/:id', userController.getUserById);
+// Obtener usuario por username (debe ir ANTES de /:id para evitar conflictos)
+router.get('/username/:username', authenticate, userController.getUserByUsername);
+
+// Obtener usuario por ID
+router.get('/:id', authenticate, userController.getUserById);
 router.get('/:id/stats', userController.getUserStats);
 router.post('/:id/avatar', uploadAvatar, handleUploadError, userController.uploadAvatar);
 router.post('/:id/banner', uploadBanner, handleUploadError, userController.uploadBanner);

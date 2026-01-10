@@ -10,7 +10,16 @@ const getAllNotifications = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
 
-    const notifications = await Notification.find({ receptor: req.userId })
+    // Construir query base
+    const query = { receptor: req.userId };
+
+    // Si el usuario está suspendido, solo mostrar notificaciones de sistema
+    if (req.userSuspended) {
+      query.tipo = 'sistema';
+      console.log('⚠️ [NOTIF] Usuario suspendido - filtrando solo tipo sistema');
+    }
+
+    const notifications = await Notification.find(query)
       .populate('emisor', 'nombres apellidos social.fotoPerfil')
       .populate('referencia.id')
       .sort({ createdAt: -1 })
@@ -224,6 +233,12 @@ const getNotificationById = async (req, res) => {
     // Verificar que la notificación pertenece al usuario
     if (!notification.receptor.equals(req.userId)) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para ver esta notificación'));
+    }
+
+    // Si el usuario está suspendido, solo permitir notificaciones de sistema
+    if (req.userSuspended && notification.tipo !== 'sistema') {
+      console.log('❌ [NOTIF] Usuario suspendido intentando ver notificación no-sistema');
+      return res.status(403).json(formatErrorResponse('Solo puedes ver notificaciones del sistema mientras estés suspendido'));
     }
 
     res.json(formatSuccessResponse('Notificación obtenida', notification));

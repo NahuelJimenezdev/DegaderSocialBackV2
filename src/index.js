@@ -125,6 +125,8 @@ const iglesiaRoutes = require('./routes/iglesia.routes');
 const adRoutes = require('./routes/ad.routes');
 const favoritosRoutes = require('./routes/favoritos.routes');
 const reportRoutes = require('./routes/report.routes');
+const ticketRoutes = require('./routes/ticket.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -160,9 +162,11 @@ app.use('/api/buscar', searchRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/reuniones', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
-app.use('/api/iglesias', iglesiaRoutes);
-app.use('/api/ads', adRoutes); // Sistema de publicidad
-app.use('/api/reports', reportRoutes); // Sistema de reportes
+app.use('/api/iglesia', iglesiaRoutes);
+app.use('/api/ads', adRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

@@ -10,6 +10,7 @@ router.use(authenticate);
 router.get('/', notificationController.getAllNotifications);
 router.get('/unread', notificationController.getUnreadNotifications);
 router.get('/unread-count', notificationController.getUnreadCount);
+router.get('/:id', notificationController.getNotificationById);
 
 router.put('/:id/read', notificationController.markAsRead);
 router.put('/mark-all-read', notificationController.markAllAsRead);

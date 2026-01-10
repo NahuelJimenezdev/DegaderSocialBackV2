@@ -1,6 +1,7 @@
 const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report');
 const User = require('../models/User.model');
 const Post = require('../models/Post');
+const Notification = require('../models/Notification');
 
 // ==========================================
 // 🔹 FUNCIONES PARA USUARIOS
@@ -57,9 +58,84 @@ const createReport = async (req, res) => {
                 break;
             }
 
-            // TODO: Implementar snapshots para comentarios, perfiles y mensajes
-            case 'comment':
-            case 'profile':
+            // Comentarios: Buscar en posts
+            case 'comment': {
+                const postWithComment = await Post.findOne({ 'comentarios._id': contentId })
+                    .populate('comentarios.usuario', 'username nombres apellidos social.fotoPerfil');
+
+                if (!postWithComment) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Comentario no encontrado'
+                    });
+                }
+
+                const comment = postWithComment.comentarios.id(contentId);
+                if (!comment) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Comentario no encontrado'
+                    });
+                }
+
+                contentSnapshot = {
+                    originalId: comment._id,
+                    type: 'comment',
+                    content: {
+                        texto: comment.contenido,
+                        createdAt: comment.createdAt,
+                        postId: postWithComment._id
+                    },
+                    author: {
+                        userId: comment.usuario._id,
+                        username: comment.usuario.username,
+                        nombreCompleto: `${comment.usuario.nombres.primero} ${comment.usuario.apellidos.primero}`
+                    },
+                    createdAt: comment.createdAt
+                };
+                break;
+            }
+
+            // Perfiles de usuario
+            case 'profile': {
+                const reportedUser = await User.findById(contentId);
+
+                if (!reportedUser) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Usuario no encontrado'
+                    });
+                }
+
+                // Verificar que no sea un moderador
+                if (reportedUser.roles?.includes('moderador')) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'No se puede reportar a un moderador'
+                    });
+                }
+
+                contentSnapshot = {
+                    originalId: reportedUser._id,
+                    type: 'profile',
+                    content: {
+                        username: reportedUser.username,
+                        bio: reportedUser.social?.bio,
+                        fotoPerfil: reportedUser.social?.fotoPerfil,
+                        seguidores: reportedUser.social?.seguidores?.length || 0,
+                        createdAt: reportedUser.createdAt
+                    },
+                    author: {
+                        userId: reportedUser._id,
+                        username: reportedUser.username,
+                        nombreCompleto: `${reportedUser.nombres.primero} ${reportedUser.apellidos.primero}`
+                    },
+                    createdAt: reportedUser.createdAt
+                };
+                break;
+            }
+
+            // Mensajes aún no implementados
             case 'message':
                 return res.status(501).json({
                     success: false,
@@ -578,7 +654,11 @@ const takeModeratorAction = async (req, res) => {
                             // Poblar y emitir socket
                             await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
                             if (global.emitNotification) {
-                                global.emitNotification(author.userId, notification);
+                                const targetUserId = author.userId.toString();
+                                console.log(`📡 [NOTIFY] Intentando notificar a autor: ${targetUserId}`);
+                                global.emitNotification(targetUserId, notification);
+                            } else {
+                                console.error('❌ [NOTIFY] global.emitNotification no está definido');
                             }
                         } catch (notifError) {
                             console.error('Error al notificar eliminación:', notifError);
@@ -587,28 +667,53 @@ const takeModeratorAction = async (req, res) => {
                         console.warn(`⚠️ Intento de eliminar post ${contentId} fallido: No encontrado`);
                     }
                 } else if (contentType === 'comment') {
+                    // Eliminar comentario del post
                     const result = await Post.findOneAndUpdate(
                         { 'comentarios._id': contentId },
-                        { $pull: { comentarios: { _id: contentId } } }
+                        { $pull: { comentarios: { _id: contentId } } },
+                        { new: true }
                     );
+
                     if (result) {
                         console.log(`🗑️ Comentario ${contentId} eliminado por moderación`);
-                        // Notificar (pendiente: buscar usuario del comentario si no viene en author.userId de forma directa)
-                        // Para simplificar, asumimos author.userId viene del snapshot correcto
+
+                        // Emitir evento para actualizar el post en tiempo real
+                        const io = global.io || req.app.get('io');
+                        if (io) {
+                            io.emit('post_updated', result);
+                            console.log('📡 [SOCKET] Emitido evento post_updated tras eliminar comentario');
+                        }
+
+                        // Notificar al autor del comentario
                         try {
                             const notification = new Notification({
                                 receptor: author.userId,
                                 emisor: userId,
                                 tipo: 'sistema',
-                                contenido: `Tu comentario ha sido eliminado por incumplir las normas. Motivo: ${justification}`,
-                                referencia: { tipo: 'Post', id: result._id },
-                                metadata: { action: 'eliminar_comentario', reportId: report._id }
+                                contenido: `Tu comentario ha sido eliminado por incumplir las normas de la comunidad. Motivo: ${justification}`,
+                                referencia: { tipo: 'Comment', id: contentId },
+                                metadata: { action: 'eliminar_contenido', reportId: report._id, postId: report.contentSnapshot.content.postId }
                             });
                             await notification.save();
-                        } catch (notifError) { console.error(notifError); }
+
+                            await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
+                            if (global.emitNotification) {
+                                const targetUserId = author.userId.toString();
+                                console.log(`📡 [NOTIFY] Notificando eliminación de comentario a: ${targetUserId}`);
+                                global.emitNotification(targetUserId, notification);
+                            } else {
+                                console.error('❌ [NOTIFY] global.emitNotification no está definido');
+                            }
+                        } catch (notifError) {
+                            console.error('Error al notificar eliminación de comentario:', notifError);
+                        }
+                    } else {
+                        console.warn(`⚠️ Intento de eliminar comentario ${contentId} fallido: No encontrado`);
                     }
                 }
-            } else if (action === 'ocultar_contenido') {
+            }
+
+            if (action === 'ocultar_contenido') {
                 if (contentType === 'post') {
                     await Post.findByIdAndUpdate(contentId, { privacidad: 'privado' });
                     console.log(`👁️ Post ${contentId} ocultado (propiedad privada)`);
@@ -683,7 +788,11 @@ const takeModeratorAction = async (req, res) => {
                         // Poblar y emitir socket
                         await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
                         if (global.emitNotification) {
-                            global.emitNotification(userToSanction._id, notification);
+                            const targetUserId = userToSanction._id.toString();
+                            console.log(`📡 [NOTIFY] Intentando notificar sanción a: ${targetUserId}`);
+                            global.emitNotification(targetUserId, notification);
+                        } else {
+                            console.error('❌ [NOTIFY] global.emitNotification no está definido');
                         }
                     } catch (notifError) {
                         console.error('Error al notificar sanción:', notifError);

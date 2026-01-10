@@ -202,6 +202,38 @@ const getUnreadNotifications = async (req, res) => {
 };
 
 /**
+ * Obtener una notificación por ID
+ * GET /api/notificaciones/:id
+ */
+const getNotificationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const notification = await Notification.findById(id)
+      .populate('emisor', 'username nombres apellidos social.fotoPerfil')
+      .populate('referencia.id');
+
+    if (!notification) {
+      return res.status(404).json(formatErrorResponse('Notificación no encontrada'));
+    }
+
+    // Verificar que la notificación pertenece al usuario
+    if (!notification.receptor.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para ver esta notificación'));
+    }
+
+    res.json(formatSuccessResponse('Notificación obtenida', notification));
+  } catch (error) {
+    console.error('Error al obtener notificación:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener notificación', [error.message]));
+  }
+};
+
+/**
  * Obtener conteo de notificaciones no leídas
  * GET /api/notificaciones/unread-count
  */
@@ -341,6 +373,7 @@ const clearReadNotifications = async (req, res) => {
 module.exports = {
   getAllNotifications,
   getUnreadNotifications,
+  getNotificationById,
   getUnreadCount,
   markAsRead,
   markAllAsRead,

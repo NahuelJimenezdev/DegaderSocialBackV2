@@ -69,6 +69,7 @@ class SocketService {
       socket.join(`user:${userId}`);
 
       console.log('🔐 [AUTH] Usuario unido a sala:', `user:${userId}`);
+      console.log('👀 [DEBUG] Salas actuales del socket:', Array.from(socket.rooms));
 
       // Actualizar ultimaConexion en la base de datos
       console.log('💾 [DB] Actualizando ultimaConexion para:', userId);
@@ -157,10 +158,19 @@ class SocketService {
 
   // Helper methods (Globales)
   emitNotification(userId, notification) {
-    if (!this.io) return;
+    if (!this.io) {
+      console.error('❌ [SOCKET SERVICE] IO no inicializado');
+      return;
+    }
+    const roomName = `user:${userId}`;
+    const roomExists = this.io.sockets.adapter.rooms.has(roomName);
+
+    console.log(`📨 [SOCKET SERVICE] Emitiendo notificación a ${userId}`);
+    console.log(`   Sala ${roomName} existe? ${roomExists}`);
+    console.log(`   Contenido: ${notification.tipo} - ${notification.contenido.substring(0, 30)}...`);
+
     // Usar la sala 'user' que es automática tras autenticación, más robusto que 'notifications' manual
-    this.io.to(`user:${userId}`).emit('newNotification', notification);
-    console.log(`📨 Notificación emitida a usuario ${userId} (sala user):`, notification._id);
+    this.io.to(roomName).emit('newNotification', notification);
   }
 
   emitMessage(conversationId, message) {

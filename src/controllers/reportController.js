@@ -1,7 +1,6 @@
-const Report = require('../models/Report');
+const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report');
 const User = require('../models/User.model');
 const Post = require('../models/Post');
-const { REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report');
 
 // ==========================================
 // 🔹 FUNCIONES PARA USUARIOS

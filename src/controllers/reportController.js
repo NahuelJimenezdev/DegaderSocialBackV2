@@ -533,7 +533,11 @@ const takeModeratorAction = async (req, res) => {
         // APICAR ACCIONES REALES
         // ======================
         if (isValid) {
-            const { contentType, contentId, author } = report.contentSnapshot;
+            // CORRECCIÓN: Mapear las propiedades correctas del snapshot
+            // El snapshot guarda 'type' (no contentType) y 'originalId' (no contentId)
+            const { type: contentType, originalId: contentId, author } = report.contentSnapshot;
+
+            console.log(`🔍 [DEBUG] Procesando acción ${action} para ${contentType} ID: ${contentId}`);
 
             // 1. Acciones sobre Contenido (Eliminar / Ocultar)
             if (action === 'eliminar_contenido') {

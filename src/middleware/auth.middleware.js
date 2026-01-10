@@ -130,9 +130,59 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware para verificar rol Trust & Safety
+ * Permite: moderador o usuarios con permiso moderarContenido
+ */
+const isTrustAndSafety = (req, res, next) => {
+  const isModeratorRole = req.user.seguridad?.rolSistema === 'moderador';
+  const hasModeratorPermission = req.user.seguridad?.permisos?.moderarContenido === true;
+
+  if (!isModeratorRole && !hasModeratorPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado. Se requieren permisos de Trust & Safety'
+    });
+  }
+  next();
+};
+
+/**
+ * Middleware para verificar rol Founder
+ */
+const isFounder = (req, res, next) => {
+  if (req.user.seguridad?.rolSistema !== 'Founder') {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado. Se requieren permisos de Founder'
+    });
+  }
+  next();
+};
+
+/**
+ * Middleware para verificar si el usuario es Trust & Safety o Founder
+ */
+const isTrustAndSafetyOrFounder = (req, res, next) => {
+  const isModeratorRole = req.user.seguridad?.rolSistema === 'moderador';
+  const hasModeratorPermission = req.user.seguridad?.permisos?.moderarContenido === true;
+  const isFounderRole = req.user.seguridad?.rolSistema === 'Founder';
+
+  if (!isModeratorRole && !hasModeratorPermission && !isFounderRole) {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado. Se requieren permisos de moderación'
+    });
+  }
+  next();
+};
+
 module.exports = {
   authenticate,
   isAdmin,
   isModerator,
-  optionalAuth
+  optionalAuth,
+  isTrustAndSafety,
+  isFounder,
+  isTrustAndSafetyOrFounder
 };

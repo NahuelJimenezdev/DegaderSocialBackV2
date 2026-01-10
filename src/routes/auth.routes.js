@@ -11,6 +11,7 @@ router.post('/login', loginValidation, authController.login);
 
 // Rutas protegidas
 router.get('/profile', authenticate, authController.getProfile);
+router.get('/suspension-info', authenticate, authController.getSuspensionInfo);
 router.put('/change-password', authenticate, authController.changePassword);
 router.post('/logout', authenticate, authController.logout);
 

@@ -260,6 +260,53 @@ const changePassword = async (req, res) => {
 };
 
 /**
+ * Obtener información de suspensión
+ * GET /api/auth/suspension-info
+ */
+const getSuspensionInfo = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
+    // Calcular días restantes
+    const calcularDias = (fechaFin) => {
+      if (!fechaFin) return null;
+      const ahora = new Date();
+      const fin = new Date(fechaFin);
+      const diff = fin - ahora;
+      if (diff <= 0) return 0;
+      return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    };
+
+    if (user.seguridad?.estadoCuenta === 'suspendido' || user.seguridad?.estadoCuenta === 'inactivo') {
+      return res.json({
+        success: true,
+        data: {
+          suspended: true,
+          estado: user.seguridad.estadoCuenta,
+          fechaInicio: user.seguridad.fechaSuspension,
+          fechaFin: user.seguridad.fechaFinSuspension,
+          diasRestantes: calcularDias(user.seguridad.fechaFinSuspension),
+          isPermanente: !user.seguridad.fechaFinSuspension,
+          motivo: user.seguridad.motivoSuspension || 'No especificado'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { suspended: false }
+    });
+  } catch (error) {
+    console.error('Error al obtener información de suspensión:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener información', [error.message]));
+  }
+};
+
+/**
  * Logout (lado servidor - opcional)
  * POST /api/auth/logout
  */
@@ -280,5 +327,6 @@ module.exports = {
   login,
   getProfile,
   changePassword,
+  getSuspensionInfo,
   logout
 };

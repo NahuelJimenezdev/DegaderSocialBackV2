@@ -2,10 +2,83 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 
 /**
+ * Calcular días restantes de suspensión
+ */
+const calcularDiasRestantes = (fechaFin) => {
+  if (!fechaFin) return null; // Suspensión permanente
+
+  const ahora = new Date();
+  const fin = new Date(fechaFin);
+  const diff = fin - ahora;
+
+  if (diff <= 0) return 0; // Suspensión ya expiró
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+/**
+ * Middleware para verificar suspensión con acceso limitado
+ */
+const checkSuspended = (req, res, next) => {
+  const user = req.user;
+
+  if (user.seguridad?.estadoCuenta === 'suspendido' || user.seguridad?.estadoCuenta === 'inactivo') {
+    console.log('⚠️ checkSuspended - Usuario suspendido detectado');
+    console.log('⚠️ checkSuspended - URL completa:', req.url);
+    console.log('⚠️ checkSuspended - Path:', req.path);
+    console.log('⚠️ checkSuspended - OriginalUrl:', req.originalUrl);
+
+    //Rutas permitidas para usuarios suspendidos
+    const allowedRoutes = [
+      /^\/api\/auth\/logout$/,
+      /^\/api\/auth\/me$/,
+      /^\/api\/auth\/suspension-info$/,
+      /^\/api\/notificaciones$/,
+      /^\/api\/notificaciones\/[a-fA-F0-9]{24}$/,  // ID de notificación
+      /^\/api\/notificaciones\/[a-fA-F0-9]{24}\/read$/,  // Marcar como leída
+      // Rutas de tickets (para apelaciones)
+      /^\/api\/tickets$/,  // Crear y listar tickets
+      /^\/api\/tickets\/[a-fA-F0-9]{24}$/,  // Ver ticket específico
+      /^\/api\/tickets\/[a-fA-F0-9]{24}\/responses$/  // Responder a ticket
+    ];
+
+    // Usar req.originalUrl que contiene el path completo
+    const urlToCheck = req.originalUrl.split('?')[0]; // Remover query params
+    const isAllowed = allowedRoutes.some(pattern => pattern.test(urlToCheck));
+
+    console.log('⚠️ checkSuspended - Checking:', urlToCheck);
+    console.log('⚠️ checkSuspended - Is allowed?:', isAllowed);
+
+    if (!isAllowed) {
+      console.log(`❌ checkSuspended - Ruta no permitida: ${urlToCheck}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Cuenta suspendida',
+        suspended: true,
+        suspensionInfo: {
+          estado: user.seguridad.estadoCuenta,
+          fechaInicio: user.seguridad.fechaSuspension,
+          fechaFin: user.seguridad.fechaFinSuspension,
+          diasRestantes: calcularDiasRestantes(user.seguridad.fechaFinSuspension),
+          isPermanente: !user.seguridad.fechaFinSuspension
+        }
+      });
+    }
+
+    // Marcar request como suspendido para filtros posteriores
+    req.userSuspended = true;
+    console.log(`✅ checkSuspended - Ruta permitida para usuario suspendido: ${urlToCheck}`);
+  }
+
+  next();
+};
+
+/**
  * Middleware para verificar el token JWT
  */
 const authenticate = async (req, res, next) => {
   try {
+    console.log(`🔐 authenticate - Procesando: ${req.method} ${req.originalUrl}`);
     console.log('🔐 authenticate - Headers:', req.headers.authorization ? 'Token presente' : 'NO TOKEN');
     console.log('🔐 authenticate - Content-Type:', req.headers['content-type']);
     console.log('🔐 authenticate - Body:', JSON.stringify(req.body));
@@ -38,23 +111,13 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // Solo bloquear si la cuenta está suspendida o inactiva
-    // Los usuarios normales siempre están 'activo'
-    // 'pendiente_validacion' solo aplica para miembros de fundación/iglesia que esperan aprobación
-    if (user.seguridad?.estadoCuenta === 'suspendido' || user.seguridad?.estadoCuenta === 'inactivo') {
-      console.log('❌ authenticate - Usuario suspendido/inactivo');
-      return res.status(403).json({
-        success: false,
-        message: 'Cuenta inactiva o suspendida'
-      });
-    }
-
     console.log('✅ authenticate - Usuario autenticado:', user._id);
     // Agregar usuario al request
     req.user = user;
     req.userId = user._id;
 
-    next();
+    // Verificar suspensión con acceso limitado
+    return checkSuspended(req, res, next);
   } catch (error) {
     console.log('❌ authenticate - Error:', error.message);
     if (error.name === 'JsonWebTokenError') {
@@ -135,10 +198,14 @@ const optionalAuth = async (req, res, next) => {
  * Permite: moderador o usuarios con permiso moderarContenido
  */
 const isTrustAndSafety = (req, res, next) => {
+  // Verificar múltiples fuentes de permisos de moderación
   const isModeratorRole = req.user.seguridad?.rolSistema === 'moderador';
+  const isFounder = req.user.seguridad?.rolSistema === 'Founder';
   const hasModeratorPermission = req.user.seguridad?.permisos?.moderarContenido === true;
+  const hasNewRolField = req.user.rol === 'moderador' || req.user.rol === 'admin';
 
-  if (!isModeratorRole && !hasModeratorPermission) {
+  // Permitir acceso si cumple cualquiera de estas condiciones
+  if (!isModeratorRole && !hasModeratorPermission && !isFounder && !hasNewRolField) {
     return res.status(403).json({
       success: false,
       message: 'Acceso denegado. Se requieren permisos de Trust & Safety'

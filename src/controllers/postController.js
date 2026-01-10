@@ -246,7 +246,10 @@ const getFeed = async (req, res) => {
         // 2. Mis posts (en cualquier lado)
         { usuario: req.userId },
         // 3. Posts de grupos donde soy miembro
-        { grupo: { $in: userGroupIds } }
+        {
+          grupo: { $in: userGroupIds },
+          privacidad: { $ne: 'privado' }
+        }
       ]
     })
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
@@ -268,7 +271,10 @@ const getFeed = async (req, res) => {
           $or: [{ grupo: { $exists: false } }, { grupo: null }]
         },
         { usuario: req.userId },
-        { grupo: { $in: userGroupIds } }
+        {
+          grupo: { $in: userGroupIds },
+          privacidad: { $ne: 'privado' }
+        }
       ]
     });
 
@@ -375,7 +381,10 @@ const getGroupPosts = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const posts = await Post.find({ grupo: groupId })
+    const posts = await Post.find({
+      grupo: groupId,
+      privacidad: { $ne: 'privado' }
+    })
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')

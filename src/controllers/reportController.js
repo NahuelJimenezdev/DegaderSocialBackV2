@@ -294,25 +294,29 @@ const getReportById = async (req, res) => {
         }
 
         // Obtener contexto adicional del usuario reportado
-        const reportedUserId = report.contentSnapshot.author.userId._id;
+        const userDoc = report.contentSnapshot.author.userId;
+        const reportedUserId = userDoc?._id || userDoc; // Manejar si está poblado o no
 
         // Conteo de reportes previos del mismo usuario
-        const previousReports = await Report.countDocuments({
-            'contentSnapshot.author.userId': reportedUserId,
-            status: 'valido'
-        });
-
-        // Obtener publicaciones recientes del usuario (contexto)
+        let previousReports = 0;
         let recentPosts = [];
-        if (report.contentSnapshot.type === 'post') {
-            recentPosts = await Post.find({
-                usuario: reportedUserId,
-                _id: { $ne: report.contentSnapshot.originalId }
-            })
-                .select('texto imagenes createdAt')
-                .sort({ createdAt: -1 })
-                .limit(5);
-        }
+        if (reportedUserId) {
+            previousReports = await Report.countDocuments({
+                'contentSnapshot.author.userId': reportedUserId,
+                status: 'valido'
+            });
+
+            // Obtener publicaciones recientes del usuario (contexto)
+            if (report.contentSnapshot.type === 'post') {
+                recentPosts = await Post.find({
+                    usuario: reportedUserId,
+                    _id: { $ne: report.contentSnapshot.originalId }
+                })
+                    .select('texto imagenes createdAt')
+                    .sort({ createdAt: -1 })
+                    .limit(5);
+            }
+        } // Cierre del if (reportedUserId)
 
         res.json({
             success: true,

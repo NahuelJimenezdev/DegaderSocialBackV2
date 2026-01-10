@@ -293,9 +293,14 @@ const getReportById = async (req, res) => {
             });
         }
 
-        // Obtener contexto adicional del usuario reportado
-        const userDoc = report.contentSnapshot.author.userId;
-        const reportedUserId = userDoc?._id || userDoc; // Manejar si está poblado o no
+        // Obtener contexto adicional del usuario reportado (con logs para depuración)
+        // console.log('🔍 [DEBUG] Procesando reporte:', id);
+        // console.log('📄 [DEBUG] Snapshot author:', report.contentSnapshot?.author);
+
+        const userDoc = report.contentSnapshot?.author?.userId;
+        const reportedUserId = userDoc?._id || userDoc;
+
+        // console.log('👤 [DEBUG] UserDoc ID:', reportedUserId);
 
         // Conteo de reportes previos del mismo usuario
         let previousReports = 0;

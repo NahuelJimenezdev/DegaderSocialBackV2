@@ -574,6 +574,12 @@ const takeModeratorAction = async (req, res) => {
                                 metadata: { action: 'eliminar_contenido', reportId: report._id }
                             });
                             await notification.save();
+
+                            // Poblar y emitir socket
+                            await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
+                            if (global.emitNotification) {
+                                global.emitNotification(author.userId, notification);
+                            }
                         } catch (notifError) {
                             console.error('Error al notificar eliminación:', notifError);
                         }
@@ -673,6 +679,12 @@ const takeModeratorAction = async (req, res) => {
                             metadata: { action, reportId: report._id }
                         });
                         await notification.save();
+
+                        // Poblar y emitir socket
+                        await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
+                        if (global.emitNotification) {
+                            global.emitNotification(userToSanction._id, notification);
+                        }
                     } catch (notifError) {
                         console.error('Error al notificar sanción:', notifError);
                     }

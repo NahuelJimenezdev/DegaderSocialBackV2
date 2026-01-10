@@ -1,6 +1,7 @@
-const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS } = require('../models/Report');
+const Report = require('../models/Report');
 const User = require('../models/User.model');
 const Post = require('../models/Post');
+const { REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report');
 
 // ==========================================
 // 🔹 FUNCIONES PARA USUARIOS
@@ -521,9 +522,72 @@ const takeModeratorAction = async (req, res) => {
 
         await report.save();
 
-        // TODO: Aquí se aplicarían las acciones reales sobre el contenido/usuario
-        // Por ejemplo: ocultar post, suspender usuario, etc.
-        // Esto se implementará en una fase posterior
+        // APICAR ACCIONES REALES
+        // ======================
+        if (isValid) {
+            const { contentType, contentId, author } = report.contentSnapshot;
+
+            // 1. Acciones sobre Contenido (Eliminar / Ocultar)
+            if (action === 'eliminar_contenido') {
+                if (contentType === 'post') {
+                    await Post.findByIdAndDelete(contentId);
+                    console.log(`🗑️ Post ${contentId} eliminado por moderación`);
+                } else if (contentType === 'comment') {
+                    await Post.findOneAndUpdate(
+                        { 'comentarios._id': contentId },
+                        { $pull: { comentarios: { _id: contentId } } }
+                    );
+                    console.log(`🗑️ Comentario ${contentId} eliminado por moderación`);
+                }
+            } else if (action === 'ocultar_contenido') {
+                if (contentType === 'post') {
+                    // Cambiar a privado para ocultarlo del feed público
+                    await Post.findByIdAndUpdate(contentId, { privacidad: 'privado' });
+                    console.log(`👁️ Post ${contentId} ocultado (propiedad privada)`);
+                }
+                // Si es comentario, no hay "privacidad", quizás eliminar sea la única opción viable por ahora
+                // o implementar un flag isHidden en el futuro schema
+            }
+
+            // 2. Acciones sobre Usuario (Suspensión)
+            if (action.startsWith('suspension_') || action === 'advertir_usuario') {
+                const userToSanction = await User.findById(author.userId);
+
+                if (userToSanction) {
+                    let suspensionEndDate = null;
+                    const now = new Date();
+
+                    switch (action) {
+                        case 'suspension_1_dia':
+                            suspensionEndDate = new Date(now.setDate(now.getDate() + 1));
+                            break;
+                        case 'suspension_3_dias':
+                            suspensionEndDate = new Date(now.setDate(now.getDate() + 3));
+                            break;
+                        case 'suspension_7_dias':
+                            suspensionEndDate = new Date(now.setDate(now.getDate() + 7));
+                            break;
+                        case 'suspension_30_dias':
+                            suspensionEndDate = new Date(now.setDate(now.getDate() + 30));
+                            break;
+                        case 'suspension_permanente':
+                            suspensionEndDate = new Date(9999, 11, 31); // Futuro lejano
+                            break;
+                    }
+
+                    if (suspensionEndDate) {
+                        userToSanction.seguridad.estadoCuenta = 'suspendido';
+                        userToSanction.seguridad.suspensionFin = suspensionEndDate;
+                        userToSanction.seguridad.motivoSuspension = justification;
+                        await userToSanction.save();
+                        console.log(`🚫 Usuario ${author.username} suspendido hasta ${suspensionEndDate}`);
+                    }
+
+                    // TODO: Enviar notificación/email al usuario sobre la sanción
+                }
+            }
+        }
+
 
         console.log(`✅ Acción de moderación aplicada: ${action} en reporte ${report.reportNumber}`);
 

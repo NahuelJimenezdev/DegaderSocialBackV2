@@ -124,6 +124,7 @@ const fundacionRoutes = require('./routes/fundacion.routes');
 const iglesiaRoutes = require('./routes/iglesia.routes');
 const adRoutes = require('./routes/ad.routes');
 const favoritosRoutes = require('./routes/favoritos.routes');
+const reportRoutes = require('./routes/report.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -161,6 +162,7 @@ app.use('/api/reuniones', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
 app.use('/api/iglesias', iglesiaRoutes);
 app.use('/api/ads', adRoutes); // Sistema de publicidad
+app.use('/api/reports', reportRoutes); // Sistema de reportes
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

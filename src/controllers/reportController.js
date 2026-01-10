@@ -538,23 +538,65 @@ const takeModeratorAction = async (req, res) => {
             // 1. Acciones sobre Contenido (Eliminar / Ocultar)
             if (action === 'eliminar_contenido') {
                 if (contentType === 'post') {
-                    await Post.findByIdAndDelete(contentId);
-                    console.log(`🗑️ Post ${contentId} eliminado por moderación`);
+                    const deletedPost = await Post.findByIdAndDelete(contentId);
+                    if (deletedPost) {
+                        console.log(`🗑️ Post ${contentId} eliminado por moderación`);
+
+                        // Notificar al autor
+                        try {
+                            const notification = new Notification({
+                                receptor: author.userId,
+                                emisor: userId, // El moderador actúa como emisor
+                                tipo: 'sistema',
+                                contenido: `Tu publicación ha sido eliminada por incumplir las normas de la comunidad. Motivo: ${justification}`,
+                                referencia: { tipo: 'Post', id: contentId }, // ID aunque no exista, como referencia histórica
+                                metadata: { action: 'eliminar_contenido', reportId: report._id }
+                            });
+                            await notification.save();
+                        } catch (notifError) {
+                            console.error('Error al notificar eliminación:', notifError);
+                        }
+                    } else {
+                        console.warn(`⚠️ Intento de eliminar post ${contentId} fallido: No encontrado`);
+                    }
                 } else if (contentType === 'comment') {
-                    await Post.findOneAndUpdate(
+                    const result = await Post.findOneAndUpdate(
                         { 'comentarios._id': contentId },
                         { $pull: { comentarios: { _id: contentId } } }
                     );
-                    console.log(`🗑️ Comentario ${contentId} eliminado por moderación`);
+                    if (result) {
+                        console.log(`🗑️ Comentario ${contentId} eliminado por moderación`);
+                        // Notificar (pendiente: buscar usuario del comentario si no viene en author.userId de forma directa)
+                        // Para simplificar, asumimos author.userId viene del snapshot correcto
+                        try {
+                            const notification = new Notification({
+                                receptor: author.userId,
+                                emisor: userId,
+                                tipo: 'sistema',
+                                contenido: `Tu comentario ha sido eliminado por incumplir las normas. Motivo: ${justification}`,
+                                referencia: { tipo: 'Post', id: result._id },
+                                metadata: { action: 'eliminar_comentario', reportId: report._id }
+                            });
+                            await notification.save();
+                        } catch (notifError) { console.error(notifError); }
+                    }
                 }
             } else if (action === 'ocultar_contenido') {
                 if (contentType === 'post') {
-                    // Cambiar a privado para ocultarlo del feed público
                     await Post.findByIdAndUpdate(contentId, { privacidad: 'privado' });
                     console.log(`👁️ Post ${contentId} ocultado (propiedad privada)`);
+                    try {
+                        const notification = new Notification({
+                            receptor: author.userId,
+                            emisor: userId,
+                            tipo: 'sistema',
+                            contenido: `Tu publicación ha sido ocultada por incumplir las normas. Motivo: ${justification}`,
+                            referencia: { tipo: 'Post', id: contentId },
+                            metadata: { action: 'ocultar_contenido', reportId: report._id }
+                        });
+                        await notification.save();
+                    } catch (notifError) { console.error(notifError); }
                 }
-                // Si es comentario, no hay "privacidad", quizás eliminar sea la única opción viable por ahora
-                // o implementar un flag isHidden en el futuro schema
             }
 
             // 2. Acciones sobre Usuario (Suspensión)
@@ -564,22 +606,31 @@ const takeModeratorAction = async (req, res) => {
                 if (userToSanction) {
                     let suspensionEndDate = null;
                     const now = new Date();
+                    let mensajeSancion = '';
 
                     switch (action) {
+                        case 'advertir_usuario':
+                            mensajeSancion = `Has recibido una advertencia por incumplir las normas. Motivo: ${justification}`;
+                            break;
                         case 'suspension_1_dia':
                             suspensionEndDate = new Date(now.setDate(now.getDate() + 1));
+                            mensajeSancion = `Tu cuenta ha sido suspendida por 1 día. Motivo: ${justification}`;
                             break;
                         case 'suspension_3_dias':
                             suspensionEndDate = new Date(now.setDate(now.getDate() + 3));
+                            mensajeSancion = `Tu cuenta ha sido suspendida por 3 días. Motivo: ${justification}`;
                             break;
                         case 'suspension_7_dias':
                             suspensionEndDate = new Date(now.setDate(now.getDate() + 7));
+                            mensajeSancion = `Tu cuenta ha sido suspendida por 7 días. Motivo: ${justification}`;
                             break;
                         case 'suspension_30_dias':
                             suspensionEndDate = new Date(now.setDate(now.getDate() + 30));
+                            mensajeSancion = `Tu cuenta ha sido suspendida por 30 días. Motivo: ${justification}`;
                             break;
                         case 'suspension_permanente':
                             suspensionEndDate = new Date(9999, 11, 31); // Futuro lejano
+                            mensajeSancion = `Tu cuenta ha sido suspendida permanentemente. Motivo: ${justification}`;
                             break;
                     }
 
@@ -591,7 +642,19 @@ const takeModeratorAction = async (req, res) => {
                         console.log(`🚫 Usuario ${author.username} suspendido hasta ${suspensionEndDate}`);
                     }
 
-                    // TODO: Enviar notificación/email al usuario sobre la sanción
+                    // Enviar notificación de sistema
+                    try {
+                        const notification = new Notification({
+                            receptor: userToSanction._id,
+                            emisor: userId,
+                            tipo: 'sistema',
+                            contenido: mensajeSancion,
+                            metadata: { action, reportId: report._id }
+                        });
+                        await notification.save();
+                    } catch (notifError) {
+                        console.error('Error al notificar sanción:', notifError);
+                    }
                 }
             }
         }

@@ -542,6 +542,20 @@ const takeModeratorAction = async (req, res) => {
                     if (deletedPost) {
                         console.log(`🗑️ Post ${contentId} eliminado por moderación`);
 
+                        // Verificación doble
+                        const checkExists = await Post.findById(contentId);
+                        if (!checkExists) {
+                            console.log('✅ [DB] Confirmado: El post ha sido eliminado físicamente');
+                        } else {
+                            console.error('❌ [DB] ERROR FATAL: El post sigue existiendo después de findByIdAndDelete');
+                        }
+
+                        // Emitir evento de socket para limpieza en real-time
+                        if (global.io) {
+                            global.io.emit('post_deleted', contentId);
+                            console.log('📡 [SOCKET] Emitido evento post_deleted:', contentId);
+                        }
+
                         // Notificar al autor
                         try {
                             const notification = new Notification({

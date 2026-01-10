@@ -53,6 +53,7 @@ const crearIglesia = async (req, res) => {
  */
 const obtenerIglesias = async (req, res) => {
   try {
+    console.log('🔍 [obtenerIglesias] Query params:', req.query);
     const { q, pais, ciudad } = req.query;
     const query = { activo: true };
 
@@ -66,14 +67,19 @@ const obtenerIglesias = async (req, res) => {
       query['ubicacion.ciudad'] = ciudad;
     }
 
+    console.log('🔍 [obtenerIglesias] MongoDB query:', JSON.stringify(query));
+
     const iglesias = await Iglesia.find(query)
       .select('nombre ubicacion denominacion descripcion logo portada pastorPrincipal miembros solicitudes reuniones')
       .populate('miembros', 'nombres apellidos social.fotoPerfil')
-      .limit(20);
+      .limit(20)
+      .lean(); // Usar lean() para mejor performance
 
+    console.log('✅ [obtenerIglesias] Found', iglesias.length, 'iglesias');
     res.json(formatSuccessResponse('Iglesias encontradas', iglesias));
   } catch (error) {
-    console.error('Error al buscar iglesias:', error);
+    console.error('❌ [obtenerIglesias] Error:', error);
+    console.error('❌ [obtenerIglesias] Error stack:', error.stack);
     res.status(500).json(formatErrorResponse('Error al buscar iglesias', [error.message]));
   }
 };

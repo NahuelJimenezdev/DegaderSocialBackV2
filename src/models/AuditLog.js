@@ -19,6 +19,10 @@ const auditLogSchema = new mongoose.Schema({
             'rechazar_ticket',
             'asignar_ticket',
             'cambiar_rol',
+            'crear_usuario',
+            'eliminar_usuario',
+            'editar_usuario',
+            'acceso_denegado',
             'otro'
         ],
         index: true

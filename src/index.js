@@ -163,7 +163,7 @@ app.use('/api/buscar', searchRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/reuniones', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
-app.use('/api/iglesia', iglesiaRoutes);
+app.use('/api/iglesias', iglesiaRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/tickets', ticketRoutes);

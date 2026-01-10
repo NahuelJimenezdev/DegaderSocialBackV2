@@ -158,8 +158,9 @@ class SocketService {
   // Helper methods (Globales)
   emitNotification(userId, notification) {
     if (!this.io) return;
-    this.io.to(`notifications:${userId}`).emit('newNotification', notification);
-    console.log(`📨 Notificación emitida a usuario ${userId}:`, notification);
+    // Usar la sala 'user' que es automática tras autenticación, más robusto que 'notifications' manual
+    this.io.to(`user:${userId}`).emit('newNotification', notification);
+    console.log(`📨 Notificación emitida a usuario ${userId} (sala user):`, notification._id);
   }
 
   emitMessage(conversationId, message) {

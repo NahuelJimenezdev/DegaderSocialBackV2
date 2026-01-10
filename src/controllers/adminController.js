@@ -181,8 +181,8 @@ const getAllTickets = async (req, res) => {
         if (tipo && tipo !== 'null' && tipo !== 'undefined') query.tipo = tipo;
 
         const tickets = await Ticket.find(query)
-            .populate('usuario', 'nombreCompleto username avatar seguridad.estadoCuenta')
-            .populate('moderadorAsignado', 'nombreCompleto username')
+            .populate('usuario', 'nombreCompleto username avatar seguridad.estadoCuenta nombres apellidos')
+            .populate('moderadorAsignado', 'nombreCompleto username nombres apellidos')
             .sort({ prioridad: -1, createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
@@ -307,7 +307,7 @@ const getAuditLogs = async (req, res) => {
         if (accion) query.accion = accion;
 
         const logs = await AuditLog.find(query)
-            .populate('moderador', 'nombreCompleto username avatar')
+            .populate('moderador', 'nombreCompleto username avatar nombres apellidos')
             .sort({ timestamp: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);

@@ -165,6 +165,12 @@ const login = async (req, res) => {
       rolSistema: user.seguridad?.rolSistema
     });
 
+    // Verificar si el usuario está eliminado
+    if (user.seguridad?.estadoCuenta === 'eliminado') {
+      console.log('⛔ Usuario ELIMINADO intentó acceder:', email);
+      return res.status(403).json(formatErrorResponse('Tu cuenta ha sido eliminada permanentemente.'));
+    }
+
     // Verificar contraseña con argon2
     console.log('🔑 Verificando contraseña...');
     const isPasswordValid = await argon2.verify(user.password, password);

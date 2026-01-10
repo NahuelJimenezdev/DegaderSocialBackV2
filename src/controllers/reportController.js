@@ -551,9 +551,12 @@ const takeModeratorAction = async (req, res) => {
                         }
 
                         // Emitir evento de socket para limpieza en real-time
-                        if (global.io) {
-                            global.io.emit('post_deleted', contentId);
+                        const io = global.io || req.app.get('io');
+                        if (io) {
+                            io.emit('post_deleted', contentId);
                             console.log('📡 [SOCKET] Emitido evento post_deleted:', contentId);
+                        } else {
+                            console.error('❌ [SOCKET] No se pudo emitir post_deleted: instancia io no encontrada');
                         }
 
                         // Notificar al autor

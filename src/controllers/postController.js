@@ -207,6 +207,9 @@ const createPost = async (req, res) => {
  */
 const getFeed = async (req, res) => {
   try {
+    // Deshabilitar caché para asegurar que se muestren los datos más recientes (posts eliminados desaparecen)
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
     const { page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
 

@@ -127,6 +127,7 @@ const favoritosRoutes = require('./routes/favoritos.routes');
 const reportRoutes = require('./routes/report.routes');
 const ticketRoutes = require('./routes/ticket.routes');
 const adminRoutes = require('./routes/admin.routes');
+const founderRoutes = require('./routes/founder.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -167,6 +168,7 @@ app.use('/api/ads', adRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/founder', founderRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

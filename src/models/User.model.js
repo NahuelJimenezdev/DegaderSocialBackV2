@@ -250,22 +250,22 @@ const SeguridadSchema = new Schema({
     enum: ROLES_SISTEMA,
     default: "usuario"
   },
-  estadoCuenta: {
-    type: String,
-    enum: ["activo", "inactivo", "suspendido", "pendiente_validacion"],
-    default: "pendiente_validacion"
-  },
+  enum: ["activo", "inactivo", "suspendido", "pendiente_validacion"],
+  default: "pendiente_validacion"
+},
+  suspensionFin: { type: Date }, // Fecha fin de suspensión temporal
+  motivoSuspension: { type: String },
   verificado: { type: Boolean, default: false }, // Check azul
 
   // Permisos Granulares (ACL)
   permisos: {
-    crearEventos: { type: Boolean, default: false },
-    gestionarUsuarios: { type: Boolean, default: false },
-    gestionarFinanzas: { type: Boolean, default: false },
-    publicarNoticias: { type: Boolean, default: false },
-    accesoPanelAdmin: { type: Boolean, default: false },
-    moderarContenido: { type: Boolean, default: false }
-  },
+  crearEventos: { type: Boolean, default: false },
+  gestionarUsuarios: { type: Boolean, default: false },
+  gestionarFinanzas: { type: Boolean, default: false },
+  publicarNoticias: { type: Boolean, default: false },
+  accesoPanelAdmin: { type: Boolean, default: false },
+  moderarContenido: { type: Boolean, default: false }
+},
 
   // Auditoría
   ultimoLogin: { type: Date },

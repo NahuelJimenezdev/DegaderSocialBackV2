@@ -252,7 +252,7 @@ const SeguridadSchema = new Schema({
   },
   estadoCuenta: {
     type: String,
-    enum: ["activo", "inactivo", "suspendido", "pendiente_validacion"],
+    enum: ["activo", "inactivo", "suspendido", "pendiente_validacion", "eliminado"],
     default: "pendiente_validacion"
   },
   suspensionFin: { type: Date }, // Fecha fin de suspensión temporal

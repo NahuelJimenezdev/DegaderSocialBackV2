@@ -266,7 +266,7 @@ const updateUserRole = async (req, res) => {
         if (rol === 'moderador' || rol === 'admin') {
             user.seguridad.rolSistema = 'moderador';
         } else {
-            user.seguridad.rolSistema = 'Usuario';
+            user.seguridad.rolSistema = 'usuario';
         }
 
         if (permisos) {
@@ -283,7 +283,7 @@ const updateUserRole = async (req, res) => {
             moderador: req.user._id,
             accion: 'cambiar_rol',
             objetivo: {
-                tipo: 'Usuario',
+                tipo: 'usuario',
                 id: user._id
             },
             detalles: `Rol cambiado a: ${rol}`,
@@ -374,7 +374,7 @@ const deleteUser = async (req, res) => {
             moderador: req.user._id,
             accion: 'eliminar_usuario',
             objetivo: {
-                tipo: 'Usuario',
+                tipo: 'usuario',
                 id: user._id
             },
             detalles: `Usuario eliminado: ${user.email}`,

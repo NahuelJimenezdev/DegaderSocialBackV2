@@ -22,6 +22,17 @@ const calcularDiasRestantes = (fechaFin) => {
 const checkSuspended = (req, res, next) => {
   const user = req.user;
 
+  // 1. Bloqueo TOTAL para usuarios eliminados
+  if (user.seguridad?.estadoCuenta === 'eliminado') {
+    console.log('⛔ checkSuspended - Acceso denegado: Usuario ELIMINADO');
+    return res.status(403).json({
+      success: false,
+      message: 'Cuenta eliminada permanentemente. Contacte a soporte si cree que es un error.',
+      accountStatus: 'deleted'
+    });
+  }
+
+  // 2. Bloqueo PARCIAL para suspendidos/inactivos
   if (user.seguridad?.estadoCuenta === 'suspendido' || user.seguridad?.estadoCuenta === 'inactivo') {
     console.log('⚠️ checkSuspended - Usuario suspendido detectado');
     console.log('⚠️ checkSuspended - URL completa:', req.url);

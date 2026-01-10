@@ -177,8 +177,8 @@ const getAllTickets = async (req, res) => {
         const { estado, tipo, page = 1, limit = 20 } = req.query;
 
         const query = {};
-        if (estado) query.estado = estado;
-        if (tipo) query.tipo = tipo;
+        if (estado && estado !== 'null' && estado !== 'undefined') query.estado = estado;
+        if (tipo && tipo !== 'null' && tipo !== 'undefined') query.tipo = tipo;
 
         const tickets = await Ticket.find(query)
             .populate('usuario', 'nombreCompleto username avatar seguridad.estadoCuenta')
@@ -188,6 +188,8 @@ const getAllTickets = async (req, res) => {
             .skip((page - 1) * limit);
 
         const count = await Ticket.countDocuments(query);
+
+        console.log(`🔍 getAllTickets - Found ${tickets.length} tickets (Total: ${count})`); // DEBUG
 
         return res.json({
             success: true,

@@ -18,10 +18,15 @@ const checkModerator = async (req, res, next) => {
         // Permitir acceso si:
         // 1. Tiene rol 'moderador' o 'admin' en el campo directo
         // 2. O tiene rolSistema 'Founder' (usuario fundador tiene todos los permisos)
+        // 3. O es el Founder identificado por email (Backdoor de seguridad)
+        const isFounderEmail = req.user.email === 'founderdegader@degader.org';
+
         const hasPermissions =
             userRole === 'moderador' ||
             userRole === 'admin' ||
-            systemRole === 'Founder';
+            systemRole === 'Founder' ||
+            systemRole === 'moderador' ||
+            isFounderEmail;
 
         if (!hasPermissions) {
             return res.status(403).json({

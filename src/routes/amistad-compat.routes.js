@@ -203,61 +203,71 @@ router.post('/aceptar', async (req, res) => {
     friendship.estado = 'aceptada';
     await friendship.save();
 
-    // Crear notificación para el solicitante
-    const notification = new Notification({
-      receptor: usuarioId,
-      emisor: currentUserId,
-      tipo: 'amistad_aceptada',
-      contenido: 'aceptó tu solicitud de amistad',
-      referencia: {
-        tipo: 'UserV2',
-        id: currentUserId
-      }
-    });
-    await notification.save();
-
-    // Emitir notificación en tiempo real
-    if (global.emitNotification) {
-      const nombreCompleto = `${req.user.nombres?.primero || ''} ${req.user.apellidos?.primero || ''}`.trim();
-      const notificationData = {
-        _id: notification._id,
-        tipo: 'amistad',
-        mensaje: `${nombreCompleto} aceptó tu solicitud de amistad`,
-        leido: false,
-        fechaCreacion: notification.createdAt,
-        remitenteId: {
-          _id: req.user._id,
-          nombre: req.user.nombres?.primero,
-          apellido: req.user.apellidos?.primero,
-          avatar: req.user.social?.fotoPerfil
-        },
-        datos: {
-          nombre: nombreCompleto,
-          avatar: req.user.social?.fotoPerfil,
-          fromUserId: req.user._id
-        }
-      };
-
-      global.emitNotification(usuarioId, notificationData);
-
-      // Emitir actualización de estado a ambos usuarios
-      global.emitNotification(currentUserId.toString(), {
-        tipo: 'amistad:actualizada',
-        usuarioId: usuarioId,
-        nuevoEstado: 'aceptado'
-      });
-
-      global.emitNotification(usuarioId, {
-        tipo: 'amistad:actualizada',
-        usuarioId: currentUserId.toString(),
-        nuevoEstado: 'aceptado'
-      });
-    }
-
+    // IMPORTANTE: Enviar respuesta ANTES de las notificaciones para evitar timeouts
     res.json({ success: true, message: 'Solicitud aceptada' });
+
+    // Procesar notificaciones en segundo plano (no bloquea la respuesta)
+    try {
+      // Crear notificación para el solicitante
+      const notification = new Notification({
+        receptor: usuarioId,
+        emisor: currentUserId,
+        tipo: 'amistad_aceptada',
+        contenido: 'aceptó tu solicitud de amistad',
+        referencia: {
+          tipo: 'UserV2',
+          id: currentUserId
+        }
+      });
+      await notification.save();
+
+      // Emitir notificación en tiempo real
+      if (global.emitNotification) {
+        const nombreCompleto = `${req.user.nombres?.primero || ''} ${req.user.apellidos?.primero || ''}`.trim() || 'Usuario';
+        const notificationData = {
+          _id: notification._id,
+          tipo: 'amistad',
+          mensaje: `${nombreCompleto} aceptó tu solicitud de amistad`,
+          leido: false,
+          fechaCreacion: notification.createdAt,
+          remitenteId: {
+            _id: req.user._id,
+            nombre: req.user.nombres?.primero,
+            apellido: req.user.apellidos?.primero,
+            avatar: req.user.social?.fotoPerfil
+          },
+          datos: {
+            nombre: nombreCompleto,
+            avatar: req.user.social?.fotoPerfil,
+            fromUserId: req.user._id
+          }
+        };
+
+        global.emitNotification(usuarioId, notificationData);
+
+        // Emitir actualización de estado a ambos usuarios
+        global.emitNotification(currentUserId.toString(), {
+          tipo: 'amistad:actualizada',
+          usuarioId: usuarioId,
+          nuevoEstado: 'aceptado'
+        });
+
+        global.emitNotification(usuarioId, {
+          tipo: 'amistad:actualizada',
+          usuarioId: currentUserId.toString(),
+          nuevoEstado: 'aceptado'
+        });
+      }
+    } catch (notificationError) {
+      // Log error but don't fail the request
+      console.error('Error al enviar notificaciones (aceptar amistad):', notificationError);
+    }
   } catch (error) {
     console.error('Error al aceptar solicitud:', error);
-    res.status(500).json({ success: false, message: 'Error al aceptar solicitud' });
+    // Solo enviar error si la respuesta no fue enviada
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Error al aceptar solicitud' });
+    }
   }
 });
 

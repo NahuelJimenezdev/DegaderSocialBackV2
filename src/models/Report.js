@@ -254,7 +254,7 @@ const ReportSchema = new Schema({
 // Auto-generar número de reporte antes de guardar
 ReportSchema.pre('save', async function (next) {
     if (this.isNew && !this.reportNumber) {
-        const count = await mongoose.model('Report').countDocuments();
+        const count = await this.constructor.countDocuments();
         this.reportNumber = `RPT-${Date.now()}-${String(count + 1).padStart(6, '0')}`;
     }
     next();

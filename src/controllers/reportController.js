@@ -29,7 +29,7 @@ const createReport = async (req, res) => {
         switch (contentType) {
             case 'post': {
                 const post = await Post.findById(contentId)
-                    .populate('autor', 'username nombres apellidos social.fotoPerfil');
+                    .populate('usuario', 'username nombres apellidos social.fotoPerfil');
 
                 if (!post) {
                     return res.status(404).json({
@@ -48,9 +48,9 @@ const createReport = async (req, res) => {
                         createdAt: post.createdAt
                     },
                     author: {
-                        userId: post.autor._id,
-                        username: post.autor.username,
-                        nombreCompleto: `${post.autor.nombres.primero} ${post.autor.apellidos.primero}`
+                        userId: post.usuario._id,
+                        username: post.usuario.username,
+                        nombreCompleto: `${post.usuario.nombres.primero} ${post.usuario.apellidos.primero}`
                     },
                     createdAt: post.createdAt
                 };
@@ -301,7 +301,7 @@ const getReportById = async (req, res) => {
         let recentPosts = [];
         if (report.contentSnapshot.type === 'post') {
             recentPosts = await Post.find({
-                autor: reportedUserId,
+                usuario: reportedUserId,
                 _id: { $ne: report.contentSnapshot.originalId }
             })
                 .select('texto imagenes createdAt')

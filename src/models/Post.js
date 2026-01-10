@@ -98,17 +98,17 @@ const postSchema = new mongoose.Schema({
 
 // Virtual para contar likes
 postSchema.virtual('totalLikes').get(function () {
-  return this.likes.length;
+  return this.likes?.length || 0;
 });
 
 // Virtual para contar comentarios
 postSchema.virtual('totalComentarios').get(function () {
-  return this.comentarios.length;
+  return this.comentarios?.length || 0;
 });
 
 // Virtual para contar compartidos
 postSchema.virtual('totalCompartidos').get(function () {
-  return this.compartidos.length;
+  return this.compartidos?.length || 0;
 });
 
 // Índices

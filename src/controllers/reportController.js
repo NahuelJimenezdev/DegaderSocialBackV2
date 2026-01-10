@@ -99,8 +99,13 @@ const createReport = async (req, res) => {
         // Obtener información del usuario que reporta
         const reporter = await User.findById(userId);
 
+        // Generar reportNumber único
+        const reportCount = await Report.countDocuments();
+        const reportNumber = `RPT-${Date.now()}-${String(reportCount + 1).padStart(6, '0')}`;
+
         // Crear el reporte
         const newReport = new Report({
+            reportNumber, // Asignar explícitamente
             contentSnapshot,
             reportedBy: {
                 userId: reporter._id,

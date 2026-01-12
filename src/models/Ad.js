@@ -51,7 +51,7 @@ const AdSchema = new Schema({
     // Género
     genero: {
       type: String,
-      enum: ['todos', 'M', 'F', 'Otro'],
+      enum: ['todos', 'masculino', 'femenino', 'otro'],
       default: 'todos'
     },
 

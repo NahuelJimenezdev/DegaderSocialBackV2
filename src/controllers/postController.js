@@ -688,21 +688,28 @@ const addComment = async (req, res) => {
 
       // 2. Si hay menciones, buscar usuarios y notificar
       if (uniqueMentions.length > 0) {
-        console.log('🔍 [ADD COMMENT] Buscando usuarios mencionados en la base de datos...');
+        console.log('🔍 [ADD COMMENT] Buscando usuarios mencionados en la base de datos (Case Insensitive)...');
         const UserV2 = require('../models/UserV2');
+
+        // Crear array de regex para búsqueda insensible a mayúsculas/minúsculas
+        const mentionRegexes = uniqueMentions.map(m => new RegExp(`^${m}$`, 'i'));
+
         const mentionedUsers = await UserV2.find({
-          username: { $in: uniqueMentions },
+          username: { $in: mentionRegexes },
           _id: { $ne: req.userId } // No notificar al autor
         }).select('_id username');
 
         console.log(`✅ [ADD COMMENT] Usuarios encontrados: ${mentionedUsers.length}/${uniqueMentions.length}`);
+
+        // Mapa para normalizar qué menciones se encontraron (para logs)
+        const foundUsernamesLower = mentionedUsers.map(u => u.username.toLowerCase());
+
         mentionedUsers.forEach(u => {
           console.log(`   👤 Usuario encontrado: @${u.username} (ID: ${u._id})`);
         });
 
-        // Detectar menciones no encontradas
-        const foundUsernames = mentionedUsers.map(u => u.username);
-        const notFoundMentions = uniqueMentions.filter(m => !foundUsernames.includes(m));
+        // Detectar menciones no encontradas (Case Insensitive comparison)
+        const notFoundMentions = uniqueMentions.filter(m => !foundUsernamesLower.includes(m.toLowerCase()));
         if (notFoundMentions.length > 0) {
           console.log(`⚠️ [ADD COMMENT] Menciones NO encontradas en DB:`, notFoundMentions);
         }

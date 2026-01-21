@@ -16,7 +16,8 @@ const getSuspendedUsers = async (req, res) => {
         };
 
         const users = await User.find(query)
-            .select('nombreCompleto username avatar seguridad.fechaSuspension seguridad.fechaFinSuspension seguridad.motivoSuspension createdAt')
+            .select('nombres apellidos username social.fotoPerfil seguridad.fechaSuspension seguridad.suspensionFin seguridad.motivoSuspension createdAt')
+            .lean({ virtuals: true })
             .sort({ [`seguridad.${sortBy}`]: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
@@ -67,14 +68,14 @@ const liftSuspension = async (req, res) => {
         // Guardar datos de la suspensión antes de limpiar
         const suspensionAnterior = {
             fechaSuspension: user.seguridad.fechaSuspension,
-            fechaFinSuspension: user.seguridad.fechaFinSuspension,
+            suspensionFin: user.seguridad.suspensionFin,
             motivoSuspension: user.seguridad.motivoSuspension
         };
 
         // Levantar suspensión
         user.seguridad.estadoCuenta = 'activo';
         user.seguridad.fechaSuspension = null;
-        user.seguridad.fechaFinSuspension = null;
+        user.seguridad.suspensionFin = null;
         user.seguridad.motivoSuspension = null;
 
         await user.save();
@@ -242,7 +243,7 @@ const resolveTicket = async (req, res) => {
             if (user && user.seguridad?.estadoCuenta === 'suspendido') {
                 user.seguridad.estadoCuenta = 'activo';
                 user.seguridad.fechaSuspension = null;
-                user.seguridad.fechaFinSuspension = null;
+                user.seguridad.suspensionFin = null;
                 user.seguridad.motivoSuspension = null;
                 await user.save();
 

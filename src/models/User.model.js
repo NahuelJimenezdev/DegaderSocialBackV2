@@ -255,6 +255,7 @@ const SeguridadSchema = new Schema({
     enum: ["activo", "inactivo", "suspendido", "pendiente_validacion", "eliminado"],
     default: "pendiente_validacion"
   },
+  fechaSuspension: { type: Date }, // Fecha de inicio
   suspensionFin: { type: Date }, // Fecha fin de suspensión temporal
   motivoSuspension: { type: String },
   verificado: { type: Boolean, default: false }, // Check azul

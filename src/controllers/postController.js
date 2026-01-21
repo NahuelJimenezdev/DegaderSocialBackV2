@@ -668,6 +668,9 @@ const addComment = async (req, res) => {
 
     // LÓGICA HÍBRIDA DE NOTIFICACIONES
     try {
+      console.log('🔔 [ADD COMMENT] Iniciando lógica de notificaciones');
+      console.log('🔔 [ADD COMMENT] Contenido del comentario:', contenido);
+
       // 1. Extraer menciones del contenido
       // ✅ CORREGIDO: Regex que captura puntos, guiones y guiones bajos (igual que en createPost)
       const mentionRegex = /@([a-zA-Z0-9._-]+)/g;
@@ -678,19 +681,36 @@ const addComment = async (req, res) => {
       }
       const uniqueMentions = [...new Set(mentions)];
 
+      console.log('🔔 [ADD COMMENT] Menciones extraídas:', uniqueMentions);
+
       // 2. Si hay menciones, buscar usuarios y notificar
       if (uniqueMentions.length > 0) {
+        console.log('🔍 [ADD COMMENT] Buscando usuarios mencionados en la base de datos...');
         const User = require('../models/User');
         const mentionedUsers = await User.find({
           username: { $in: uniqueMentions },
           _id: { $ne: req.userId } // No notificar al autor
-        }).select('_id');
+        }).select('_id username');
+
+        console.log(`✅ [ADD COMMENT] Usuarios encontrados: ${mentionedUsers.length}/${uniqueMentions.length}`);
+        mentionedUsers.forEach(u => {
+          console.log(`   👤 Usuario encontrado: @${u.username} (ID: ${u._id})`);
+        });
+
+        // Detectar menciones no encontradas
+        const foundUsernames = mentionedUsers.map(u => u.username);
+        const notFoundMentions = uniqueMentions.filter(m => !foundUsernames.includes(m));
+        if (notFoundMentions.length > 0) {
+          console.log(`⚠️ [ADD COMMENT] Menciones NO encontradas en DB:`, notFoundMentions);
+        }
 
         for (const mentionedUser of mentionedUsers) {
+          console.log(`📤 [ADD COMMENT] Creando notificación para @${mentionedUser.username}...`);
+
           const notification = new Notification({
             receptor: mentionedUser._id,
             emisor: req.userId,
-            tipo: 'mencion', // CORREGIDO: 'mention_comment' no existe en enum
+            tipo: 'mencion',
             contenido: 'te mencionó en un comentario',
             referencia: {
               tipo: 'Post',
@@ -701,6 +721,7 @@ const addComment = async (req, res) => {
             }
           });
           await notification.save();
+          console.log(`✅ [ADD COMMENT] Notificación creada: ${notification._id}`);
 
           const notificationPopulated = await Notification.findById(notification._id)
             .populate({
@@ -710,6 +731,9 @@ const addComment = async (req, res) => {
 
           if (global.emitNotification) {
             global.emitNotification(mentionedUser._id.toString(), notificationPopulated);
+            console.log(`🔔 [ADD COMMENT] Notificación emitida por socket a @${mentionedUser.username} (ID: ${mentionedUser._id})`);
+          } else {
+            console.log(`⚠️ [ADD COMMENT] global.emitNotification NO está disponible`);
           }
         }
       }

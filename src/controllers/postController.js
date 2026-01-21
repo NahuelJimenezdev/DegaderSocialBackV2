@@ -669,7 +669,8 @@ const addComment = async (req, res) => {
     // LÓGICA HÍBRIDA DE NOTIFICACIONES
     try {
       // 1. Extraer menciones del contenido
-      const mentionRegex = /@(\w+)/g;
+      // ✅ CORREGIDO: Regex que captura puntos, guiones y guiones bajos (igual que en createPost)
+      const mentionRegex = /@([a-zA-Z0-9._-]+)/g;
       const mentions = [];
       let match;
       while ((match = mentionRegex.exec(contenido || '')) !== null) {

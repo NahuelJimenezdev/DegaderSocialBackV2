@@ -689,8 +689,8 @@ const addComment = async (req, res) => {
       // 2. Si hay menciones, buscar usuarios y notificar
       if (uniqueMentions.length > 0) {
         console.log('🔍 [ADD COMMENT] Buscando usuarios mencionados en la base de datos...');
-        const User = require('../models/User');
-        const mentionedUsers = await User.find({
+        const UserV2 = require('../models/UserV2');
+        const mentionedUsers = await UserV2.find({
           username: { $in: uniqueMentions },
           _id: { $ne: req.userId } // No notificar al autor
         }).select('_id username');

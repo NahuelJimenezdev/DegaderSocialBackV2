@@ -683,6 +683,9 @@ const addComment = async (req, res) => {
 
       console.log('🔔 [ADD COMMENT] Menciones extraídas:', uniqueMentions);
 
+      // Array para trackear IDs de usuarios ya notificados (evitar duplicados)
+      const notifiedUserIds = new Set();
+
       // 2. Si hay menciones, buscar usuarios y notificar
       if (uniqueMentions.length > 0) {
         console.log('🔍 [ADD COMMENT] Buscando usuarios mencionados en la base de datos...');
@@ -735,39 +738,60 @@ const addComment = async (req, res) => {
           } else {
             console.log(`⚠️ [ADD COMMENT] global.emitNotification NO está disponible`);
           }
+
+          // Agregar a la lista de notificados
+          notifiedUserIds.add(mentionedUser._id.toString());
         }
       }
-      // 3. Si NO hay menciones, usar lógica tradicional
-      else if (parentCommentId) {
+      // 3. Si es una respuesta a comentario, notificar al autor del comentario padre
+      // (SOLO si no fue mencionado explícitamente)
+      if (parentCommentId) {
+        console.log('🔍 [ADD COMMENT] Es respuesta a comentario, verificando autor del comentario padre...');
         // Notificar al autor del comentario padre
         const parentComment = post.comentarios.id(parentCommentId);
-        if (parentComment && parentComment.usuario && !parentComment.usuario._id.equals(req.userId)) {
-          const notification = new Notification({
-            receptor: parentComment.usuario._id,
-            emisor: req.userId,
-            tipo: 'reply_comment',
-            contenido: 'respondió a tu comentario',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            },
-            metadata: {
-              commentId: newComment._id
-            }
-          });
-          await notification.save();
+        if (parentComment && parentComment.usuario) {
+          const parentAuthorId = parentComment.usuario._id || parentComment.usuario;
+          const parentAuthorIdStr = parentAuthorId.toString();
 
-          const notificationPopulated = await Notification.findById(notification._id)
-            .populate({
-              path: 'emisor',
-              select: 'nombres apellidos social.fotoPerfil username'
+          // Solo notificar si:
+          // 1. No es el mismo autor del comentario
+          // 2. No fue mencionado explícitamente
+          if (!parentAuthorId.equals(req.userId) && !notifiedUserIds.has(parentAuthorIdStr)) {
+            console.log(`📤 [ADD COMMENT] Creando notificación de respuesta para autor del comentario padre (ID: ${parentAuthorIdStr})...`);
+
+            const notification = new Notification({
+              receptor: parentAuthorId,
+              emisor: req.userId,
+              tipo: 'reply_comment',
+              contenido: 'respondió a tu comentario',
+              referencia: {
+                tipo: 'Post',
+                id: post._id
+              },
+              metadata: {
+                commentId: newComment._id
+              }
             });
+            await notification.save();
+            console.log(`✅ [ADD COMMENT] Notificación de respuesta creada: ${notification._id}`);
 
-          if (global.emitNotification) {
-            global.emitNotification(parentComment.usuario._id.toString(), notificationPopulated);
+            const notificationPopulated = await Notification.findById(notification._id)
+              .populate({
+                path: 'emisor',
+                select: 'nombres apellidos social.fotoPerfil username'
+              });
+
+            if (global.emitNotification) {
+              global.emitNotification(parentAuthorId.toString(), notificationPopulated);
+              console.log(`🔔 [ADD COMMENT] Notificación de respuesta emitida por socket (ID: ${parentAuthorIdStr})`);
+            }
+          } else if (notifiedUserIds.has(parentAuthorIdStr)) {
+            console.log(`ℹ️ [ADD COMMENT] Autor del comentario padre ya fue notificado por mención, omitiendo notificación de respuesta`);
           }
         }
-      } else {
+      }
+      // 4. Si NO es respuesta y NO hay menciones, notificar al autor del post
+      else if (uniqueMentions.length === 0) {
         // Notificar al autor del post (comentario directo, no respuesta)
         // Manejar tanto post.usuario poblado como ObjectId simple
         const postAuthorId = post.usuario._id || post.usuario;

@@ -55,6 +55,7 @@ router.post('/', iglesiaController.crearIglesia);
 router.get('/', iglesiaController.obtenerIglesias);
 router.get('/:id', iglesiaController.obtenerIglesia);
 router.post('/:id/join', iglesiaController.unirseIglesia);
+router.delete('/:id/join', iglesiaController.cancelarSolicitud);
 router.put('/:id', uploadMiddleware, iglesiaController.updateIglesia);
 router.post('/:id/solicitudes/:userId', iglesiaController.gestionarSolicitud);
 

@@ -302,8 +302,25 @@ const gestionarSolicitud = async (req, res) => {
 
     console.log('✅ gestionarSolicitud - Permisos verificados');
 
-    // Remover de solicitudes
-    iglesia.solicitudes = iglesia.solicitudes.filter(s => s.usuario.toString() !== userId);
+    // Remover de solicitudes con logs detallados
+    console.log('🔍 UserID a remover:', userId);
+    console.log('🔍 Solicitudes antes del filter:', iglesia.solicitudes.map(s => ({
+      usuario: s.usuario.toString(),
+      fecha: s.fecha
+    })));
+
+    iglesia.solicitudes = iglesia.solicitudes.filter(s => {
+      const solicitudUserId = s.usuario.toString();
+      const targetUserId = userId.toString();
+      const shouldKeep = solicitudUserId !== targetUserId;
+      console.log(`🔍 Comparando: ${solicitudUserId} !== ${targetUserId} = ${shouldKeep}`);
+      return shouldKeep;
+    });
+
+    console.log('🔍 Solicitudes después del filter:', iglesia.solicitudes.map(s => ({
+      usuario: s.usuario.toString(),
+      fecha: s.fecha
+    })));
 
     if (accion === 'aprobar') {
       console.log('🔄 gestionarSolicitud - Aprobando solicitud...');
@@ -417,6 +434,78 @@ const gestionarSolicitud = async (req, res) => {
   } catch (error) {
     console.error('❌ gestionarSolicitud - Error CRÍTICO:', error);
     res.status(500).json(formatErrorResponse('Error al gestionar solicitud', [error.message]));
+  }
+};
+
+/**
+ * Cancelar solicitud propia
+ * DELETE /api/iglesias/:id/join
+ */
+const cancelarSolicitud = async (req, res) => {
+  try {
+    console.log('🚀 cancelarSolicitud - Inicio', { params: req.params, userId: req.userId });
+    const { id } = req.params;
+
+    const iglesia = await Iglesia.findById(id);
+    if (!iglesia) {
+      console.log('❌ cancelarSolicitud - Iglesia no encontrada');
+      return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
+    }
+
+    // Verificar que el usuario tenga una solicitud pendiente
+    const tieneSolicitud = iglesia.solicitudes.some(s => s.usuario.toString() === req.userId.toString());
+    if (!tieneSolicitud) {
+      console.log('❌ cancelarSolicitud - No hay solicitud pendiente');
+      return res.status(400).json(formatErrorResponse('No tienes una solicitud pendiente en esta iglesia'));
+    }
+
+    console.log('✅ cancelarSolicitud - Solicitud encontrada, procediendo a cancelar');
+
+    // Remover solicitud con logs detallados
+    console.log('🔍 UserID a remover:', req.userId);
+    console.log('🔍 Solicitudes antes del filter:', iglesia.solicitudes.map(s => ({
+      usuario: s.usuario.toString(),
+      fecha: s.fecha
+    })));
+
+    iglesia.solicitudes = iglesia.solicitudes.filter(s => {
+      const solicitudUserId = s.usuario.toString();
+      const targetUserId = req.userId.toString();
+      const shouldKeep = solicitudUserId !== targetUserId;
+      console.log(`🔍 Comparando: ${solicitudUserId} !== ${targetUserId} = ${shouldKeep}`);
+      return shouldKeep;
+    });
+
+    console.log('🔍 Solicitudes después del filter:', iglesia.solicitudes.map(s => ({
+      usuario: s.usuario.toString(),
+      fecha: s.fecha
+    })));
+
+    console.log('🔄 cancelarSolicitud - Guardando iglesia...');
+    await iglesia.save();
+    console.log('✅ cancelarSolicitud - Iglesia guardada');
+
+    // Emitir evento socket al pastor para actualizar su lista
+    const io = req.app.get('io');
+    if (io) {
+      console.log('🔄 cancelarSolicitud - Emitiendo evento socket al pastor...');
+      io.to(`user:${iglesia.pastorPrincipal}`).emit('solicitudIglesiaCancelada', {
+        iglesiaId: iglesia._id,
+        solicitudesPendientes: iglesia.solicitudes.length,
+        userId: req.userId
+      });
+      console.log('✅ cancelarSolicitud - Evento socket emitido');
+    }
+
+    // Devolver iglesia actualizada
+    const iglesiaActualizada = await Iglesia.findById(id)
+      .select('nombre ubicacion denominacion descripcion logo portada pastorPrincipal miembros solicitudes reuniones')
+      .populate('miembros', 'nombres apellidos social.fotoPerfil');
+
+    res.json(formatSuccessResponse('Solicitud cancelada exitosamente', iglesiaActualizada));
+  } catch (error) {
+    console.error('❌ cancelarSolicitud - Error CRÍTICO:', error);
+    res.status(500).json(formatErrorResponse('Error al cancelar solicitud', [error.message]));
   }
 };
 
@@ -608,6 +697,7 @@ module.exports = {
   unirseIglesia,
   updateIglesia,
   gestionarSolicitud,
+  cancelarSolicitud,
   getMessages,
   sendMessage,
   deleteMessage,

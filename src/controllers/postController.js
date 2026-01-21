@@ -689,7 +689,7 @@ const addComment = async (req, res) => {
       // 2. Si hay menciones, buscar usuarios y notificar
       if (uniqueMentions.length > 0) {
         console.log('🔍 [ADD COMMENT] Buscando usuarios mencionados en la base de datos (Case Insensitive)...');
-        const UserV2 = require('../models/UserV2');
+        const UserV2 = require('../models/User.model');
 
         // Crear array de regex para búsqueda insensible a mayúsculas/minúsculas
         const mentionRegexes = uniqueMentions.map(m => new RegExp(`^${m}$`, 'i'));

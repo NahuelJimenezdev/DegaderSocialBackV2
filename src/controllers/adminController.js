@@ -16,7 +16,7 @@ const getSuspendedUsers = async (req, res) => {
         };
 
         const users = await User.find(query)
-            .select('nombres apellidos username social.fotoPerfil seguridad.fechaSuspension seguridad.suspensionFin seguridad.motivoSuspension createdAt')
+            .select('nombres apellidos username social.fotoPerfil seguridad.fechaSuspension seguridad.suspensionFin seguridad.motivoSuspension createdAt updatedAt')
             .lean({ virtuals: true })
             .sort({ [`seguridad.${sortBy}`]: -1 })
             .limit(limit * 1)

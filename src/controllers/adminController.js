@@ -80,6 +80,12 @@ const liftSuspension = async (req, res) => {
 
         await user.save();
 
+        // Emitir evento Socket.IO para actualizar estado en tiempo real
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('user:status_changed', { userId: user._id.toString() });
+        }
+
         // Registrar en audit log
         await AuditLog.registrar({
             moderadorId: req.userId,
@@ -246,6 +252,12 @@ const resolveTicket = async (req, res) => {
                 user.seguridad.suspensionFin = null;
                 user.seguridad.motivoSuspension = null;
                 await user.save();
+
+                // Emitir evento Socket.IO para actualizar estado en tiempo real
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('user:status_changed', { userId: user._id.toString() });
+                }
 
                 // Log de auditoría
                 await AuditLog.registrar({

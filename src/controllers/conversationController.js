@@ -331,6 +331,10 @@ const markAsRead = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes acceso a esta conversación'));
     }
 
+    // Obtener contador actual antes de resetear (para decremento optimista en frontend)
+    const userUnread = conversation.mensajesNoLeidos.find(m => m.usuario.equals(req.userId));
+    const previousUnreadCount = userUnread?.cantidad || 0;
+
     await conversation.marcarComoLeido(req.userId);
 
     // Emitir evento Socket.IO para actualizar contador en tiempo real
@@ -338,7 +342,8 @@ const markAsRead = async (req, res) => {
     if (io) {
       io.to(`user:${req.userId}`).emit('conversationRead', {
         conversationId: id,
-        userId: req.userId
+        userId: req.userId,
+        unreadCount: previousUnreadCount // Enviar cuántos mensajes se marcaron como leídos
       });
     }
 

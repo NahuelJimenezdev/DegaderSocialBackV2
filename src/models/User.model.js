@@ -102,7 +102,7 @@ const MINISTERIOS = [
 
 const ROLES_MINISTERIALES = [
   "pastor_principal", "pastor_asociado", "anciano", "diacono",
-  "lider", "director", "maestro", "coordinador", "miembro", "servidor, adminIglesia"
+  "lider", "director", "maestro", "coordinador", "miembro", "servidor", "adminIglesia"
 ];
 
 // ==========================================

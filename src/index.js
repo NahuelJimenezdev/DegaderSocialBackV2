@@ -128,6 +128,7 @@ const reportRoutes = require('./routes/report.routes');
 const ticketRoutes = require('./routes/ticket.routes');
 const adminRoutes = require('./routes/admin.routes');
 const founderRoutes = require('./routes/founder.routes');
+const ministerioRoutes = require('./routes/ministerio.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -164,6 +165,7 @@ app.use('/api/folders', folderRoutes);
 app.use('/api/reuniones', meetingRoutes);
 app.use('/api/fundacion', fundacionRoutes);
 app.use('/api/iglesias', iglesiaRoutes);
+app.use('/api/ministerios', ministerioRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/tickets', ticketRoutes);

@@ -25,7 +25,11 @@ const upload = multer({
 
 // Wrapper para manejar errores de multer
 const uploadMiddleware = (req, res, next) => {
-  const uploadFields = upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'portada', maxCount: 1 }]);
+  const uploadFields = upload.fields([
+    { name: 'logo', maxCount: 1 },
+    { name: 'portada', maxCount: 1 },
+    { name: 'galeria', maxCount: 10 }
+  ]);
 
   uploadFields(req, res, (err) => {
     if (err instanceof multer.MulterError) {

@@ -77,6 +77,7 @@ const IglesiaSchema = new Schema({
 
   logo: { type: String },
   portada: { type: String },
+  galeria: [{ type: String }],
 
   activo: {
     type: Boolean,

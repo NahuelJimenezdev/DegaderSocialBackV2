@@ -70,7 +70,7 @@ const obtenerIglesias = async (req, res) => {
     console.log('🔍 [obtenerIglesias] MongoDB query:', JSON.stringify(query));
 
     const iglesias = await Iglesia.find(query)
-      .select('nombre ubicacion denominacion descripcion logo portada pastorPrincipal miembros solicitudes reuniones')
+      .select('nombre ubicacion denominacion descripcion logo portada pastorPrincipal miembros solicitudes reuniones galeria')
       .populate('miembros', 'nombres apellidos social.fotoPerfil')
       .limit(20)
       .lean(); // Usar lean() para mejor performance
@@ -228,6 +228,7 @@ const updateIglesia = async (req, res) => {
       if (typeof updateData.ubicacion === 'string') updateData.ubicacion = JSON.parse(updateData.ubicacion);
       if (typeof updateData.contacto === 'string') updateData.contacto = JSON.parse(updateData.contacto);
       if (typeof updateData.horarios === 'string') updateData.horarios = JSON.parse(updateData.horarios);
+      if (typeof updateData.galeria === 'string') updateData.galeria = JSON.parse(updateData.galeria);
     } catch (parseError) {
       console.error('❌ Error parsing JSON fields:', parseError);
     }
@@ -256,7 +257,25 @@ const updateIglesia = async (req, res) => {
       }
     }
 
-    // Actualizar campos permitidos
+    // 📸 Manejo de Galería (Independiente para evitar sobrescrituras)
+    if (updateData.galeria !== undefined) {
+      iglesia.galeria = Array.isArray(updateData.galeria) ? updateData.galeria : [];
+    }
+
+    if (req.files && req.files.galeria && req.files.galeria.length > 0) {
+      console.log('📤 [UPDATE IGLESIA] Subiendo fotos nuevas...');
+      try {
+        const galeriaPromises = req.files.galeria.map(file =>
+          uploadToR2(file.buffer, file.originalname, 'iglesias/galeria')
+        );
+        const newUrls = await Promise.all(galeriaPromises);
+        iglesia.galeria = [...iglesia.galeria, ...newUrls];
+      } catch (uploadError) {
+        console.error('❌ Error subiendo galería:', uploadError);
+      }
+    }
+
+    // Actualizar campos permitidos (SIN galeria)
     const allowedFields = ['nombre', 'descripcion', 'mision', 'vision', 'valores', 'ubicacion', 'contacto', 'horarios'];
     allowedFields.forEach(field => {
       if (updateData[field] !== undefined) {

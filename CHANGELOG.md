@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.1.0...v1.2.0) (2026-01-24)
+
+
+### Features
+
+* nuevos modelos y controladores para la iglesia ([65149bc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/65149bcd221c65e235a7e97e7a8209841d606e05))
+
 ## 1.1.0 (2026-01-24)
 
 

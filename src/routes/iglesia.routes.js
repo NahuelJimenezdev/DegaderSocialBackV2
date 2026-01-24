@@ -69,4 +69,11 @@ router.post('/:id/messages', iglesiaController.sendMessage); // TODO: Agregar mi
 router.delete('/:id/messages/:messageId', iglesiaController.deleteMessage);
 router.post('/:id/messages/:messageId/reactions', iglesiaController.reactToMessage);
 
+// Rutas de Testimonios / Comentarios
+const testimonialController = require('../controllers/iglesiaTestimonialController');
+router.get('/:id/testimonios', testimonialController.obtenerTestimonios);
+router.post('/:id/testimonios', testimonialController.crearTestimonio);
+router.put('/:id/testimonios/:testimonioId', testimonialController.actualizarTestimonio);
+router.delete('/:id/testimonios/:testimonioId', testimonialController.eliminarTestimonio);
+
 module.exports = router;

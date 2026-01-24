@@ -75,6 +75,11 @@ const IglesiaSchema = new Schema({
   vision: { type: String, trim: true },
   valores: { type: String, trim: true },
 
+  // Información Pastoral Personalizada
+  infoPastor: {
+    mensaje: { type: String, trim: true, maxlength: 500 }
+  },
+
   logo: { type: String },
   portada: { type: String },
   galeria: [{ type: String }],

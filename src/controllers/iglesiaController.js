@@ -262,6 +262,19 @@ const updateIglesia = async (req, res) => {
       iglesia.galeria = Array.isArray(updateData.galeria) ? updateData.galeria : [];
     }
 
+    // Manejo de InfoPastor
+    if (updateData.infoPastor) {
+      if (typeof updateData.infoPastor === 'string') {
+        try {
+          iglesia.infoPastor = JSON.parse(updateData.infoPastor);
+        } catch (e) {
+          console.error('Error parsing infoPastor:', e);
+        }
+      } else {
+        iglesia.infoPastor = updateData.infoPastor;
+      }
+    }
+
     if (req.files && req.files.galeria && req.files.galeria.length > 0) {
       console.log('📤 [UPDATE IGLESIA] Subiendo fotos nuevas...');
       try {
@@ -275,7 +288,7 @@ const updateIglesia = async (req, res) => {
       }
     }
 
-    // Actualizar campos permitidos (SIN galeria)
+    // Actualizar campos permitidos (SIN galeria ni infoPastor que ya se manejaron)
     const allowedFields = ['nombre', 'descripcion', 'mision', 'vision', 'valores', 'ubicacion', 'contacto', 'horarios'];
     allowedFields.forEach(field => {
       if (updateData[field] !== undefined) {

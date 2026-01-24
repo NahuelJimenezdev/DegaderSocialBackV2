@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "test": "mocha --exit test/**/*.test.js",
-    "dev": "node --watch --env-file .env src/index.js"
+    "dev": "node --watch --env-file .env src/index.js",
+    "release": "standard-version"
   },
   "repository": {
     "type": "git",
@@ -41,6 +42,7 @@
     "winston": "^3.18.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "standard-version": "^9.5.0"
   }
 }

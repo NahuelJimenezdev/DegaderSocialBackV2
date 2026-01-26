@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.2.0...v1.3.0) (2026-01-26)
+
+
+### Features
+
+* Implementar gestion completa de eventos de iglesia ([af36b75](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/af36b7534072f91347596fba6b2b48cbb4a3f2e0))
+
 ## [1.2.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.1.0...v1.2.0) (2026-01-24)
 
 

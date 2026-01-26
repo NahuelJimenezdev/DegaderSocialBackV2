@@ -38,13 +38,14 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
 };
 
 const createMeeting = async (req, res) => {
-  const { title, description, date, time, duration, meetLink, type, group, attendees } = req.body;
+  const { title, description, date, time, duration, meetLink, type, group, iglesia, attendees } = req.body;
   const creatorId = req.user.id;
 
   try {
     const newMeeting = new Meeting({
       creator: creatorId,
       group: group || null,
+      iglesia: iglesia || null,
       title,
       description,
       date,
@@ -263,9 +264,23 @@ const cancelMeeting = async (req, res) => {
   }
 };
 
+const getMeetingsByIglesia = async (req, res) => {
+  const { iglesiaId } = req.params;
+  try {
+    const meetings = await Meeting.find({ iglesia: iglesiaId })
+      .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
+      .sort({ date: 1, time: 1 });
+    res.status(200).json({ success: true, data: meetings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Error al obtener reuniones de la iglesia.' });
+  }
+};
+
+
 module.exports = {
   createMeeting,
   getMyMeetings,
   joinMeeting,
   cancelMeeting,
+  getMeetingsByIglesia,
 };

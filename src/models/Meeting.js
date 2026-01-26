@@ -11,6 +11,11 @@ const MeetingSchema = new mongoose.Schema({
     ref: 'Group',
     default: null,
   },
+  iglesia: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Iglesia',
+    default: null,
+  },
   title: {
     type: String,
     required: true,

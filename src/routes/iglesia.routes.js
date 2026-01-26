@@ -76,4 +76,15 @@ router.post('/:id/testimonios', testimonialController.crearTestimonio);
 router.put('/:id/testimonios/:testimonioId', testimonialController.actualizarTestimonio);
 router.delete('/:id/testimonios/:testimonioId', testimonialController.eliminarTestimonio);
 
+
+// Rutas de Eventos de Iglesia
+const churchEventController = require('../controllers/churchEventController');
+router.post('/:iglesiaId/events', churchEventController.createEvent);
+router.get('/:iglesiaId/events', churchEventController.getEventsByIglesia);
+router.put('/events/:eventId', churchEventController.updateEvent); // Nueva ruta Editar
+router.delete('/events/:eventId', churchEventController.deleteEvent); // Nueva ruta Cancelar/Eliminar
+router.post('/:eventId/interact', churchEventController.interactWithEvent); // :eventId no está anidado porque es único
+router.get('/:eventId/stats', churchEventController.getEventStats);
+
+
 module.exports = router;

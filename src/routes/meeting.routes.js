@@ -4,6 +4,7 @@ const {
   getMyMeetings,
   joinMeeting,
   cancelMeeting,
+  getMeetingsByIglesia,
 } = require('../controllers/meetingController.js');
 
 const { authenticate } = require('../middleware/auth.middleware.js');
@@ -24,6 +25,9 @@ router.route('/:id/join')
 
 router.route('/:id/cancel')
   .put(cancelMeeting);
+
+router.route('/iglesia/:iglesiaId')
+  .get(getMeetingsByIglesia);
 
 
 module.exports = router;

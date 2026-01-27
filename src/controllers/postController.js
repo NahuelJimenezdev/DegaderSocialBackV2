@@ -1127,6 +1127,106 @@ const toggleCommentLike = async (req, res) => {
   }
 };
 
+/**
+ * Actualizar publicación
+ * PUT /api/publicaciones/:id
+ */
+const updatePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { contenido } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
+    }
+
+    // Verificar que el usuario sea el dueño del post
+    if (!post.usuario.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para editar esta publicación'));
+    }
+
+    // Actualizar contenido
+    post.contenido = contenido;
+
+    // Si se enviaron etiquetas nuevas
+    if (req.body.etiquetas) {
+      post.etiquetas = req.body.etiquetas.split(',').map(t => t.trim());
+    }
+
+    await post.save();
+
+    // Poblar respuesta
+    await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username');
+    await post.populate('grupo', 'nombre tipo');
+
+    // Emitir socket
+    try {
+      if (global.emitPostUpdate) {
+        global.emitPostUpdate(post);
+      }
+    } catch (socketError) {
+      console.error('⚠️ [UPDATE POST] Socket emit error:', socketError);
+    }
+
+    // 🔔 NOTIFICAR MENCIONES EN EDICIÓN
+    try {
+      console.log('🔔 [UPDATE POST] Checking for mentions in edit...');
+      const mentionRegex = /@([a-zA-Z0-9._-]+)/g;
+      const extractedMentions = (contenido || '').match(mentionRegex);
+
+      if (extractedMentions && extractedMentions.length > 0) {
+        const uniqueMentions = [...new Set(extractedMentions)].map(m => m.slice(1));
+        const User = require('../models/User.model');
+
+        const mentionedUsers = await User.find({
+          $or: [
+            { 'social.username': { $in: uniqueMentions } },
+            { 'username': { $in: uniqueMentions } }
+          ],
+          _id: { $ne: req.userId }
+        }).select('_id username social.username');
+
+        for (const user of mentionedUsers) {
+          console.log('🔔 [UPDATE POST] Creating edit notification for:', user._id);
+
+          const notification = new Notification({
+            receptor: user._id,
+            emisor: req.userId,
+            tipo: 'post_editado',
+            contenido: 'editó la publicación',
+            referencia: {
+              tipo: 'Post',
+              id: post._id
+            }
+          });
+          await notification.save();
+
+          // Poblar y emitir
+          const notificationPopulated = await Notification.findById(notification._id)
+            .populate('emisor', 'nombres apellidos social.fotoPerfil username');
+
+          if (global.emitNotification) {
+            global.emitNotification(user._id.toString(), notificationPopulated);
+          }
+        }
+      }
+    } catch (notifError) {
+      console.error('⚠️ [UPDATE POST] Notification error:', notifError);
+    }
+
+    res.json(formatSuccessResponse('Publicación actualizada correctamente', post));
+  } catch (error) {
+    console.error('Error al actualizar publicación:', error);
+    res.status(500).json(formatErrorResponse('Error al actualizar publicación', [error.message]));
+  }
+};
+
 module.exports = {
   createPost,
   getFeed,
@@ -1137,5 +1237,6 @@ module.exports = {
   toggleCommentLike,
   addComment,
   sharePost,
-  deletePost
+  deletePost,
+  updatePost
 };

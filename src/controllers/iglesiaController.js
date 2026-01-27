@@ -276,7 +276,7 @@ const updateIglesia = async (req, res) => {
     }
 
     if (req.files && req.files.galeria && req.files.galeria.length > 0) {
-      console.log('📤 [UPDATE IGLESIA] Subiendo fotos nuevas...');
+      console.log('📤 [UPDATE IGLESIA] Subiendo fotos nuevas a galería...');
       try {
         const galeriaPromises = req.files.galeria.map(file =>
           uploadToR2(file.buffer, file.originalname, 'iglesias/galeria')
@@ -285,6 +285,32 @@ const updateIglesia = async (req, res) => {
         iglesia.galeria = [...iglesia.galeria, ...newUrls];
       } catch (uploadError) {
         console.error('❌ Error subiendo galería:', uploadError);
+      }
+    }
+
+    // 🎥 Manejo de Multimedia (Fotos y Videos)
+    if (req.files && req.files.multimedia && req.files.multimedia.length > 0) {
+      console.log('📤 [UPDATE IGLESIA] Subiendo archivos multimedia...');
+      try {
+        const multimediaPromises = req.files.multimedia.map(async (file) => {
+          const url = await uploadToR2(file.buffer, file.originalname, 'iglesias/multimedia');
+          const isVideo = file.mimetype.startsWith('video/');
+          return {
+            url,
+            tipo: isVideo ? 'video' : 'image',
+            caption: req.body.multimediaCaption || 'Contenido Multimedia',
+            fecha: new Date()
+          };
+        });
+
+        const newMultimedia = await Promise.all(multimediaPromises);
+        // Inicializar si no existe (para iglesias viejas)
+        if (!iglesia.multimedia) iglesia.multimedia = [];
+        iglesia.multimedia = [...iglesia.multimedia, ...newMultimedia];
+
+        console.log(`✅ Agregados ${newMultimedia.length} archivos a multimedia`);
+      } catch (uploadError) {
+        console.error('❌ Error subiendo multimedia:', uploadError);
       }
     }
 

@@ -10,15 +10,15 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB (aumentado para videos)
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
+    const allowedTypes = /jpeg|jpg|png|webp|mp4|webm|mov|quicktime/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, webp)'));
+      cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, webp) y videos (mp4, webm, mov)'));
     }
   }
 });
@@ -28,7 +28,8 @@ const uploadMiddleware = (req, res, next) => {
   const uploadFields = upload.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'portada', maxCount: 1 },
-    { name: 'galeria', maxCount: 10 }
+    { name: 'galeria', maxCount: 10 },
+    { name: 'multimedia', maxCount: 10 }
   ]);
 
   uploadFields(req, res, (err) => {

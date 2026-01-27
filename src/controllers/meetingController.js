@@ -38,7 +38,7 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
 };
 
 const createMeeting = async (req, res) => {
-  const { title, description, date, time, duration, meetLink, type, group, iglesia, attendees } = req.body;
+  const { title, description, date, time, duration, meetLink, type, group, iglesia, attendees, targetMinistry } = req.body;
   const creatorId = req.user.id;
 
   try {
@@ -53,6 +53,7 @@ const createMeeting = async (req, res) => {
       duration,
       meetLink,
       type,
+      targetMinistry: targetMinistry || 'todos',
       attendees: [...new Set([creatorId, ...(attendees || [])])],
     });
 
@@ -68,13 +69,49 @@ const createMeeting = async (req, res) => {
       global.emitMeetingUpdate(attendeeIds, newMeeting, 'create');
     }
 
-    // 📬 Crear notificaciones para todos los asistentes (excepto el creador)
-    const attendeesToNotify = newMeeting.attendees.filter(a => {
-      const attendeeId = (a._id || a).toString();
-      return attendeeId !== creatorId;
-    });
-    for (const attendee of attendeesToNotify) {
-      const attendeeId = attendee._id || attendee;
+    // 📬 Crear notificaciones
+    let recipientsIds = [];
+
+    // Si viene de una iglesia, manejar lógica por ministerio
+    if (iglesia) {
+      if (!targetMinistry || targetMinistry === 'todos') {
+        // Lógica anterior: notificar solo a los asistentes explícitamente agregados
+        // O si la lógica de negocio dice que "Todos" = todos los miembros de la iglesia, 
+        // deberíamos buscar a todos los miembros de la iglesia. 
+        // Asumiendo por ahora que "Todos" en este contexto se refiere a notificar
+        // a los 'attendees' seleccionados manualmente O a toda la iglesia si se implementa broadcast.
+
+        // PERO el requerimiento dice: "si selecciono todos, le llega a todos [los miembros del grupo/iglesia]"
+        // Vamos a buscar todos los miembros de la iglesia si targetMinistry es 'todos' O un ministerio especifico.
+
+        if (targetMinistry === 'todos') {
+          const members = await User.find({
+            'eclesiastico.iglesia': iglesia,
+            'eclesiastico.activo': true
+          }).select('_id');
+          recipientsIds = members.map(m => m._id.toString());
+        }
+      } else {
+        // Notificar solo a miembros con ese ministerio
+        const members = await User.find({
+          'eclesiastico.iglesia': iglesia,
+          'eclesiastico.activo': true,
+          'eclesiastico.ministerios.nombre': targetMinistry,
+          'eclesiastico.ministerios.activo': true
+        }).select('_id');
+        recipientsIds = members.map(m => m._id.toString());
+      }
+    } else {
+      // Lógica estándar para grupos o personal (solo attendees explícitos)
+      recipientsIds = newMeeting.attendees
+        .map(a => (a._id || a).toString())
+        .filter(id => id !== creatorId);
+    }
+
+    // Filtrar al creador de la lista de notificados
+    const finalRecipients = [...new Set(recipientsIds)].filter(id => id !== creatorId);
+
+    for (const attendeeId of finalRecipients) {
       await createMeetingNotification(
         attendeeId,
         creatorId,
@@ -99,7 +136,33 @@ const getMyMeetings = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const meetings = await Meeting.find({ attendees: userId })
+    // Obtener detalles del usuario para saber su iglesia y ministerios
+    const user = await User.findById(userId).select('eclesiastico');
+
+    let query = { attendees: userId };
+
+    if (user?.eclesiastico?.iglesia && user.eclesiastico.activo) {
+      const iglesiaId = user.eclesiastico.iglesia;
+      const myMinistries = user.eclesiastico.ministerios
+        ?.filter(m => m.activo)
+        .map(m => m.nombre) || [];
+
+      query = {
+        $or: [
+          { attendees: userId },
+          {
+            iglesia: iglesiaId,
+            status: { $ne: 'cancelled' }, // Opcional: no mostrar canceladas de iglesia automáticamente si ensucia mucho
+            $or: [
+              { targetMinistry: 'todos' },
+              { targetMinistry: { $in: myMinistries } }
+            ]
+          }
+        ]
+      };
+    }
+
+    const meetings = await Meeting.find(query)
       .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
       .populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil')
       .sort({ date: 1, time: 1 });

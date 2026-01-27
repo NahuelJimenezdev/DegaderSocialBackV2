@@ -41,7 +41,8 @@ const notificationSchema = new mongoose.Schema({
       'solicitud_fundacion_aprobada',
       'solicitud_fundacion_rechazada',
       'nuevo_anuncio',
-      'alerta_seguridad'
+      'alerta_seguridad',
+      'post_editado'
     ],
     required: true
   },

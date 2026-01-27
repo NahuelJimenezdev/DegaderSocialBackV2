@@ -39,13 +39,17 @@ const MeetingSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['administrative', 'training', 'community', 'personal'],
+    enum: ['administrative', 'training', 'community', 'personal', 'oracion', 'estudio_biblico', 'culto', 'escuela_dominical', 'capacitacion', 'grupal', 'comercial'],
     default: 'personal',
   },
   status: {
     type: String,
     enum: ['upcoming', 'in-progress', 'completed', 'cancelled'],
     default: 'upcoming',
+  },
+  targetMinistry: {
+    type: String,
+    default: 'todos', // 'todos' o nombre del ministerio (ej: 'musica', 'juventud')
   },
   attendees: [{
     type: mongoose.Schema.Types.ObjectId,

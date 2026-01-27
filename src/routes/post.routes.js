@@ -29,6 +29,7 @@ router.get('/user/:userId', postController.getUserPosts);
 router.get('/grupo/:groupId', postController.getGroupPosts);
 router.get('/:id', postController.getPostById);
 router.delete('/:id', postController.deletePost);
+router.put('/:id', postController.updatePost); // Ruta para actualizar publicación
 
 // Interacciones con publicaciones
 router.post('/:id/like', postController.toggleLike);

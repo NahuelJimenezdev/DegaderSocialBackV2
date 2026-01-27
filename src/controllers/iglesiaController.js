@@ -1,5 +1,6 @@
 const Iglesia = require('../models/Iglesia');
 const IglesiaMessage = require('../models/IglesiaMessage');
+const Meeting = require('../models/Meeting'); // Importar Meeting para conteo global
 const UserV2 = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
@@ -197,6 +198,91 @@ const unirseIglesia = async (req, res) => {
   } catch (error) {
     console.error('Error al unirse a iglesia:', error);
     res.status(500).json(formatErrorResponse('Error al unirse a iglesia', [error.message]));
+  }
+};
+
+/**
+ * Salir de una iglesia (Abandonar membresía)
+ * POST /api/iglesias/:id/leave
+ */
+const leaveIglesia = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { motivo } = req.body; // Motivo opcional del usuario
+    const userId = req.userId;
+
+    console.log(`🚪 [LEAVE IGLESIA] Usuario ${userId} intenta salir de iglesia ${id}`);
+
+    const iglesia = await Iglesia.findById(id);
+    if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
+
+    // Verificar si es miembro
+    if (!iglesia.miembros.includes(userId)) {
+      return res.status(400).json(formatErrorResponse('No eres miembro de esta iglesia'));
+    }
+
+    // Verificar que NO sea el pastor principal (El pastor no puede abandonar su propia iglesia así nomás, debería transferirla o borrarla)
+    if (iglesia.pastorPrincipal.toString() === userId.toString()) {
+      return res.status(400).json(formatErrorResponse('El pastor principal no puede abandonar la iglesia. Debes transferir el liderazgo o eliminar la iglesia.'));
+    }
+
+    // 1. Eliminar de la lista de miembros de la iglesia
+    iglesia.miembros = iglesia.miembros.filter(m => m.toString() !== userId.toString());
+    await iglesia.save();
+
+    // 2. Actualizar el perfil del usuario
+    const user = await UserV2.findByIdAndUpdate(userId, {
+      esMiembroIglesia: false,
+      eclesiastico: {
+        activo: false,
+        iglesia: null,
+        rolPrincipal: null, // Resetear rol o mantener historial si se desea, por ahora null
+        ministerios: [] // Resetear ministerios asociados a esa iglesia
+      }
+    }, { new: true });
+
+    // 3. Notificar al Pastor Principal
+    const Notification = require('../models/Notification');
+    const usuarioNombre = `${user.nombres.primero} ${user.apellidos.primero}`;
+
+    await Notification.create({
+      receptor: iglesia.pastorPrincipal,
+      emisor: userId,
+      tipo: 'miembro_abandono_iglesia', // Asegurarse que este tipo exista o el front lo maneje genérico
+      contenido: `${usuarioNombre} ha dejado la iglesia.${motivo ? ` Motivo: "${motivo}"` : ''}`,
+      referencia: {
+        tipo: 'Iglesia',
+        id: iglesia._id
+      },
+      metadata: {
+        iglesiaNombre: iglesia.nombre,
+        motivo
+      }
+    });
+
+    // 4. Emitir evento Socket para actualizar listas en tiempo real
+    const io = req.app.get('io');
+    if (io) {
+      // Notificar al pastor (para actualizar lista de miembros)
+      io.to(`user:${iglesia.pastorPrincipal}`).emit('miembroSalio', {
+        iglesiaId: iglesia._id,
+        userId: userId,
+        motivo
+      });
+
+      // Notificar a notificaciones del pastor
+      io.to(`notifications:${iglesia.pastorPrincipal}`).emit('newNotification', {
+        // Payload simplificado si no se popula todo
+        contenido: `${usuarioNombre} ha dejado la iglesia.`,
+        tipo: 'miembro_abandono_iglesia'
+      });
+    }
+
+    res.json(formatSuccessResponse('Has abandonado la iglesia exitosamente', { userId }));
+
+  } catch (error) {
+    console.error('❌ Error al salir de la iglesia:', error);
+    res.status(500).json(formatErrorResponse('Error al procesar la salida de la iglesia', [error.message]));
   }
 };
 
@@ -748,6 +834,41 @@ const reactToMessage = async (req, res) => {
   }
 };
 
+/**
+ * Obtener estadísticas globales de la plataforma
+ * GET /api/iglesias/stats/global
+ */
+const getGlobalStats = async (req, res) => {
+  try {
+    // 1. Total Iglesias Activas
+    const totalIglesias = await Iglesia.countDocuments({ activo: true });
+
+    // 2. Total Miembros (Suma de arrays de miembros en iglesias activas)
+    // Usamos aggregate para sumar el tamaño del array 'miembros' de todas las iglesias activas
+    const miembrosAggregate = await Iglesia.aggregate([
+      { $match: { activo: true } },
+      { $project: { count: { $size: "$miembros" } } },
+      { $group: { _id: null, total: { $sum: "$count" } } }
+    ]);
+    const totalMiembros = miembrosAggregate.length > 0 ? miembrosAggregate[0].total : 0;
+
+    // 3. Total Eventos (Reuniones futuras/en curso asociadas a una IGLESIA)
+    const totalEventos = await Meeting.countDocuments({
+      status: { $in: ['upcoming', 'in-progress'] },
+      iglesia: { $exists: true, $ne: null }
+    });
+
+    res.json(formatSuccessResponse('Estadísticas globales obtenidas', {
+      churches: totalIglesias,
+      members: totalMiembros,
+      events: totalEventos
+    }));
+  } catch (error) {
+    console.error('Error al obtener estadísticas globales:', error);
+    res.status(500).json(formatErrorResponse('Error al calcular estadísticas globales', [error.message]));
+  }
+};
+
 module.exports = {
   crearIglesia,
   obtenerIglesias,
@@ -759,5 +880,7 @@ module.exports = {
   getMessages,
   sendMessage,
   deleteMessage,
-  reactToMessage
+  reactToMessage,
+  getGlobalStats,
+  leaveIglesia
 };

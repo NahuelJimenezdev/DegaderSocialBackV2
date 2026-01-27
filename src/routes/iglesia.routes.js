@@ -58,8 +58,10 @@ router.use(authenticate);
 
 router.post('/', iglesiaController.crearIglesia);
 router.get('/', iglesiaController.obtenerIglesias);
+router.get('/stats/global', iglesiaController.getGlobalStats); // Antes de /:id para evitar conflicto
 router.get('/:id', iglesiaController.obtenerIglesia);
 router.post('/:id/join', iglesiaController.unirseIglesia);
+router.post('/:id/leave', iglesiaController.leaveIglesia);
 router.delete('/:id/join', iglesiaController.cancelarSolicitud);
 router.put('/:id', uploadMiddleware, iglesiaController.updateIglesia);
 router.post('/:id/solicitudes/:userId', iglesiaController.gestionarSolicitud);

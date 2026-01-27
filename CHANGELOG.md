@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.3.1...v1.4.0) (2026-01-27)
+
+
+### Features
+
+* **backend:** Agregar endpoint leave de iglesia, stats globales para dashboard, campo Google Maps en modelo Iglesia y notificación al pastor al salir un miembro ([5769cee](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5769cee8f21d95e2d8d865ed2fd768de9aec223b))
+
 ### [1.3.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.3.0...v1.3.1) (2026-01-27)
 
 ## [1.3.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.2.0...v1.3.0) (2026-01-26)

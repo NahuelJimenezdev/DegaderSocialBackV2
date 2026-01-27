@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.4.0...v1.4.1) (2026-01-27)
+
+
+### Bug Fixes
+
+* resolver error 500 al salir de iglesia (rol inválido) ([80adf62](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/80adf627af3b4e61d5853de95df9eb7c7b995a99))
+
 ## [1.4.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.3.1...v1.4.0) (2026-01-27)
 
 

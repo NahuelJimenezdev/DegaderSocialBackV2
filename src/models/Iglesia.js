@@ -26,7 +26,8 @@ const IglesiaSchema = new Schema({
     coordenadas: {
       lat: Number,
       lng: Number
-    }
+    },
+    googleMapsLink: { type: String, trim: true } // Link directo de Google Maps
   },
 
   // Contacto

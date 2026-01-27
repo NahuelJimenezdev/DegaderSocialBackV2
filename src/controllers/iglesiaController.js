@@ -236,7 +236,7 @@ const leaveIglesia = async (req, res) => {
       eclesiastico: {
         activo: false,
         iglesia: null,
-        rolPrincipal: null, // Resetear rol o mantener historial si se desea, por ahora null
+        rolPrincipal: 'miembro', // Resetear al valor por defecto
         ministerios: [] // Resetear ministerios asociados a esa iglesia
       }
     }, { new: true });

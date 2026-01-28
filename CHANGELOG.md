@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.4.2...v1.5.0) (2026-01-28)
+
+
+### Features
+
+* **iglesia:** implementación registro histórico de salidas y roles ([d678174](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/d678174ea8af686ebd4c92dace9272ca97b405c4))
+
 ### [1.4.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.4.1...v1.4.2) (2026-01-28)
 
 

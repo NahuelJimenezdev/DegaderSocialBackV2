@@ -90,4 +90,7 @@ router.post('/:eventId/interact', churchEventController.interactWithEvent); // :
 router.get('/:eventId/stats', churchEventController.getEventStats);
 
 
+// Historial de salidas (Solo pastor)
+router.get('/:id/ex-miembros', iglesiaController.getExMiembros);
+
 module.exports = router;

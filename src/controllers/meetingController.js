@@ -74,29 +74,21 @@ const createMeeting = async (req, res) => {
 
     // Si viene de una iglesia, manejar lógica por ministerio
     if (iglesia) {
-      if (!targetMinistry || targetMinistry === 'todos') {
-        // Lógica anterior: notificar solo a los asistentes explícitamente agregados
-        // O si la lógica de negocio dice que "Todos" = todos los miembros de la iglesia, 
-        // deberíamos buscar a todos los miembros de la iglesia. 
-        // Asumiendo por ahora que "Todos" en este contexto se refiere a notificar
-        // a los 'attendees' seleccionados manualmente O a toda la iglesia si se implementa broadcast.
+      // Normalizar targetMinistry (si no viene, es 'todos')
+      const ministryTarget = targetMinistry || 'todos';
 
-        // PERO el requerimiento dice: "si selecciono todos, le llega a todos [los miembros del grupo/iglesia]"
-        // Vamos a buscar todos los miembros de la iglesia si targetMinistry es 'todos' O un ministerio especifico.
-
-        if (targetMinistry === 'todos') {
-          const members = await User.find({
-            'eclesiastico.iglesia': iglesia,
-            'eclesiastico.activo': true
-          }).select('_id');
-          recipientsIds = members.map(m => m._id.toString());
-        }
+      if (ministryTarget === 'todos') {
+        const members = await User.find({
+          'eclesiastico.iglesia': iglesia,
+          'eclesiastico.activo': true
+        }).select('_id');
+        recipientsIds = members.map(m => m._id.toString());
       } else {
         // Notificar solo a miembros con ese ministerio
         const members = await User.find({
           'eclesiastico.iglesia': iglesia,
           'eclesiastico.activo': true,
-          'eclesiastico.ministerios.nombre': targetMinistry,
+          'eclesiastico.ministerios.nombre': ministryTarget,
           'eclesiastico.ministerios.activo': true
         }).select('_id');
         recipientsIds = members.map(m => m._id.toString());

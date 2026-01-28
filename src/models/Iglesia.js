@@ -57,6 +57,21 @@ const IglesiaSchema = new Schema({
     mensaje: String
   }],
 
+  // Historial de miembros que salieron
+  historialSalidas: [{
+    usuario: { type: Schema.Types.ObjectId, ref: 'UserV2' },
+    fechaSalida: { type: Date, default: Date.now },
+    motivo: String,
+    rolAlSalir: String, // Rol que tenía al momento de salir
+    fechaUnion: Date, // Cuándo se unió
+    tiempoMembresia: String, // Texto legible: "2 años, 3 meses"
+    historialRoles: [{
+      rol: String,
+      fechaInicio: Date,
+      fechaFin: Date
+    }]
+  }],
+
   // Horarios / Reuniones
   reuniones: [{
     nombre: String, // Ej: Culto General, Jóvenes

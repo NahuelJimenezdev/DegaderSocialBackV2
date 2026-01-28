@@ -208,6 +208,16 @@ const PerfilEclesiasticoSchema = new Schema({
     default: "miembro"
   },
 
+  // Fecha de unión a la iglesia actual
+  fechaUnion: { type: Date, default: Date.now },
+
+  // Historial de roles en la iglesia actual (antes de salir)
+  historialRoles: [{
+    rol: String,
+    fechaInicio: { type: Date, default: Date.now },
+    fechaFin: Date
+  }],
+
   // Ministerios en los que sirve
   ministerios: [{
     nombre: { type: String, enum: MINISTERIOS },

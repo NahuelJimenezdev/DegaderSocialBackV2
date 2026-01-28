@@ -9,6 +9,25 @@ const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
  * Crear una nueva iglesia
  * POST /api/iglesias
  */
+const calculateDuration = (startDate, endDate = new Date()) => {
+  if (!startDate) return 'Tiempo desconocido';
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
+
+  if (totalDays < 30) return `${totalDays} días`;
+
+  const years = Math.floor(totalDays / 365);
+  const months = Math.floor((totalDays % 365) / 30);
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'año' : 'años'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'mes' : 'meses'}`);
+
+  return parts.join(', ') || 'Menos de 1 mes';
+};
+
 const crearIglesia = async (req, res) => {
   try {
     const { nombre, ubicacion, denominacion, descripcion, contacto, reuniones } = req.body;
@@ -226,29 +245,80 @@ const leaveIglesia = async (req, res) => {
       return res.status(400).json(formatErrorResponse('El pastor principal no puede abandonar la iglesia. Debes transferir el liderazgo o eliminar la iglesia.'));
     }
 
-    // 1. Eliminar de la lista de miembros de la iglesia
-    iglesia.miembros = iglesia.miembros.filter(m => m.toString() !== userId.toString());
-    await iglesia.save();
+    // 3. Obtener usuario para calcular historial (antes de borrar)
+    const user = await UserV2.findById(userId);
+    if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
 
-    // 2. Actualizar el perfil del usuario
-    const user = await UserV2.findByIdAndUpdate(userId, {
+    // Calcular datos históricos
+    // Calcular datos históricos
+    const fechaUnion = user.eclesiastico?.fechaUnion || user.createdAt;
+    const tiempoMembresia = calculateDuration(fechaUnion);
+
+    // Capturar historial existente y sumar roles activos actuales antes de borrar
+    let historialRoles = [...(user.eclesiastico?.historialRoles || [])];
+
+    // Agregar rol principal actual si no es 'miembro'
+    if (user.eclesiastico?.rolPrincipal && user.eclesiastico.rolPrincipal !== 'miembro') {
+      historialRoles.push({
+        rol: user.eclesiastico.rolPrincipal,
+        fechaInicio: fechaUnion, // Asumimos fecha unión si no hay específica, o podría ser hoy
+        fechaFin: new Date()
+      });
+    }
+
+    // Agregar ministerios activos como roles en el historial
+    if (user.eclesiastico?.ministerios?.length > 0) {
+      user.eclesiastico.ministerios.forEach(min => {
+        if (min.activo) {
+          historialRoles.push({
+            rol: `${min.cargo || 'Miembro'} de ${min.nombre}`,
+            fechaInicio: min.fechaInicio || fechaUnion,
+            fechaFin: new Date()
+          });
+        }
+      });
+    }
+
+    // 4. Registrar en historial de salidas
+    iglesia.historialSalidas.push({
+      usuario: userId,
+      fechaSalida: new Date(),
+      motivo: motivo || 'Sin motivo especificado',
+      rolAlSalir: user.eclesiastico?.rolPrincipal || 'miembro',
+      fechaUnion: fechaUnion,
+      tiempoMembresia: tiempoMembresia,
+      historialRoles: historialRoles
+    });
+
+    console.log('📝 Registrando salida:', iglesia.historialSalidas[iglesia.historialSalidas.length - 1]);
+
+    // 5. Eliminar de la lista de miembros de la iglesia
+    iglesia.miembros = iglesia.miembros.filter(m => m.toString() !== userId.toString());
+
+    // Guardar cambios en la iglesia (historial + eliminación)
+    await iglesia.save();
+    console.log('✅ Iglesia guardada con historial actualizado');
+
+    // 6. Actualizar el perfil del usuario (quitar membresía)
+    await UserV2.findByIdAndUpdate(userId, {
       esMiembroIglesia: false,
       eclesiastico: {
         activo: false,
         iglesia: null,
-        rolPrincipal: 'miembro', // Resetear al valor por defecto
-        ministerios: [] // Resetear ministerios asociados a esa iglesia
+        rolPrincipal: 'miembro',
+        ministerios: [],
+        historialRoles: []
       }
-    }, { new: true });
+    });
 
-    // 3. Notificar al Pastor Principal
+    // 7. Notificar al Pastor Principal
     const Notification = require('../models/Notification');
     const usuarioNombre = `${user.nombres.primero} ${user.apellidos.primero}`;
 
     await Notification.create({
       receptor: iglesia.pastorPrincipal,
       emisor: userId,
-      tipo: 'miembro_abandono_iglesia', // Asegurarse que este tipo exista o el front lo maneje genérico
+      tipo: 'miembro_abandono_iglesia',
       contenido: `${usuarioNombre} ha dejado la iglesia.${motivo ? ` Motivo: "${motivo}"` : ''}`,
       referencia: {
         tipo: 'Iglesia',
@@ -260,7 +330,7 @@ const leaveIglesia = async (req, res) => {
       }
     });
 
-    // 4. Emitir evento Socket para actualizar listas en tiempo real
+    // 5. Emitir evento Socket para actualizar listas en tiempo real
     const io = req.app.get('io');
     if (io) {
       // Notificar al pastor (para actualizar lista de miembros)
@@ -283,6 +353,42 @@ const leaveIglesia = async (req, res) => {
   } catch (error) {
     console.error('❌ Error al salir de la iglesia:', error);
     res.status(500).json(formatErrorResponse('Error al procesar la salida de la iglesia', [error.message]));
+  }
+};
+
+/**
+ * Obtener historial de ex-miembros
+ * GET /api/iglesias/:id/ex-miembros
+ */
+const getExMiembros = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json(formatErrorResponse('ID inválido'));
+
+    const iglesia = await Iglesia.findById(id)
+      .select('historialSalidas pastorPrincipal')
+      .populate({
+        path: 'historialSalidas.usuario',
+        select: 'nombres apellidos social.fotoPerfil email'
+      });
+
+    if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
+
+    console.log('📊 [DEBUG] getExMiembros - Historial encontrado:', iglesia.historialSalidas);
+
+    // Verificar permisos: Solo pastor principal o admin de iglesia pueden ver esto
+    // Por ahora validamos solo pastor principal para ser estrictos como pidió el usuario
+    if (iglesia.pastorPrincipal.toString() !== req.userId.toString()) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para ver este historial'));
+    }
+
+    // Ordenar por fecha de salida descendente (más reciente primero)
+    const historialOrdenado = iglesia.historialSalidas.sort((a, b) => new Date(b.fechaSalida) - new Date(a.fechaSalida));
+
+    res.json(formatSuccessResponse('Historial de ex-miembros obtenido', historialOrdenado));
+  } catch (error) {
+    console.error('❌ Error al obtener ex-miembros:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener historial de salidas', [error.message]));
   }
 };
 
@@ -478,7 +584,9 @@ const gestionarSolicitud = async (req, res) => {
           eclesiastico: {
             activo: true,
             iglesia: iglesia._id,
-            rolPrincipal: 'miembro'
+            rolPrincipal: 'miembro',
+            fechaUnion: new Date(),
+            historialRoles: []
           }
         });
         console.log('✅ gestionarSolicitud - Perfil usuario actualizado');
@@ -882,5 +990,6 @@ module.exports = {
   deleteMessage,
   reactToMessage,
   getGlobalStats,
-  leaveIglesia
+  leaveIglesia,
+  getExMiembros
 };

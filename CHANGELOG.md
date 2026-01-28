@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.4.1...v1.4.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* **backend:** corrección de notificaciones masivas para reuniones; Se ajusta la lógica en meetingController para enviar notificaciones a todos los miembros cuando targetMinistry es 'todos'. ([bce47ca](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/bce47cac27ec7f89414bea06f43cf5738300625f))
+
 ### [1.4.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.4.0...v1.4.1) (2026-01-27)
 
 

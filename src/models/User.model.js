@@ -225,7 +225,7 @@ const PerfilEclesiasticoSchema = new Schema({
     fechaInicio: { type: Date, default: Date.now },
     activo: { type: Boolean, default: true }
   }]
-}, { _id: false });
+});  // ✅ Removido { _id: false } para permitir _id en ministerios
 
 // 4. Perfil Social (Red Social)
 const PerfilSocialSchema = new Schema({

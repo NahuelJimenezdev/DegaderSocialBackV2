@@ -91,7 +91,7 @@ const obtenerIglesias = async (req, res) => {
 
     const iglesias = await Iglesia.find(query)
       .select('nombre ubicacion denominacion descripcion logo portada pastorPrincipal miembros solicitudes reuniones galeria')
-      .populate('miembros', 'nombres apellidos social.fotoPerfil')
+      .populate('miembros', 'nombres apellidos social.fotoPerfil social.username email eclesiastico')
       .limit(20)
       .lean(); // Usar lean() para mejor performance
 
@@ -114,8 +114,8 @@ const obtenerIglesia = async (req, res) => {
     if (!isValidObjectId(id)) return res.status(400).json(formatErrorResponse('ID inválido'));
 
     const iglesia = await Iglesia.findById(id)
-      .populate('pastorPrincipal', 'nombres apellidos social.fotoPerfil')
-      .populate('miembros', 'nombres apellidos social.fotoPerfil')
+      .populate('pastorPrincipal', 'nombres apellidos social.fotoPerfil social.username email eclesiastico')
+      .populate('miembros', 'nombres apellidos social.fotoPerfil social.username email eclesiastico')
       .populate('solicitudes.usuario', 'nombres apellidos social.fotoPerfil');
 
     if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));

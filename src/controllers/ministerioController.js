@@ -26,13 +26,22 @@ const obtenerMinisteriosUsuario = async (req, res) => {
         // El middleware esMiembroIglesia ya validó los permisos
         // No es necesario validar nuevamente aquí
 
+        // ✅ Mapear ministerios para incluir _id explícitamente
+        const ministeriosConId = (usuario.eclesiastico?.ministerios || []).map(m => ({
+            _id: m._id,
+            nombre: m.nombre,
+            cargo: m.cargo,
+            fechaInicio: m.fechaInicio,
+            activo: m.activo
+        }));
+
         res.json(formatSuccessResponse('Ministerios obtenidos exitosamente', {
             usuario: {
                 _id: usuario._id,
                 nombre: `${usuario.nombres.primero} ${usuario.apellidos.primero}`,
                 rolPrincipal: usuario.eclesiastico?.rolPrincipal || 'miembro',
                 iglesia: usuario.eclesiastico?.iglesia,
-                ministerios: usuario.eclesiastico?.ministerios || []
+                ministerios: ministeriosConId
             }
         }));
     } catch (error) {
@@ -131,6 +140,70 @@ const asignarMinisterio = async (req, res) => {
 
         console.log('✅ [ASIGNAR MINISTERIO] Ministerio asignado exitosamente');
 
+        // ✅ Crear notificación para el usuario asignado
+        const MINISTERIOS_LABELS = {
+            "musica": "Música",
+            "caballeros": "Caballeros",
+            "damas": "Damas",
+            "escuela_dominical": "Escuela Dominical",
+            "evangelismo": "Evangelismo",
+            "limpieza": "Limpieza",
+            "cocina": "Cocina",
+            "medios": "Medios",
+            "juventud": "Juventud",
+            "intercesion": "Intercesión",
+            "consejeria": "Consejería",
+            "visitacion": "Visitación",
+            "seguridad": "Seguridad",
+            "protocolo": "Protocolo"
+        };
+
+        const CARGOS_LABELS = {
+            "lider": "Líder",
+            "sublider": "Sublíder",
+            "miembro": "Miembro"
+        };
+
+        const ministerioLabel = MINISTERIOS_LABELS[ministerio] || ministerio;
+        const cargoLabel = CARGOS_LABELS[cargo] || cargo;
+
+        try {
+            const nuevaNotificacion = await Notification.create({
+                receptor: usuarioId,
+                emisor: req.userId,
+                tipo: 'ministerio_asignado',
+                contenido: `Has sido asignado al ministerio de ${ministerioLabel} como ${cargoLabel} en ${iglesia.nombre}`,
+                referencia: {
+                    tipo: 'Ministerio',
+                    id: iglesiaId
+                },
+                metadata: {
+                    ministerio: ministerioLabel,
+                    cargo: cargoLabel,
+                    iglesiaNombre: iglesia.nombre,
+                    iglesiaId: iglesiaId
+                }
+            });
+
+            console.log('✅ [ASIGNAR MINISTERIO] Notificación creada:', nuevaNotificacion._id);
+
+            // Emitir socket para notificación en tiempo real
+            const io = req.app.get('io');
+            if (io) {
+                const fullNotification = await Notification.findById(nuevaNotificacion._id)
+                    .populate('emisor', 'nombres apellidos social.fotoPerfil')
+                    .populate('receptor', 'nombres apellidos social.fotoPerfil');
+
+                if (fullNotification) {
+                    io.to(`notifications:${usuarioId}`).emit('newNotification', fullNotification);
+                    console.log('🔔 [ASIGNAR MINISTERIO] Notificación enviada via socket a:', usuarioId);
+                }
+            }
+        } catch (notifError) {
+            console.error('⚠️ [ASIGNAR MINISTERIO] Error al crear notificación (no crítico):', notifError);
+            // No fallar la operación principal si falla la notificación
+        }
+
         res.json(formatSuccessResponse('Ministerio asignado exitosamente', {
             usuario: {
                 _id: usuario._id,
@@ -194,10 +267,55 @@ const actualizarMinisterio = async (req, res) => {
             return res.status(404).json(formatErrorResponse('Ministerio no encontrado'));
         }
 
+        const ministerioAnterior = ministerio.cargo; // Guardar cargo anterior
         ministerio.cargo = cargo;
         await usuario.save();
 
         console.log('✅ [ACTUALIZAR MINISTERIO] Cargo actualizado');
+
+        // ✅ Crear notificación de actualización de cargo
+        const MINISTERIOS_LABELS = {
+            "musica": "Música", "caballeros": "Caballeros", "damas": "Damas",
+            "escuela_dominical": "Escuela Dominical", "evangelismo": "Evangelismo",
+            "limpieza": "Limpieza", "cocina": "Cocina", "medios": "Medios",
+            "juventud": "Juventud", "intercesion": "Intercesión",
+            "consejeria": "Consejería", "visitacion": "Visitación",
+            "seguridad": "Seguridad", "protocolo": "Protocolo"
+        };
+        const CARGOS_LABELS = { "lider": "Líder", "sublider": "Sublíder", "miembro": "Miembro" };
+
+        const ministerioLabel = MINISTERIOS_LABELS[ministerio.nombre] || ministerio.nombre;
+        const cargoLabel = CARGOS_LABELS[cargo] || cargo;
+
+        try {
+            const nuevaNotificacion = await Notification.create({
+                receptor: usuarioId,
+                emisor: req.userId,
+                tipo: 'ministerio_actualizado',
+                contenido: `Tu cargo en el ministerio de ${ministerioLabel} ha sido actualizado a ${cargoLabel}`,
+                referencia: { tipo: 'Ministerio', id: iglesiaId },
+                metadata: {
+                    ministerio: ministerioLabel,
+                    cargoAnterior: CARGOS_LABELS[ministerioAnterior] || ministerioAnterior,
+                    cargoNuevo: cargoLabel,
+                    iglesiaNombre: usuario.eclesiastico.iglesia.nombre || 'tu iglesia',
+                    iglesiaId: iglesiaId
+                }
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                const fullNotification = await Notification.findById(nuevaNotificacion._id)
+                    .populate('emisor', 'nombres apellidos social.fotoPerfil')
+                    .populate('receptor', 'nombres apellidos social.fotoPerfil');
+                if (fullNotification) {
+                    io.to(`notifications:${usuarioId}`).emit('newNotification', fullNotification);
+                    console.log('🔔 [ACTUALIZAR MINISTERIO] Notificación enviada');
+                }
+            }
+        } catch (notifError) {
+            console.error('⚠️ Error al crear notificación (no crítico):', notifError);
+        }
 
         res.json(formatSuccessResponse('Cargo actualizado exitosamente', {
             usuario: {
@@ -257,10 +375,53 @@ const removerMinisterio = async (req, res) => {
             return res.status(404).json(formatErrorResponse('Ministerio no encontrado'));
         }
 
+        const ministerioNombre = ministerio.nombre; // Guardar antes de eliminar
+        const ministerioCargo = ministerio.cargo;
         ministerio.deleteOne();
         await usuario.save();
 
         console.log('✅ [REMOVER MINISTERIO] Ministerio removido');
+
+        // ✅ Crear notificación de remoción
+        const MINISTERIOS_LABELS = {
+            "musica": "Música", "caballeros": "Caballeros", "damas": "Damas",
+            "escuela_dominical": "Escuela Dominical", "evangelismo": "Evangelismo",
+            "limpieza": "Limpieza", "cocina": "Cocina", "medios": "Medios",
+            "juventud": "Juventud", "intercesion": "Intercesión",
+            "consejeria": "Consejería", "visitacion": "Visitación",
+            "seguridad": "Seguridad", "protocolo": "Protocolo"
+        };
+
+        const ministerioLabel = MINISTERIOS_LABELS[ministerioNombre] || ministerioNombre;
+
+        try {
+            const nuevaNotificacion = await Notification.create({
+                receptor: usuarioId,
+                emisor: req.userId,
+                tipo: 'ministerio_removido',
+                contenido: `Has sido removido del ministerio de ${ministerioLabel}`,
+                referencia: { tipo: 'Ministerio', id: iglesiaId },
+                metadata: {
+                    ministerio: ministerioLabel,
+                    cargoAnterior: ministerioCargo,
+                    iglesiaNombre: usuario.eclesiastico.iglesia.nombre || 'tu iglesia',
+                    iglesiaId: iglesiaId
+                }
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                const fullNotification = await Notification.findById(nuevaNotificacion._id)
+                    .populate('emisor', 'nombres apellidos social.fotoPerfil')
+                    .populate('receptor', 'nombres apellidos social.fotoPerfil');
+                if (fullNotification) {
+                    io.to(`notifications:${usuarioId}`).emit('newNotification', fullNotification);
+                    console.log('🔔 [REMOVER MINISTERIO] Notificación enviada');
+                }
+            }
+        } catch (notifError) {
+            console.error('⚠️ Error al crear notificación (no crítico):', notifError);
+        }
 
         res.json(formatSuccessResponse('Ministerio removido exitosamente', {
             usuario: {

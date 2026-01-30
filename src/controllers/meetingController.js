@@ -163,11 +163,16 @@ const getMyMeetings = async (req, res) => {
     const now = new Date();
 
     for (const meeting of meetings) {
-      if (meeting.status === 'cancelled') continue; // No cambiar reuniones canceladas
+      // Reconstruir la fecha LOCAL usando la parte de FECHA (UTC Midnight) + HORA (String)
+      // Usamos getUTC* porque la fecha se guardó como T00:00:00Z para indicar "Ese Día".
+      const year = meeting.date.getUTCFullYear();
+      const month = meeting.date.getUTCMonth();
+      const day = meeting.date.getUTCDate();
 
-      const meetingDateTime = new Date(meeting.date);
-      const [hours, minutes] = (meeting.time || '00:00').split(':');
-      meetingDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
+
+      // Creamos la fecha en el contexto LOCAL del servidor (o del usuario si corre local)
+      const meetingDateTime = new Date(year, month, day, hours, minutes, 0, 0);
 
       // Calcular duración en minutos (asumiendo formato "X horas" o "X minutos")
       let durationMinutes = 60; // Por defecto 1 hora

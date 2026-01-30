@@ -127,4 +127,13 @@ IglesiaSchema.index({ 'ubicacion.ciudad': 1, 'ubicacion.pais': 1 });
 IglesiaSchema.index({ nombre: 'text' });
 IglesiaSchema.index({ pastorPrincipal: 1 });
 
-module.exports = model('Iglesia', IglesiaSchema);
+const Iglesia = model('Iglesia', IglesiaSchema);
+
+// Registrar alias 'Ministerio' apuntando a la misma colección (para notificaciones que referencian ministerios)
+try {
+  model('Ministerio');
+} catch (error) {
+  model('Ministerio', IglesiaSchema, Iglesia.collection.name);
+}
+
+module.exports = Iglesia;

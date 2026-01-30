@@ -39,6 +39,21 @@ class SocketService {
     socket.on('subscribeMeetings', (data) => this.handleSubscribeMeetings(socket, data));
     socket.on('unsubscribeMeetings', (data) => this.handleUnsubscribeMeetings(socket, data));
 
+    // Generic room management (for Iglesias, etc.)
+    socket.on('joinRoom', (room) => {
+      if (typeof room === 'string') {
+        socket.join(room);
+        console.log(`🔌 [JOIN] Socket ${socket.id} (User: ${socket.userId}) joined room: ${room}`);
+      }
+    });
+
+    socket.on('leaveRoom', (room) => {
+      if (typeof room === 'string') {
+        socket.leave(room);
+        console.log(`🔌 [LEAVE] Socket ${socket.id} (User: ${socket.userId}) left room: ${room}`);
+      }
+    });
+
     // Desconexión
     socket.on('disconnect', () => this.handleDisconnect(socket));
     socket.on('error', (error) => {

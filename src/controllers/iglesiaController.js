@@ -867,8 +867,53 @@ const sendMessage = async (req, res) => {
     }
 
     // Emitir evento Socket.IO (si está configurado)
-    if (req.app.get('io')) {
-      req.app.get('io').to(`iglesia:${id}`).emit('newIglesiaMessage', newMessage);
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`iglesia:${id}`).emit('newIglesiaMessage', newMessage);
+
+      // --- Notificaciones para Miembros ---
+      const Notification = require('../models/Notification');
+
+      // Obtener todos los miembros (excepto el emisor) para notificarles
+      // Incluimos al pastor principal también si no es el emisor
+      const recipientIds = iglesia.miembros.filter(m => m.toString() !== req.userId.toString());
+      if (iglesia.pastorPrincipal.toString() !== req.userId.toString() && !recipientIds.includes(iglesia.pastorPrincipal.toString())) {
+        recipientIds.push(iglesia.pastorPrincipal.toString());
+      }
+
+      const senderName = `${newMessage.author.nombres.primero} ${newMessage.author.apellidos.primero}`;
+
+      // Enviar notificaciones en paralelo (con tope para evitar sobrecarga si hay muchos miembros)
+      // Nota: En una app masiva esto iría a una cola (BullMQ/Redis)
+      const notifyPromises = recipientIds.map(async (recipientId) => {
+        try {
+          const notification = await Notification.create({
+            receptor: recipientId,
+            emisor: req.userId,
+            tipo: 'nuevo_mensaje',
+            contenido: `${senderName} envió un mensaje en ${iglesia.nombre}`,
+            referencia: {
+              tipo: 'Iglesia',
+              id: iglesia._id
+            },
+            metadata: {
+              iglesiaNombre: iglesia.nombre,
+              mensajeId: newMessage._id,
+              content: newMessage.content.substring(0, 50)
+            }
+          });
+
+          // Emitir a la sala de notificaciones del usuario
+          io.to(`notifications:${recipientId}`).emit('newNotification', notification);
+          // También a la sala de usuario por si acaso (algunos componentes escuchan ahí)
+          io.to(`user:${recipientId}`).emit('newNotification', notification);
+        } catch (err) {
+          console.error(`Error enviando notificación a ${recipientId}:`, err);
+        }
+      });
+
+      // No esperamos a que todas terminen para responder al cliente, pero las lanzamos
+      Promise.all(notifyPromises).catch(e => console.error('Error in batch notifications:', e));
     }
 
     res.status(201).json(formatSuccessResponse('Mensaje enviado', newMessage));

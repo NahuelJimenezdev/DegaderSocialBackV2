@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.5.2...v1.5.3) (2026-01-30)
+
+
+### Bug Fixes
+
+* **backend:** handlers de socket joinRoom y alias de modelo Ministerio ([0ad82a8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0ad82a82f671926d0d6cb3fdbf7545853b64e974))
+
 ### [1.5.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.5.1...v1.5.2) (2026-01-29)
 
 

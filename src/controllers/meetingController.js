@@ -8,7 +8,7 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
     const notification = new Notification({
       receptor: receptorId,
       emisor: emisorId,
-      tipo: 'evento', // Tipo 'evento' ya existe en el schema
+      tipo: 'evento',
       contenido: contenido,
       referencia: {
         tipo: 'Meeting',
@@ -16,17 +16,15 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
       },
       metadata: {
         meetingId: meetingId,
-        eventType: tipo // 'meeting_reminder', 'meeting_cancelled', 'meeting_starting', 'meeting_created'
+        eventType: tipo
       }
     });
 
     await notification.save();
 
-    // Poblar datos del emisor antes de emitir
     await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil');
     await notification.populate('receptor', 'nombres.primero apellidos.primero');
 
-    // Emitir notificación via Socket.IO
     if (global.emitNotification) {
       global.emitNotification(receptorId.toString(), notification);
     }
@@ -38,18 +36,33 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
 };
 
 const createMeeting = async (req, res) => {
-  const { title, description, date, time, duration, meetLink, type, group, iglesia, attendees, targetMinistry } = req.body;
+  const {
+    title, description, date, time, duration, meetLink,
+    type, group, iglesia, attendees, targetMinistry,
+    timezone, startsAt
+  } = req.body;
   const creatorId = req.user.id;
 
   try {
+    // 🌍 CALCULO DE FECHA UTC REAL (startsAt)
+    // El frontend enviará startsAt ya calculado en UTC preferiblemente.
+    // Si no viene, hacemos un fallback asumiendo UTC.
+    let startsAtFinal = startsAt;
+
+    if (!startsAtFinal) {
+      startsAtFinal = new Date(`${date}T${time}:00Z`);
+    }
+
     const newMeeting = new Meeting({
       creator: creatorId,
       group: group || null,
       iglesia: iglesia || null,
       title,
       description,
-      date,
-      time,
+      startsAt: startsAtFinal, // 🔥 Almacenamos instante universal
+      timezone: timezone || 'UTC',
+      date, // Mantenemos por compatibilidad legacy
+      time, // Mantenemos por compatibilidad legacy
       duration,
       meetLink,
       type,
@@ -59,22 +72,17 @@ const createMeeting = async (req, res) => {
 
     await newMeeting.save();
 
-    // Poblar datos antes de emitir
     await newMeeting.populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil');
     await newMeeting.populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil');
 
-    // 🔔 Emitir evento Socket.IO a todos los asistentes
     if (global.emitMeetingUpdate) {
       const attendeeIds = newMeeting.attendees.map(a => (a._id || a).toString());
       global.emitMeetingUpdate(attendeeIds, newMeeting, 'create');
     }
 
-    // 📬 Crear notificaciones
     let recipientsIds = [];
 
-    // Si viene de una iglesia, manejar lógica por ministerio
     if (iglesia) {
-      // Normalizar targetMinistry (si no viene, es 'todos')
       const ministryTarget = targetMinistry || 'todos';
 
       if (ministryTarget === 'todos') {
@@ -84,7 +92,6 @@ const createMeeting = async (req, res) => {
         }).select('_id');
         recipientsIds = members.map(m => m._id.toString());
       } else {
-        // Notificar solo a miembros con ese ministerio
         const members = await User.find({
           'eclesiastico.iglesia': iglesia,
           'eclesiastico.activo': true,
@@ -94,13 +101,11 @@ const createMeeting = async (req, res) => {
         recipientsIds = members.map(m => m._id.toString());
       }
     } else {
-      // Lógica estándar para grupos o personal (solo attendees explícitos)
       recipientsIds = newMeeting.attendees
         .map(a => (a._id || a).toString())
         .filter(id => id !== creatorId);
     }
 
-    // Filtrar al creador de la lista de notificados
     const finalRecipients = [...new Set(recipientsIds)].filter(id => id !== creatorId);
 
     for (const attendeeId of finalRecipients) {
@@ -128,9 +133,7 @@ const getMyMeetings = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // Obtener detalles del usuario para saber su iglesia y ministerios
     const user = await User.findById(userId).select('eclesiastico');
-
     let query = { attendees: userId };
 
     if (user?.eclesiastico?.iglesia && user.eclesiastico.activo) {
@@ -144,7 +147,7 @@ const getMyMeetings = async (req, res) => {
           { attendees: userId },
           {
             iglesia: iglesiaId,
-            status: { $ne: 'cancelled' }, // Opcional: no mostrar canceladas de iglesia automáticamente si ensucia mucho
+            status: { $ne: 'cancelled' },
             $or: [
               { targetMinistry: 'todos' },
               { targetMinistry: { $in: myMinistries } }
@@ -157,25 +160,27 @@ const getMyMeetings = async (req, res) => {
     const meetings = await Meeting.find(query)
       .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
       .populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil')
-      .sort({ date: 1, time: 1 });
+      .sort({ startsAt: 1, date: 1 }); // Priorizamos startsAt para el orden
 
-    // 🔄 Actualizar automáticamente el estado de las reuniones según la fecha/hora
     const now = new Date();
 
     for (const meeting of meetings) {
-      // Reconstruir la fecha LOCAL usando la parte de FECHA (UTC Midnight) + HORA (String)
-      // Usamos getUTC* porque la fecha se guardó como T00:00:00Z para indicar "Ese Día".
-      const year = meeting.date.getUTCFullYear();
-      const month = meeting.date.getUTCMonth();
-      const day = meeting.date.getUTCDate();
+      if (meeting.status === 'cancelled') continue;
 
-      const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
+      // 🕒 Lógica de estado adaptativa (UTC vs Legacy)
+      let meetingDateTime;
+      if (meeting.startsAt) {
+        meetingDateTime = new Date(meeting.startsAt);
+      } else {
+        // Fallback para reuniones antiguas
+        const year = meeting.date.getUTCFullYear();
+        const month = meeting.date.getUTCMonth();
+        const day = meeting.date.getUTCDate();
+        const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
+        meetingDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+      }
 
-      // Creamos la fecha en el contexto LOCAL del servidor (o del usuario si corre local)
-      const meetingDateTime = new Date(year, month, day, hours, minutes, 0, 0);
-
-      // Calcular duración en minutos (asumiendo formato "X horas" o "X minutos")
-      let durationMinutes = 60; // Por defecto 1 hora
+      let durationMinutes = 60;
       if (meeting.duration) {
         if (meeting.duration.includes('minutos')) {
           durationMinutes = parseInt(meeting.duration);
@@ -186,10 +191,8 @@ const getMyMeetings = async (req, res) => {
       }
 
       const meetingEndTime = new Date(meetingDateTime.getTime() + durationMinutes * 60000);
-
       let newStatus = meeting.status;
 
-      // Determinar nuevo estado
       if (now < meetingDateTime) {
         newStatus = 'upcoming';
       } else if (now >= meetingDateTime && now < meetingEndTime) {
@@ -198,19 +201,16 @@ const getMyMeetings = async (req, res) => {
         newStatus = 'completed';
       }
 
-      // Actualizar si cambió
       if (newStatus !== meeting.status) {
         const oldStatus = meeting.status;
         meeting.status = newStatus;
         await meeting.save();
 
-        // 🔔 Emitir cambio de estado en tiempo real
         if (global.emitMeetingUpdate) {
           const attendeeIds = meeting.attendees.map(id => id._id ? id._id.toString() : id.toString());
           global.emitMeetingUpdate(attendeeIds, meeting, 'statusChange');
         }
 
-        // 📬 Notificar cuando la reunión comienza (upcoming → in-progress)
         if (oldStatus === 'upcoming' && newStatus === 'in-progress') {
           const attendeeIds = meeting.attendees.map(id => id._id || id);
           for (const attendeeId of attendeeIds) {
@@ -276,7 +276,6 @@ const cancelMeeting = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
-    // Solo el creador puede cancelar la reunión
     if (meeting.creator.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -284,7 +283,6 @@ const cancelMeeting = async (req, res) => {
       });
     }
 
-    // No permitir cancelar reuniones ya completadas
     if (meeting.status === 'completed') {
       return res.status(400).json({
         success: false,
@@ -295,13 +293,11 @@ const cancelMeeting = async (req, res) => {
     meeting.status = 'cancelled';
     await meeting.save();
 
-    // 🔔 Emitir cancelación en tiempo real a todos los asistentes
     if (global.emitMeetingUpdate) {
       const attendeeIds = meeting.attendees.map(id => id.toString());
       global.emitMeetingUpdate(attendeeIds, meeting, 'cancel');
     }
 
-    // 📬 Notificar cancelación a todos los asistentes (excepto el creador)
     const attendeesToNotify = meeting.attendees.filter(id => id.toString() !== userId);
     for (const attendeeId of attendeesToNotify) {
       await createMeetingNotification(
@@ -329,13 +325,12 @@ const getMeetingsByIglesia = async (req, res) => {
   try {
     const meetings = await Meeting.find({ iglesia: iglesiaId })
       .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
-      .sort({ date: 1, time: 1 });
+      .sort({ startsAt: 1, date: 1 });
     res.status(200).json({ success: true, data: meetings });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Error al obtener reuniones de la iglesia.' });
   }
 };
-
 
 module.exports = {
   createMeeting,

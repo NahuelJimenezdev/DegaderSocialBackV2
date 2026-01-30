@@ -55,9 +55,20 @@ const MeetingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserV2'
   }],
+  startsAt: {
+    type: Date,
+    required: true,
+  },
+  timezone: {
+    type: String,
+    required: true,
+    default: 'UTC'
+  }
 }, {
   timestamps: true,
 });
+
+MeetingSchema.index({ startsAt: 1 });
 
 MeetingSchema.index({ date: 1, type: 1 });
 

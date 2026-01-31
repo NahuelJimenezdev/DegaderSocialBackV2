@@ -206,9 +206,10 @@ const listarSolicitudes = async (req, res) => {
     }
 
     // 🚫 Founder NO debe usar este endpoint - debe usar el Panel de Monitoreo Global
-    if (currentUser.seguridad?.rolSistema === 'Founder') {
-      return res.status(403).json(formatErrorResponse('Founder debe usar el Panel de Monitoreo Global para ver todas las solicitudes'));
-    }
+    // Permitir al Founder listar solicitudes (eliminada restricción de panel global)
+    // if (currentUser.seguridad?.rolSistema === 'Founder') {
+    //   return res.status(403).json(formatErrorResponse('Founder debe usar el Panel de Monitoreo Global para ver todas las solicitudes'));
+    // }
 
     // 1. Jerarquía Ordenada (de abajo hacia arriba)
     const nivelesOrdenados = [
@@ -235,9 +236,13 @@ const listarSolicitudes = async (req, res) => {
     // Construir query de búsqueda
     const query = {
       esMiembroFundacion: true,
-      'fundacion.estadoAprobacion': 'pendiente',
-      'fundacion.nivel': { $in: nivelesAprobables }
+      'fundacion.estadoAprobacion': 'pendiente'
     };
+
+    // Si NO es Founder, aplicar filtros jerárquicos
+    if (currentUser.seguridad?.rolSistema !== 'Founder') {
+      query['fundacion.nivel'] = { $in: nivelesAprobables };
+    }
 
     // Filtrar por área (ya no necesitamos verificar Founder porque fue excluido arriba)
     const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];

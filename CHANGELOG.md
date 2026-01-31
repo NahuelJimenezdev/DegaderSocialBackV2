@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.6.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.6.1...v1.6.2) (2026-01-31)
+
+
+### Bug Fixes
+
+* habilitar gestión de solicitudes para Founder y corregir enums ([3b48f25](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/3b48f25d1868f77e03b12ea6e912652e78c24fbb))
+
 ### [1.6.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.6.0...v1.6.1) (2026-01-30)
 
 ## [1.6.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.5.3...v1.6.0) (2026-01-30)

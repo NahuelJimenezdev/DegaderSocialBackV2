@@ -21,7 +21,9 @@ const AREAS_FUNDACION = [
   // Organismos Internacionales
   "Salvación Mundial", "Misión Internacional de Paz",
   // Áreas por nivel nacional/regional/departamental/municipal
-  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad"
+  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
+  // Áreas de Coordinación (Nivel Departamental/Municipal)
+  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad"
 ];
 
 // Subdirecciones / Unidades internas
@@ -74,7 +76,9 @@ const CARGOS_FUNDACION = [
   "Director Nacional",
   "Director Regional",
   "Director Departamental",
+  "Director Departamental",
   "Coordinador Municipal",
+  "Coordinador",
 
   // Director General (Pastor) - Rol territorial
   "Director General (Pastor)",

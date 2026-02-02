@@ -35,6 +35,7 @@ router.put('/:id', postController.updatePost); // Ruta para actualizar publicaci
 router.post('/:id/like', postController.toggleLike);
 router.post('/:id/comment/:commentId/like', postController.toggleCommentLike);
 router.post('/:id/comment', conditionalUpload, postController.addComment);
+router.delete('/:id/comment/:commentId', postController.deleteComment);
 router.post('/:id/share', postController.sharePost);
 
 module.exports = router;

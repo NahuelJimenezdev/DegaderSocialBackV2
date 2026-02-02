@@ -973,6 +973,23 @@ const deletePost = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar esta publicación'));
     }
 
+    // 🆕 ELIMINAR IMÁGENES DE R2 ANTES DE ELIMINAR EL POST
+    try {
+      const { extractR2UrlsFromPost, deleteMultipleFromR2 } = require('../utils/r2Helper');
+      const r2Urls = extractR2UrlsFromPost(post);
+
+      if (r2Urls.length > 0) {
+        console.log(`🗑️ [DELETE POST] Eliminando ${r2Urls.length} archivo(s) de R2...`);
+        const deleteResult = await deleteMultipleFromR2(r2Urls);
+        console.log(`✅ [DELETE POST] R2 cleanup: ${deleteResult.success} éxitos, ${deleteResult.failed} fallos`);
+      } else {
+        console.log('ℹ️ [DELETE POST] No hay archivos de R2 para eliminar');
+      }
+    } catch (r2Error) {
+      // No bloquear la eliminación del post si falla R2
+      console.error('⚠️ [DELETE POST] Error al eliminar archivos de R2:', r2Error);
+    }
+
     await Post.findByIdAndDelete(id);
 
     // Emitir evento de eliminación (opcional, si el frontend lo maneja)
@@ -1227,6 +1244,82 @@ const updatePost = async (req, res) => {
   }
 };
 
+/**
+ * Eliminar comentario
+ * DELETE /api/publicaciones/:id/comment/:commentId
+ */
+const deleteComment = async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+
+    if (!isValidObjectId(id) || !isValidObjectId(commentId)) {
+      return res.status(400).json(formatErrorResponse('IDs inválidos'));
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
+    }
+
+    const comment = post.comentarios.id(commentId);
+    if (!comment) {
+      return res.status(404).json(formatErrorResponse('Comentario no encontrado'));
+    }
+
+    // Verificar que sea el autor del comentario, el autor del post, o admin
+    const commentUserId = comment.usuario._id || comment.usuario;
+    const isCommentAuthor = commentUserId.equals(req.userId);
+    const isPostAuthor = post.usuario.equals(req.userId);
+    const isAdmin = req.user.rol === 'admin';
+
+    if (!isCommentAuthor && !isPostAuthor && !isAdmin) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar este comentario'));
+    }
+
+    // 🆕 ELIMINAR IMAGEN DE R2 SI EXISTE
+    try {
+      const { extractR2UrlFromComment, deleteMultipleFromR2 } = require('../utils/r2Helper');
+      const r2Url = extractR2UrlFromComment(comment);
+
+      if (r2Url) {
+        console.log(`🗑️ [DELETE COMMENT] Eliminando imagen de R2: ${r2Url}`);
+        await deleteMultipleFromR2([r2Url]);
+        console.log(`✅ [DELETE COMMENT] Imagen eliminada de R2`);
+      }
+    } catch (r2Error) {
+      // No bloquear la eliminación del comentario si falla R2
+      console.error('⚠️ [DELETE COMMENT] Error al eliminar imagen de R2:', r2Error);
+    }
+
+    // Eliminar el comentario del array
+    comment.deleteOne();
+    await post.save();
+
+    // Poblar el post antes de emitir
+    await post.populate([
+      { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username' },
+      { path: 'grupo', select: 'nombre tipo' },
+      { path: 'postOriginal' },
+      { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+    ]);
+
+    // Emitir actualización del post
+    try {
+      if (global.emitPostUpdate) {
+        global.emitPostUpdate(post);
+      }
+    } catch (socketError) {
+      console.error('⚠️ [DELETE COMMENT] Socket emit error:', socketError);
+    }
+
+    res.json(formatSuccessResponse('Comentario eliminado exitosamente'));
+  } catch (error) {
+    console.error('Error al eliminar comentario:', error);
+    res.status(500).json(formatErrorResponse('Error al eliminar comentario', [error.message]));
+  }
+};
+
 module.exports = {
   createPost,
   getFeed,
@@ -1238,5 +1331,6 @@ module.exports = {
   addComment,
   sharePost,
   deletePost,
-  updatePost
+  updatePost,
+  deleteComment
 };

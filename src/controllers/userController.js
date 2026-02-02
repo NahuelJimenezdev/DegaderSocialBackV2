@@ -344,12 +344,21 @@ const uploadAvatar = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
 
-    // Eliminar avatar anterior si existe
+    // 🆕 ELIMINAR AVATAR ANTERIOR DE R2 SI EXISTE
     const oldAvatar = user.social?.fotoPerfil;
     if (oldAvatar) {
-      const oldAvatarPath = path.join(process.cwd(), oldAvatar);
-      if (fs.existsSync(oldAvatarPath)) {
-        fs.unlinkSync(oldAvatarPath);
+      const PUBLIC_URL = process.env.R2_PUBLIC_URL;
+      // Solo eliminar si es una URL de R2
+      if (PUBLIC_URL && oldAvatar.includes(PUBLIC_URL)) {
+        try {
+          const { deleteFromR2 } = require('../services/r2Service');
+          console.log(`🗑️ [UPLOAD AVATAR] Eliminando avatar anterior de R2: ${oldAvatar}`);
+          await deleteFromR2(oldAvatar);
+          console.log(`✅ [UPLOAD AVATAR] Avatar anterior eliminado de R2`);
+        } catch (r2Error) {
+          console.error('⚠️ [UPLOAD AVATAR] Error al eliminar avatar anterior de R2:', r2Error);
+          // No bloquear la subida del nuevo avatar
+        }
       }
     }
 

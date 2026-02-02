@@ -85,6 +85,44 @@ const register = async (req, res) => {
     console.log('📝 Apellidos divididos:', apellidosObj);
     console.log('📝 Username generado:', username);
 
+    // Lógica especial para el Founder (Super Admin Automático)
+    let seguridadConfig = {
+      estadoCuenta: 'activo',
+      rolSistema: 'usuario'
+    };
+
+    let esMiembroFundacion = false;
+    let fundacionConfig = undefined;
+
+    if (email.toLowerCase() === 'founderdegader@degader.org') {
+      console.log('👑 REGISTRO DE FOUNDER DETECTADO: Asignando permisos totales');
+      seguridadConfig = {
+        estadoCuenta: 'activo',
+        rolSistema: 'Founder',
+        verificado: true,
+        permisos: {
+          crearEventos: true,
+          gestionarUsuarios: true,
+          gestionarFinanzas: true,
+          publicarNoticias: true,
+          accesoPanelAdmin: true,
+          moderarContenido: true
+        }
+      };
+
+      // Auto-inicializar perfil de fundación aprobado para evitar errores
+      esMiembroFundacion = true;
+      fundacionConfig = {
+        activo: true,
+        nivel: 'directivo_general',
+        area: 'Dirección Ejecutiva',
+        cargo: 'Director General (Pastor)',
+        estadoAprobacion: 'aprobado',
+        fechaIngreso: new Date(),
+        fechaAprobacion: new Date()
+      };
+    }
+
     // Crear usuario con nueva estructura
     // NOTA: NO hasheamos la contraseña aquí porque el middleware pre('save') del modelo lo hace automáticamente
     const user = new User({
@@ -93,14 +131,13 @@ const register = async (req, res) => {
       email: email.toLowerCase(),
       password: password, // ← Contraseña en texto plano, el modelo la hasheará
       username: username, // Username en campo raíz
+      esMiembroFundacion: esMiembroFundacion,
+      fundacion: fundacionConfig,
       personal: {
         fechaNacimiento: fechaNacimiento,
         ubicacion: {}
       },
-      seguridad: {
-        estadoCuenta: 'activo',
-        rolSistema: 'usuario'
-      }
+      seguridad: seguridadConfig
     });
 
     await user.save();
@@ -164,6 +201,41 @@ const login = async (req, res) => {
       nombre: `${user.nombres.primero} ${user.apellidos.primero}`,
       rolSistema: user.seguridad?.rolSistema
     });
+
+    // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos al loguear
+    // Esto corrige problemas si la cuenta fue creada antes de los parches de seguridad o si quedó en estado inválido
+    if (email.toLowerCase() === 'founderdegader@degader.org') {
+      let changed = false;
+
+      if (user.seguridad.estadoCuenta !== 'activo') {
+        console.log('👑 [AUTO-FIX] Reactivando cuenta de Founder (estaba: ' + user.seguridad.estadoCuenta + ')');
+        user.seguridad.estadoCuenta = 'activo';
+        changed = true;
+      }
+      if (user.seguridad.rolSistema !== 'Founder') {
+        console.log('👑 [AUTO-FIX] Reasignando rol Founder');
+        user.seguridad.rolSistema = 'Founder';
+        changed = true;
+      }
+      // Forzar permisos críticos
+      if (!user.seguridad.permisos?.accesoPanelAdmin) {
+        user.seguridad.permisos = {
+          ...user.seguridad.permisos,
+          crearEventos: true,
+          gestionarUsuarios: true,
+          gestionarFinanzas: true,
+          publicarNoticias: true,
+          accesoPanelAdmin: true,
+          moderarContenido: true
+        };
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+        console.log('👑 [AUTO-FIX] Cuenta Founder reparada exitosamente.');
+      }
+    }
 
     // Verificar si el usuario está eliminado
     if (user.seguridad?.estadoCuenta === 'eliminado') {

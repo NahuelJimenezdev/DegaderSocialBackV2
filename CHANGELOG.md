@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.7.0...v1.7.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* auto-reparación de cuenta Founder al iniciar sesión ([c47dc8e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c47dc8e13eedf8ef44bc2801b9695ca2fe65c4b9))
+
 ## [1.7.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.6.2...v1.7.0) (2026-02-02)
 
 

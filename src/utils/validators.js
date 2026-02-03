@@ -64,6 +64,19 @@ const validateRegisterData = (data) => {
     errors.push('La fecha de nacimiento es obligatoria');
   }
 
+  // Nuevos campos obligatorios
+  if (!data.genero) {
+    errors.push('El género es obligatorio');
+  }
+
+  if (!data.pais || data.pais.trim().length === 0) {
+    errors.push('El país es obligatorio');
+  }
+
+  if (!data.ciudad || data.ciudad.trim().length === 0) {
+    errors.push('La ciudad es obligatoria');
+  }
+
   return {
     isValid: errors.length === 0,
     errors

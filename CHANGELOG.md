@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.0...v1.9.1) (2026-02-03)
+
+
+### Bug Fixes
+
+* **fundacion:** corregir escalada de notificaciones por área y arreglar error de mayúsculas en niveles ([e2d2b9d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e2d2b9d43fefd5d8b66673914db1ba3b3f831f32))
+
 ## [1.9.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.8.0...v1.9.0) (2026-02-03)
 
 

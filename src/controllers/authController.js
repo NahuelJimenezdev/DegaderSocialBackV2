@@ -60,7 +60,7 @@ const generateUniqueUsername = async (nombre, apellido) => {
  */
 const register = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, fechaNacimiento } = req.body;
+    const { nombre, apellido, email, password, fechaNacimiento, genero, pais, ciudad, estado } = req.body;
 
     // Validar datos
     const validation = validateRegisterData(req.body);
@@ -135,7 +135,12 @@ const register = async (req, res) => {
       fundacion: fundacionConfig,
       personal: {
         fechaNacimiento: fechaNacimiento,
-        ubicacion: {}
+        genero: genero || 'Otro', // Default a 'Otro' si no viene, aunque el validador lo exige
+        ubicacion: {
+          pais: pais,
+          ciudad: ciudad,
+          estado: estado // Provincia/Estado opcional o requerido según frontend
+        }
       },
       seguridad: seguridadConfig
     });

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.9.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.8.0...v1.9.0) (2026-02-03)
+
+
+### Features
+
+* **fundacion:** agregar soporte para sub-áreas y programas en solicitudes de fundación ([7dbf3a7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7dbf3a766e195fcb25ceeee73910b893350cfd7c))
+
 ## [1.8.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.7.1...v1.8.0) (2026-02-03)
 
 

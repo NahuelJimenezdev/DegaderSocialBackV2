@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.7.1...v1.8.0) (2026-02-03)
+
+
+### Features
+
+* **auth:** add gender, country, and city fields to registration ([fe3ea2a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/fe3ea2ad8580dcb1bfe545fbf2ab12c6ac25afe8))
+
 ### [1.7.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.7.0...v1.7.1) (2026-02-02)
 
 

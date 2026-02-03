@@ -55,8 +55,15 @@ const solicitarUnirse = async (req, res) => {
         "organismo_internacional", "organo_control", "directivo_general"
       ];
 
-      const nivelSolicitante = nivel;
+      // Normalizar nivel a minúsculas para evitar errores de índice
+      const nivelSolicitante = nivel?.toLowerCase();
       const indexNivelSolicitante = nivelesOrdenados.indexOf(nivelSolicitante);
+
+      console.log(`🔍 [Fundación] Nivel Solicitante: ${nivelSolicitante} (Index: ${indexNivelSolicitante})`);
+
+      if (indexNivelSolicitante === -1) {
+        console.warn(`⚠️ [Fundación] Nivel desconocido o inválido: ${nivel}. No se notificarán superiores.`);
+      }
 
       // 2. Algoritmo de Escalada (Buscar superior inmediato)
       let notificacionEnviada = false;
@@ -65,7 +72,10 @@ const solicitarUnirse = async (req, res) => {
       console.log('🔍 [Fundación] Iniciando búsqueda de superior inmediato...');
 
       // Iterar hacia arriba buscando el primer nivel que tenga usuarios
-      for (let i = indexNivelSolicitante + 1; i < nivelesOrdenados.length; i++) {
+      // Solo iterar si el índice es válido (>= 0)
+      const startLoop = indexNivelSolicitante >= 0 ? indexNivelSolicitante + 1 : nivelesOrdenados.length; // Si falla index, no entra al loop
+
+      for (let i = startLoop; i < nivelesOrdenados.length; i++) {
         const nivelObjetivo = nivelesOrdenados[i];
 
         // Construir Query Base (Filtro Territorial Estricto + Nivel)
@@ -93,6 +103,15 @@ const solicitarUnirse = async (req, res) => {
         if (nivelObjetivo === 'municipal' && territorioSolicitante.municipio) {
           query['fundacion.territorio.municipio'] = territorioSolicitante.municipio;
         }
+
+        // 🔒 REGLA DE NIVEL + TERRITORIO + ÁREA (Nueva restricción crítica)
+        // El superior debe ser del MISMO ÁREA, excepto si es Director General (Pastor) o Founder
+        query.$or = [
+          { 'fundacion.area': area }, // Mismo área funcional (ej. Salud -> Salud)
+          { 'fundacion.cargo': 'Director General (Pastor)' }, // Director General (Territorial)
+          { 'seguridad.rolSistema': 'Founder' }, // Founder
+          { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } } // Niveles globales
+        ];
 
         // Buscar usuarios en este nivel
         const superiores = await User.find(query).select('_id nombres apellidos');
@@ -256,7 +275,8 @@ const listarSolicitudes = async (req, res) => {
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
     // Los Directores Generales NO tienen área funcional, gobiernan un territorio completo
-    const esDirectorGeneral = currentUser.fundacion.cargo === 'Director General (Pastor)';
+    const cargoActual = currentUser.fundacion.cargo?.trim();
+    const esDirectorGeneral = cargoActual === 'Director General (Pastor)';
 
     if (!esGlobal && !esDirectorGeneral) {
       // Solo filtrar por área si NO es global Y NO es Director General
@@ -284,7 +304,7 @@ const listarSolicitudes = async (req, res) => {
 
     // Buscar solicitudes pendientes
     const solicitudes = await User.find(query)
-      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio createdAt')
+      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio createdAt')
       .sort({ createdAt: -1 });
 
     console.log(`✅ [Fundación] Solicitudes encontradas: ${solicitudes.length}`);
@@ -331,21 +351,32 @@ const aprobarSolicitud = async (req, res) => {
       "organismo_internacional", "organo_control", "directivo_general"
     ];
 
-    const indexAprobador = nivelesOrdenados.indexOf(aprobador.fundacion.nivel);
-    const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel);
+    const indexAprobador = nivelesOrdenados.indexOf(aprobador.fundacion.nivel?.toLowerCase());
+    const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel?.toLowerCase());
+
+    console.log(`🛡️ [Aprobación] Validando Jerarquía: Aprobador (${aprobador.fundacion.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
 
     // Debe ser estrictamente superior (índice mayor)
     if (indexAprobador <= indexSolicitante) {
+      console.warn(`⛔ [Aprobación] 403 Jerarquía Insuficiente`);
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden aprobar'));
     }
 
     const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
-    const esGlobal = nivelesGlobales.includes(aprobador.fundacion.nivel);
+    const esGlobal = nivelesGlobales.includes(aprobador.fundacion.nivel?.toLowerCase());
     const esFounder = aprobador.seguridad?.rolSistema === 'Founder';
+
+    // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
+    // Usamos trim() para evitar errores
+    const cargoAprobador = aprobador.fundacion.cargo?.trim();
+    const esDirectorGeneral = cargoAprobador === 'Director General (Pastor)';
+
+    console.log(`🛡️ [Aprobación] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}, AreaAprob=${aprobador.fundacion.area}, AreaSolic=${solicitante.fundacion.area}`);
 
     // Verificar misma área y TERRITORIO (excepto globales/founder)
     if (!esFounder && !esGlobal) {
-      if (aprobador.fundacion.area !== solicitante.fundacion.area) {
+      if (!esDirectorGeneral && aprobador.fundacion.area !== solicitante.fundacion.area) {
+        console.warn(`⛔ [Aprobación] 403 Área Diferente (y no es DG)`);
         return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
       }
 
@@ -354,6 +385,7 @@ const aprobarSolicitud = async (req, res) => {
       const paisSolicitante = solicitante.fundacion.territorio?.pais;
 
       if (paisAprobador && paisSolicitante && paisAprobador !== paisSolicitante) {
+        console.warn(`⛔ [Aprobación] 403 País Diferente`);
         return res.status(403).json(formatErrorResponse('No tienes jurisdicción en este territorio (País diferente)'));
       }
 
@@ -492,19 +524,31 @@ const rechazarSolicitud = async (req, res) => {
       "organismo_internacional", "organo_control", "directivo_general"
     ];
 
-    const indexAprobador = nivelesOrdenados.indexOf(aprobador.fundacion.nivel);
-    const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel);
+    const indexAprobador = nivelesOrdenados.indexOf(aprobador.fundacion.nivel?.toLowerCase());
+    const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel?.toLowerCase());
+
+    console.log(`🛡️ [Rechazo] Validando Jerarquía: Aprobador (${aprobador.fundacion.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
 
     if (indexAprobador <= indexSolicitante) {
+      console.warn(`⛔ [Rechazo] 403 Jerarquía Insuficiente`);
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden rechazar'));
     }
 
     const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
-    const esGlobal = nivelesGlobales.includes(aprobador.fundacion.nivel);
+    const esGlobal = nivelesGlobales.includes(aprobador.fundacion.nivel?.toLowerCase());
     const esFounder = aprobador.seguridad?.rolSistema === 'Founder';
 
+    // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
+    // Usamos trim() para evitar errores por espacios en blanco accidentales "Director General (Pastor) "
+    const cargoAprobador = aprobador.fundacion.cargo?.trim();
+    const esDirectorGeneral = cargoAprobador === 'Director General (Pastor)';
+
+    console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}, AreaAprob=${aprobador.fundacion.area}, AreaSolic=${solicitante.fundacion.area}`);
+
     if (!esFounder && !esGlobal) {
-      if (aprobador.fundacion.area !== solicitante.fundacion.area) {
+      // Si NO es Director General, debe coincidir el área
+      if (!esDirectorGeneral && aprobador.fundacion.area !== solicitante.fundacion.area) {
+        console.warn(`⛔ [Rechazo] 403 Área Diferente (y no es DG)`);
         return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
       }
       // 🔒 VALIDACIÓN TERRITORIAL ESTRICTA
@@ -512,6 +556,7 @@ const rechazarSolicitud = async (req, res) => {
       const paisSolicitante = solicitante.fundacion.territorio?.pais;
 
       if (paisAprobador && paisSolicitante && paisAprobador !== paisSolicitante) {
+        console.warn(`⛔ [Rechazo] 403 País Diferente`);
         return res.status(403).json(formatErrorResponse('No tienes jurisdicción en este territorio (País diferente)'));
       }
     }

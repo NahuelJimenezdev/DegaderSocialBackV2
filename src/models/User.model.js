@@ -157,6 +157,9 @@ const PerfilFundacionSchema = new Schema({
     }
   },
 
+  subArea: { type: String, trim: true }, // Opcional
+  programa: { type: String, trim: true }, // Opcional
+
   cargo: {
     type: String,
     enum: CARGOS_FUNDACION,

@@ -8,7 +8,7 @@ const { formatErrorResponse, formatSuccessResponse } = require('../utils/validat
 const solicitarUnirse = async (req, res) => {
   try {
     const userId = req.userId;
-    const { nivel, area, cargo, territorio } = req.body;
+    const { nivel, area, subArea, programa, cargo, territorio } = req.body;
 
     // Validar campos requeridos
     if (!nivel || !area || !cargo) {
@@ -32,6 +32,8 @@ const solicitarUnirse = async (req, res) => {
       activo: true,
       nivel,
       area,
+      subArea, // Nuevo
+      programa, // Nuevo
       cargo,
       territorio: territorio || {},
       estadoAprobacion: 'pendiente',
@@ -107,6 +109,8 @@ const solicitarUnirse = async (req, res) => {
             metadata: {
               nivel,
               area,
+              subArea, // Nuevo
+              programa, // Nuevo
               cargo,
               territorio
             }
@@ -152,6 +156,8 @@ const solicitarUnirse = async (req, res) => {
             metadata: {
               nivel,
               area,
+              subArea,
+              programa,
               cargo,
               territorio,
               esEscalada: true

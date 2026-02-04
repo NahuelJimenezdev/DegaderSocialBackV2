@@ -139,6 +139,16 @@ const getOrCreateConversation = async (req, res) => {
 
     if (conversation) {
       console.log('✅ Conversación encontrada:', conversation._id);
+
+      // 🆕 Filtrar mensajes si el usuario ha limpiado la conversación anteriormente
+      // Esto evita que vea el historial antiguo si "revivió" el chat
+      const userClear = conversation.clearedBy.find(c => c.usuario.equals(req.userId));
+      if (userClear) {
+        conversation.mensajes = conversation.mensajes.filter(m =>
+          new Date(m.createdAt) > new Date(userClear.fecha)
+        );
+      }
+
       return res.json(formatSuccessResponse('Conversación encontrada', conversation));
     }
 
@@ -444,8 +454,22 @@ const deleteConversation = async (req, res) => {
     // Agregar usuario a deletedBy (eliminación solo para este usuario)
     if (!conversation.deletedBy.some(userId => userId.equals(req.userId))) {
       conversation.deletedBy.push(req.userId);
-      await conversation.save();
     }
+
+    // 🆕 TAMBIÉN vaciar la conversación (limpia el historial)
+    // Así, si la conversación "revive" por un nuevo mensaje, aparecerá vacía.
+    const existingClear = conversation.clearedBy.find(c => c.usuario.equals(req.userId));
+
+    if (existingClear) {
+      existingClear.fecha = new Date();
+    } else {
+      conversation.clearedBy.push({
+        usuario: req.userId,
+        fecha: new Date()
+      });
+    }
+
+    await conversation.save();
 
     res.json(formatSuccessResponse('Conversación eliminada exitosamente'));
   } catch (error) {

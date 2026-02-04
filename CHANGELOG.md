@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.11.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.11.2...v1.11.3) (2026-02-04)
+
+
+### Bug Fixes
+
+* **chat:** vaciar historial al eliminar chat y filtrar mensajes antiguos al reabrir ([e592e56](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e592e56064bf9a726c4498fc5db6acf7116b9c12))
+
 ### [1.11.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.11.1...v1.11.2) (2026-02-04)
 
 

@@ -934,7 +934,7 @@ const sendMessage = async (req, res) => {
           receptor: member.usuario,
           emisor: req.userId,
           tipo: 'mensaje_grupo',
-          contenido: 'envió un mensaje en',
+          contenido: `envió un mensaje en ${group.nombre}`,
           referencia: {
             tipo: 'Group',
             id: group._id

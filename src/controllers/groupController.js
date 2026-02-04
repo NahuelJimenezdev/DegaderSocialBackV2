@@ -1,6 +1,7 @@
 const Group = require('../models/Group');
 const GroupMessage = require('../models/GroupMessage');
 const Notification = require('../models/Notification');
+const User = require('../models/User.model');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 
@@ -863,7 +864,99 @@ const sendMessage = async (req, res) => {
           select: 'nombres.primero apellidos.primero social.fotoPerfil'
         }
       }
-    ]);
+    ])
+
+      ;
+
+    // ✅ Crear notificaciones para miembros del grupo
+    try {
+      // Detectar menciones en el mensaje (@username)
+      const mentionRegex = /@(\w+)/g;
+      const mentions = [...content.matchAll(mentionRegex)].map(m => m[1]);
+      const now = new Date();
+
+      console.log(`📬 [GROUP MESSAGE] Procesando notificaciones para grupo ${id}`);
+      console.log(`📬 [GROUP MESSAGE] Menciones detectadas:`, mentions);
+
+      // Filtrar miembros que deben recibir notificación
+      const membersToNotify = [];
+      let silencedCount = 0;
+      let expiredCount = 0;
+
+      for (const member of group.miembros) {
+        // No notificar al autor
+        if (member.usuario.equals(req.userId)) continue;
+
+        const notifConfig = member.notificaciones || {};
+
+        // Si no está silenciado, notificar
+        if (!notifConfig.silenciadas) {
+          membersToNotify.push(member);
+          continue;
+        }
+
+        // Verificar si el silencio expiró
+        if (notifConfig.silenciadoHasta && now > notifConfig.silenciadoHasta) {
+          // Silencio expirado, reactivar notificaciones
+          member.notificaciones.silenciadas = false;
+          member.notificaciones.silenciadoHasta = null;
+          membersToNotify.push(member);
+          expiredCount++;
+          continue;
+        }
+
+        // Si está silenciado permanentemente o temporalmente:
+        if (notifConfig.tipoSilencio === 'solo_menciones') {
+          // Solo notificar si fue mencionado
+          const user = await User.findById(member.usuario).select('username');
+          if (user && mentions.includes(user.username)) {
+            membersToNotify.push(member);
+            continue;
+          }
+        }
+
+        // tipoSilencio === 'total' → No notificar
+        silencedCount++;
+      }
+
+      // Guardar cambios si hubo expiración de silencios
+      if (expiredCount > 0) {
+        await group.save();
+        console.log(`⏰ [GROUP MESSAGE] ${expiredCount} silencios expirados reactivados`);
+      }
+
+      console.log(`📬 [GROUP MESSAGE] Enviando notificaciones a ${membersToNotify.length} miembros`);
+      console.log(`🔕 [GROUP MESSAGE] Miembros silenciados: ${silencedCount}`);
+
+      // Crear notificaciones
+      for (const member of membersToNotify) {
+        const notification = new Notification({
+          receptor: member.usuario,
+          emisor: req.userId,
+          tipo: 'mensaje_grupo',
+          contenido: 'envió un mensaje en',
+          referencia: {
+            tipo: 'Group',
+            id: group._id
+          },
+          datos: {
+            mensajeId: message._id,
+            grupoNombre: group.nombre
+          }
+        });
+        await notification.save();
+
+        // Emitir notificación individual
+        if (global.emitNotification) {
+          await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
+          global.emitNotification(member.usuario.toString(), notification);
+        }
+      }
+
+      console.log(`✅ [GROUP MESSAGE] Notificaciones creadas exitosamente`);
+    } catch (notifError) {
+      console.error('⚠️ [GROUP MESSAGE] Error al crear notificaciones (continuando):', notifError);
+    }
 
     // Emitir mensaje en tiempo real a todos los miembros del grupo
     if (global.emitGroupMessage) {
@@ -1879,6 +1972,79 @@ const sendMessageWithFiles = async (req, res) => {
   }
 };
 
+/**
+ * Actualizar configuración de notificaciones del grupo para el usuario actual
+ * POST /api/grupos/:id/notifications/settings
+ */
+const updateGroupNotificationSettings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { silenciadas, duracion, tipoSilencio } = req.body;
+
+    console.log(`🔕 [NOTIFICATIONS] Usuario ${req.userId} configurando notificaciones del grupo ${id}:`, {
+      silenciadas,
+      duracion,
+      tipoSilencio
+    });
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const group = await Group.findById(id);
+    if (!group) {
+      return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
+    }
+
+    // Encontrar miembro
+    const member = group.miembros.find(m => m.usuario.equals(req.userId));
+    if (!member) {
+      return res.status(403).json(formatErrorResponse('No eres miembro del grupo'));
+    }
+
+    // Inicializar objeto de notificaciones si no existe
+    if (!member.notificaciones) {
+      member.notificaciones = {};
+    }
+
+    // Actualizar configuración
+    member.notificaciones.silenciadas = silenciadas !== undefined ? silenciadas : false;
+    member.notificaciones.tipoSilencio = tipoSilencio || 'total';
+    member.notificaciones.duracionSilencio = duracion || 'siempre';
+
+    // Calcular fecha de expiración
+    if (silenciadas && duracion !== 'siempre') {
+      const now = new Date();
+      const horas = {
+        '1h': 1,
+        '8h': 8,
+        '24h': 24
+      };
+      member.notificaciones.silenciadoHasta = new Date(
+        now.getTime() + horas[duracion] * 60 * 60 * 1000
+      );
+    } else {
+      member.notificaciones.silenciadoHasta = null;
+    }
+
+    await group.save();
+
+    console.log(`✅ [NOTIFICATIONS] Configuración guardada:`, {
+      silenciadas: member.notificaciones.silenciadas,
+      tipoSilencio: member.notificaciones.tipoSilencio,
+      duracion: member.notificaciones.duracionSilencio,
+      hasta: member.notificaciones.silenciadoHasta
+    });
+
+    res.json(formatSuccessResponse('Configuración de notificaciones actualizada', {
+      notificaciones: member.notificaciones
+    }));
+  } catch (error) {
+    console.error('❌ [NOTIFICATIONS] Error al actualizar configuración:', error);
+    res.status(500).json(formatErrorResponse('Error al actualizar configuración de notificaciones', [error.message]));
+  }
+};
+
 module.exports = {
   getAllGroups,
   getGroupById,
@@ -1910,5 +2076,7 @@ module.exports = {
   getMultimedia,
   // Starred & Links
   getDestacados,
-  getEnlaces
+  getEnlaces,
+  // Notifications
+  updateGroupNotificationSettings
 };

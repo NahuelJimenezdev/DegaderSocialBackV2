@@ -50,4 +50,7 @@ router.get('/:id/archivos', groupController.getArchivos);
 router.get('/:id/destacados', groupController.getDestacados);
 router.get('/:id/enlaces', groupController.getEnlaces);
 
+// Configuración de notificaciones
+router.post('/:id/notifications/settings', groupController.updateGroupNotificationSettings);
+
 module.exports = router;

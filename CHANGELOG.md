@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.13.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.4...v1.13.5) (2026-02-04)
+
+
+### Bug Fixes
+
+* **grupos:** agregar nombre del grupo en notificación de mensaje ([6069147](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/606914741864edde699cedd52ea3df779baedfa0))
+
 ### [1.13.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.3...v1.13.4) (2026-02-04)
 
 

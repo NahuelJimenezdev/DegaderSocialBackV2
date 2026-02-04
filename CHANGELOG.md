@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.13.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.5...v1.13.6) (2026-02-04)
+
+
+### Bug Fixes
+
+* **postController:** agregar chequeos defensivos para miembros y creador de grupo ([2ce5071](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2ce5071180944f111cfe75659d99d9e408529567))
+
 ### [1.13.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.4...v1.13.5) (2026-02-04)
 
 

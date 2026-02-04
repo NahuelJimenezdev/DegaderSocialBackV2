@@ -104,7 +104,9 @@ const getUserById = async (req, res) => {
       }
     }
 
-    const user = await User.findById(id).select('-password');
+    const user = await User.findById(id)
+      .select('-password')
+      .populate('eclesiastico.iglesia', 'nombre tipo direccion imagen');
 
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
@@ -132,7 +134,9 @@ const getUserByUsername = async (req, res) => {
     // Verificar si hay bloqueo
     const currentUserId = req.user ? req.user._id : null;
 
-    const user = await User.findOne({ username: username.toLowerCase() }).select('-password');
+    const user = await User.findOne({ username: username.toLowerCase() })
+      .select('-password')
+      .populate('eclesiastico.iglesia', 'nombre tipo direccion imagen');
 
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));

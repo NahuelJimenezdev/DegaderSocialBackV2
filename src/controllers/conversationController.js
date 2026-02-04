@@ -276,6 +276,15 @@ const sendMessage = async (req, res) => {
     }
 
     console.log('💾 [SEND MESSAGE] Guardando mensaje...');
+
+    // 🆕 Reactivar conversación si estaba eliminada por algún participante
+    // Si el usuario A eliminó la chat, y B le escribe, debe reaparecer para A.
+    if (conversation.deletedBy && conversation.deletedBy.length > 0) {
+      console.log('♻️ [SEND MESSAGE] Reactivando conversación para usuarios que la eliminaron');
+      conversation.deletedBy = []; // Limpiar array de eliminados
+      await conversation.save(); // Guardar cambio de estado
+    }
+
     await conversation.agregarMensaje(mensaje);
 
     await conversation.populate([

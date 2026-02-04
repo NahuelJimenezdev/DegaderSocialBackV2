@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.13.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.0...v1.13.1) (2026-02-04)
+
+
+### Bug Fixes
+
+* **socket:** agregar verificación null-safe para notification.contenido ([576be4c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/576be4c7684fc36e8f293e1e73b53effa502308a))
+
 ## [1.13.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.4...v1.13.0) (2026-02-04)
 
 

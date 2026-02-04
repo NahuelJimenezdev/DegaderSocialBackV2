@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.10.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.4...v1.10.5) (2026-02-04)
+
+
+### Bug Fixes
+
+* **chat:** enviar cantidad REAL de mensajes leidos para corregir contador global ([366d5c3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/366d5c35ad80f124a5cc34f7050406e78eaaf63f))
+
 ### [1.10.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.3...v1.10.4) (2026-02-04)
 
 ### [1.10.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.2...v1.10.3) (2026-02-04)

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.10.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.4...v1.10.0) (2026-02-04)
+
+
+### Features
+
+* **chat:** agregar indicador de escritura y estados de mensaje (enviado/entregado/leido) ([adc2f38](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/adc2f388464af62b54071673b91f07d0e644fcf3))
+
 ### [1.9.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.3...v1.9.4) (2026-02-04)
 
 

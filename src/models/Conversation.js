@@ -177,6 +177,7 @@ conversationSchema.methods.marcarComoLeido = function (usuarioId) {
   this.mensajes.forEach(mensaje => {
     if (!mensaje.emisor.equals(usuarioId) && !mensaje.leido) {
       mensaje.leido = true;
+      mensaje.estado = 'leido';
       mensaje.fechaLeido = new Date();
     }
   });

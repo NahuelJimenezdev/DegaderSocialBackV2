@@ -384,10 +384,12 @@ const getGroupPosts = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const posts = await Post.find({
+    const query = {
       grupo: groupId,
       privacidad: { $ne: 'privado' }
-    })
+    };
+
+    const posts = await Post.find(query)
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
@@ -399,7 +401,7 @@ const getGroupPosts = async (req, res) => {
       .limit(parseInt(limit))
       .skip(skip);
 
-    const total = await Post.countDocuments({ grupo: groupId });
+    const total = await Post.countDocuments(query);
 
     res.json({
       success: true,

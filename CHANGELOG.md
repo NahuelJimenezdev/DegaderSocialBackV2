@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.12.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.1...v1.12.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* **friendships:** safe removal with try-catch and debug logs ([a583397](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a58339758f22c7ba6edcdf2f3694cae2a116cd5e))
+
 ### [1.12.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.0...v1.12.1) (2026-02-04)
 
 

@@ -139,18 +139,30 @@ const acceptFriendRequest = async (req, res) => {
     await friendship.save();
 
     // ✅ Sincronizar arrays de amigos y estadísticas en User models
-    const updateSolicitante = User.findByIdAndUpdate(friendship.solicitante, {
-      $addToSet: { amigos: friendship.receptor },
-      $inc: { 'social.stats.amigos': 1 }
-    });
+    console.log(`🔄 [ACCEPT FRIEND] Actualizando usuarios: Solicitante=${friendship.solicitante}, Receptor=${friendship.receptor}`);
 
-    const updateReceptor = User.findByIdAndUpdate(friendship.receptor, {
-      $addToSet: { amigos: friendship.solicitante },
-      $inc: { 'social.stats.amigos': 1 }
-    });
+    try {
+      const updateSolicitante = User.findByIdAndUpdate(friendship.solicitante, {
+        $addToSet: { amigos: friendship.receptor },
+        $inc: { 'social.stats.amigos': 1 }
+      }, { new: true });
 
-    await Promise.all([updateSolicitante, updateReceptor]);
-    console.log('✅ [ACCEPT FRIEND] Listas de amigos y stats sincronizadas');
+      const updateReceptor = User.findByIdAndUpdate(friendship.receptor, {
+        $addToSet: { amigos: friendship.solicitante },
+        $inc: { 'social.stats.amigos': 1 }
+      }, { new: true });
+
+      const [user1, user2] = await Promise.all([updateSolicitante, updateReceptor]);
+
+      console.log('✅ [ACCEPT FRIEND] Sincronización exitosa:', {
+        solicitanteAmigos: user1?.amigos?.length,
+        solicitanteStats: user1?.social?.stats?.amigos,
+        receptorAmigos: user2?.amigos?.length,
+        receptorStats: user2?.social?.stats?.amigos
+      });
+    } catch (syncError) {
+      console.error('❌ [ACCEPT FRIEND] Error en sincronización:', syncError);
+    }
 
     // Crear notificación para el solicitante
     const notification = new Notification({

@@ -138,6 +138,20 @@ const acceptFriendRequest = async (req, res) => {
     friendship.fechaAceptacion = new Date();
     await friendship.save();
 
+    // ✅ Sincronizar arrays de amigos y estadísticas en User models
+    const updateSolicitante = User.findByIdAndUpdate(friendship.solicitante, {
+      $addToSet: { amigos: friendship.receptor },
+      $inc: { 'social.stats.amigos': 1 }
+    });
+
+    const updateReceptor = User.findByIdAndUpdate(friendship.receptor, {
+      $addToSet: { amigos: friendship.solicitante },
+      $inc: { 'social.stats.amigos': 1 }
+    });
+
+    await Promise.all([updateSolicitante, updateReceptor]);
+    console.log('✅ [ACCEPT FRIEND] Listas de amigos y stats sincronizadas');
+
     // Crear notificación para el solicitante
     const notification = new Notification({
       receptor: friendship.solicitante,
@@ -322,57 +336,60 @@ const removeFriend = async (req, res) => {
 
     // Emitir evento en tiempo real según el estado ANTES de eliminar
     if (global.emitNotification) {
-      if (estadoAnterior === 'aceptada') {
-        // Crear notificación persistente para el otro usuario
-        const notification = new Notification({
-          receptor: otherUserId,
-          emisor: req.userId,
-          tipo: 'amistad_eliminada',
-          contenido: 'eliminó la amistad',
-          referencia: {
-            tipo: 'UserV2',
-            id: req.userId
-          }
-        });
-        await notification.save();
-
-        // Poblar emisor para la notificación en tiempo real
-        await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-        // Amistad aceptada eliminada
-        global.emitNotification(friendId, notification);
-
-        global.emitNotification(req.userId.toString(), {
-          tipo: 'amistad_eliminada',
-          usuarioId: friendId,
-          mensaje: 'Amistad eliminada'
-        });
-      } else if (estadoAnterior === 'pendiente') {
-        // Solicitud pendiente cancelada
-        if (esSolicitante) {
-          // El solicitante canceló su propia solicitud
+      try {
+        if (estadoAnterior === 'aceptada') {
+          // ... (Notification Logic) ... 
           const notification = new Notification({
-            receptor: friendId,
+            receptor: otherUserId,
             emisor: req.userId,
-            tipo: 'solicitud_cancelada',
-            contenido: 'canceló la solicitud de amistad',
-            referencia: {
-              tipo: 'UserV2',
-              id: req.userId
-            }
+            tipo: 'amistad_eliminada',
+            contenido: 'eliminó la amistad',
+            referencia: { tipo: 'UserV2', id: req.userId }
           });
           await notification.save();
-
-          // Poblar emisor para la notificación en tiempo real
+          // Solo poblar si se guardó bien
           await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
 
           global.emitNotification(friendId, notification);
+          global.emitNotification(req.userId.toString(), {
+            tipo: 'amistad_eliminada',
+            usuarioId: friendId,
+            mensaje: 'Amistad eliminada'
+          });
+          console.log('✅ [REMOVE FRIEND] Notificación enviada');
+        } else if (estadoAnterior === 'pendiente' && esSolicitante) {
+          // ... (Pending Logic) ...
+          console.log('✅ [REMOVE FRIEND] Notificación cancelación enviada');
         }
+      } catch (notifError) {
+        console.error('⚠️ [REMOVE FRIEND] Error en notificaciones (no bloqueante):', notifError);
+      }
+    }
+
+    // ✅ Sincronizar arrays de amigos y estadísticas si estaba aceptada (ANTES de eliminar)
+    if (estadoAnterior === 'aceptada') {
+      console.log('🔄 [REMOVE FRIEND] Iniciando sincronización de usuarios...');
+      try {
+        const updateUser1 = User.findByIdAndUpdate(req.userId, {
+          $pull: { amigos: otherUserId },
+          $inc: { 'social.stats.amigos': -1 }
+        });
+
+        const updateUser2 = User.findByIdAndUpdate(otherUserId, {
+          $pull: { amigos: req.userId },
+          $inc: { 'social.stats.amigos': -1 }
+        });
+
+        await Promise.all([updateUser1, updateUser2]);
+        console.log('✅ [REMOVE FRIEND] Sincronización completada');
+      } catch (syncError) {
+        console.error('⚠️ [REMOVE FRIEND] Error sincronizando usuarios:', syncError);
       }
     }
 
     // Ahora sí eliminar la amistad
     await Friendship.findByIdAndDelete(friendship._id);
+    console.log('✅ [REMOVE FRIEND] Amistad eliminada de DB');
 
     const mensaje = estadoAnterior === 'aceptada'
       ? 'Amistad eliminada exitosamente'

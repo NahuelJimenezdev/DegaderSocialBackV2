@@ -203,6 +203,32 @@ router.post('/aceptar', async (req, res) => {
     friendship.estado = 'aceptada';
     await friendship.save();
 
+    // ✅ Sincronizar arrays de amigos y estadísticas en User models
+    console.log(`🔄 [ACCEPT FRIEND COMPAT] Actualizando usuarios: Solicitante=${usuarioId}, Receptor=${currentUserId}`);
+
+    try {
+      const updateSolicitante = User.findByIdAndUpdate(usuarioId, {
+        $addToSet: { amigos: currentUserId },
+        $inc: { 'social.stats.amigos': 1 }
+      });
+
+      const updateReceptor = User.findByIdAndUpdate(currentUserId, {
+        $addToSet: { amigos: usuarioId },
+        $inc: { 'social.stats.amigos': 1 }
+      });
+
+      const [solicitanteResult, receptorResult] = await Promise.all([updateSolicitante, updateReceptor]);
+
+      console.log('✅ [ACCEPT FRIEND COMPAT] Sincronización exitosa:', {
+        solicitanteAmigos: solicitanteResult?.amigos?.length || 0,
+        solicitanteStats: solicitanteResult?.social?.stats?.amigos || 0,
+        receptorAmigos: receptorResult?.amigos?.length || 0,
+        receptorStats: receptorResult?.social?.stats?.amigos || 0
+      });
+    } catch (syncError) {
+      console.error('❌ [ACCEPT FRIEND COMPAT] Error en sincronización:', syncError);
+    }
+
     // IMPORTANTE: Enviar respuesta ANTES de las notificaciones para evitar timeouts
     res.json({ success: true, message: 'Solicitud aceptada' });
 

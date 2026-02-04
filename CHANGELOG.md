@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.10.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.1...v1.10.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* **chat:** emitir eventos globales a participantes y permitir arrays en emitMessage ([d5f3d67](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/d5f3d67e4d469e1650393f75db1a804078d61ca4))
+
 ### [1.10.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.0...v1.10.1) (2026-02-04)
 
 

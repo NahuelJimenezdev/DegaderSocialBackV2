@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.2...v1.9.3) (2026-02-04)
+
+
+### Bug Fixes
+
+* **fundacion:** aplicar filtro de área inteligente en utilitario de notificaciones para actualizaciones de perfil ([de8347d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/de8347db8b010a3f08cead0d7d8e4dce124dd595))
+
 ### [1.9.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.1...v1.9.2) (2026-02-04)
 
 

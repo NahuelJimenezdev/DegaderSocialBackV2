@@ -164,6 +164,7 @@ class SocketService {
 
   handleTypingStart(socket, { recipientId, conversationId }) {
     if (socket.userId && recipientId) {
+      console.log(`✍️ [SOCKET] Typing Start: User ${socket.userId} -> Recipient ${recipientId} (Conv: ${conversationId})`);
       // Emitir evento a la sala personal del receptor
       // Esto es más seguro que emitir a toda la conversación si no queremos broadcast masivo
       // O podemos emitir a la sala de conversación si ambos están suscritos
@@ -199,6 +200,7 @@ class SocketService {
 
   // Confirmación de lectura
   async handleMessageRead(socket, { conversationId, messageId, readerId }) {
+    console.log(`👁️ [SOCKET] Message Read: User ${readerId} (Socket User: ${socket.userId}) in Conv ${conversationId}`);
     try {
       const Conversation = require('../models/Conversation');
       // Buscar conversación

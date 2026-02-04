@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.12.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.0...v1.12.1) (2026-02-04)
+
+
+### Bug Fixes
+
+* **favorites:** popular lista de amigos y stats en favoritos para mostrar contador correcto ([fde2d50](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/fde2d50a50b6efd5a6f20f76ca427126578417c8))
+
 ## [1.12.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.11.3...v1.12.0) (2026-02-04)
 
 

@@ -547,14 +547,38 @@ const getGroupMembers = async (req, res) => {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
+    // Populate con los campos correctos de UserV2
     const group = await Group.findById(id)
-      .populate('miembros.usuario', 'nombre apellido avatar email ultimaConexion');
+      .populate('miembros.usuario', 'nombres.primero apellidos.primero social.fotoPerfil username email ultimaConexion');
 
     if (!group) {
       return res.status(404).json(formatErrorResponse('Grupo no encontrado'));
     }
 
-    res.json(formatSuccessResponse('Miembros obtenidos', group.miembros));
+    // Transformar datos para incluir rol 'owner' y estructura correcta
+    const members = group.miembros.map(m => {
+      const memberObj = m.toObject();
+      let role = memberObj.rol;
+
+      // Identificar al creador
+      if (group.creador.equals(memberObj.usuario._id)) {
+        role = 'owner';
+      } else if (role === 'miembro') {
+        role = 'member';
+      } else if (role === 'administrador') {
+        role = 'admin';
+      }
+
+      return {
+        ...memberObj,
+        role: role,
+        // Asegurar que user tenga la estructura esperada si es necesario, 
+        // pero con el populate ya debería venir bien dentro de 'usuario'
+        user: memberObj.usuario
+      };
+    });
+
+    res.json(formatSuccessResponse('Miembros obtenidos', members));
   } catch (error) {
     console.error('Error al obtener miembros:', error);
     res.status(500).json(formatErrorResponse('Error al obtener miembros', [error.message]));
@@ -568,6 +592,8 @@ const getGroupMembers = async (req, res) => {
 const deleteGroup = async (req, res) => {
   try {
     const { id } = req.params;
+    // Permitir force desde query o body
+    const force = req.query.force === 'true' || req.body.force === true;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
@@ -584,8 +610,32 @@ const deleteGroup = async (req, res) => {
       return res.status(403).json(formatErrorResponse('Solo el creador puede eliminar el grupo'));
     }
 
+    // Verificar si hay miembros adicionales
+    const memberCount = group.miembros ? group.miembros.length : 0;
+
+    // Si hay más de 1 miembro (el creador) y no es forzado, impedir eliminación
+    if (memberCount > 1 && !force) {
+      return res.status(409).json(formatErrorResponse(
+        'El grupo tiene miembros activos',
+        ['Debes transferir la propiedad o eliminar a los miembros antes de eliminar el grupo, o confirmar la eliminación forzada.']
+      ));
+    }
+
+    // Si es forzado o solo está el creador, proceder con eliminación
+    // Eliminar imagen de R2 si existe
+    if (group.imagen && group.imagen.startsWith('https://')) {
+      try {
+        await deleteFromR2(group.imagen);
+      } catch (error) {
+        console.error('Error al eliminar imagen de R2:', error);
+      }
+    }
+
+    // Eliminar mensajes y notificaciones relacionados podría ser necesario en un futuro
+    // Por ahora, eliminamos el grupo
     await Group.findByIdAndDelete(id);
 
+    console.log(`🗑️ Grupo ${id} eliminado exitosamente (Force: ${force}, Miembros: ${memberCount})`);
     res.json(formatSuccessResponse('Grupo eliminado exitosamente'));
   } catch (error) {
     console.error('Error al eliminar grupo:', error);
@@ -1569,7 +1619,9 @@ const transferOwnership = async (req, res) => {
     // Actualizar el rol del nuevo creador en miembros
     const newOwnerMember = group.miembros.find(m => m.usuario.equals(newOwnerId));
     if (newOwnerMember) {
-      newOwnerMember.rol = 'propietario';
+      // El rol 'propietario' no existe en el enum del esquema, usamos 'administrador'.
+      // La propiedad real se define por el campo 'creador'.
+      newOwnerMember.rol = 'administrador';
     }
 
     // Cambiar el creador

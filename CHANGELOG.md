@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.11.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.5...v1.11.0) (2026-02-04)
+
+
+### Features
+
+* implementación de transferencia de propiedad en grupos y validación al eliminar ([c5eb5c8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c5eb5c87d20c40c8ee952bf6fba6361d6ea93013))
+
 ### [1.10.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.4...v1.10.5) (2026-02-04)
 
 

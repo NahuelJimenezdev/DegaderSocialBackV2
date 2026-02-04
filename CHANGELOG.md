@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.1...v1.9.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* **fundacion:** implementar búsqueda inteligente de áreas (ignorar prefijos burocráticos) para notificaciones verticales ([fc1bf0e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/fc1bf0ef9ec9220d48aabb1f8d368d450f12adb7))
+
 ### [1.9.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.0...v1.9.1) (2026-02-03)
 
 

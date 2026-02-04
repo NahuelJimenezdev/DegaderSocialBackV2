@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.3...v1.9.4) (2026-02-04)
+
+
+### Bug Fixes
+
+* **fundacion:** aplicar Smart Area Matching en permisos de aprobación/rechazo para permitir verticalidad ([acedfb3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/acedfb31a1970c7892dbbc1f0d7a4ce971122735))
+
 ### [1.9.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.2...v1.9.3) (2026-02-04)
 
 

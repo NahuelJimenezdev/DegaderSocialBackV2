@@ -74,6 +74,8 @@ const getFavoriteUsers = async (req, res) => {
             return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
         }
 
+
+
         res.json(formatSuccessResponse('Usuarios favoritos obtenidos', user.usuariosFavoritos));
     } catch (error) {
         console.error('Error al obtener favoritos:', error);

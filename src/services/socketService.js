@@ -261,10 +261,23 @@ class SocketService {
     this.io.to(roomName).emit('newNotification', notification);
   }
 
-  emitMessage(conversationId, message) {
+  emitMessage(conversationId, message, participants = []) {
     if (!this.io) return;
+
+    // 1. Emitir a la sala de la conversación (para quien la tiene abierta)
     this.io.to(`conversation:${conversationId}`).emit('newMessage', message);
     console.log(`💬 Mensaje emitido a conversación ${conversationId}`);
+
+    // 2. Emitir a la sala personal de CADA participante (para notificaciones globales)
+    if (participants && participants.length > 0) {
+      participants.forEach(participant => {
+        const userId = participant._id || participant; // Manejar objeto o ID
+        // No emitir al emisor (opcional, pero el frontend suele manejar su propio mensaje optimista)
+        // Aunque para contadores globales, es mejor emitir a todos y que el front decida
+        this.io.to(`user:${userId}`).emit('newMessage', message);
+      });
+      console.log(`📨 Mensaje notificado a ${participants.length} usuarios`);
+    }
   }
 
   emitGroupMessage(groupId, message) {

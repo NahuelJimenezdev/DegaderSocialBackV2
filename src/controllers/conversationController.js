@@ -297,7 +297,7 @@ const sendMessage = async (req, res) => {
         archivo: newMessage.archivo,
         leido: newMessage.leido,
         createdAt: newMessage.createdAt
-      });
+      }, conversation.participantes);
     }
 
     res.status(201).json(formatSuccessResponse('Mensaje enviado', newMessage));

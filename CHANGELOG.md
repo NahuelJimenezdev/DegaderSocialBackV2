@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.10.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.0...v1.10.1) (2026-02-04)
+
+
+### Bug Fixes
+
+* **chat:** actualizar estado de mensaje en modelo y agregar logs de socket para debug ([3a9f99c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/3a9f99c5a6df857ffe664829b8d5c9b2b7cfa81b))
+
 ## [1.10.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.9.4...v1.10.0) (2026-02-04)
 
 

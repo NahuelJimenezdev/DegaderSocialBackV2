@@ -52,6 +52,27 @@ const groupSchema = new mongoose.Schema({
       type: String,
       enum: ['miembro', 'moderador', 'administrador'],
       default: 'miembro'
+    },
+    // Configuración de notificaciones por miembro
+    notificaciones: {
+      silenciadas: {
+        type: Boolean,
+        default: false
+      },
+      tipoSilencio: {
+        type: String,
+        enum: ['total', 'solo_menciones'],
+        default: 'total'
+      },
+      silenciadoHasta: {
+        type: Date,
+        default: null // null = siempre silenciado
+      },
+      duracionSilencio: {
+        type: String,
+        enum: ['1h', '8h', '24h', 'siempre'],
+        default: 'siempre'
+      }
     }
   }],
   solicitudesPendientes: [{

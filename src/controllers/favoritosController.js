@@ -67,7 +67,7 @@ const getFavoriteUsers = async (req, res) => {
         const user = await User.findById(currentUserId)
             .populate({
                 path: 'usuariosFavoritos',
-                select: 'nombres.primero apellidos.primero social.fotoPerfil username'
+                select: 'nombres.primero apellidos.primero social.fotoPerfil username amigos social.stats eclesiastico.rolPrincipal eclesiastico.ministerios fundacion.cargo'
             });
 
         if (!user) {

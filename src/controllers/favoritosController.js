@@ -64,19 +64,42 @@ const getFavoriteUsers = async (req, res) => {
     try {
         const currentUserId = req.userId;
 
+        console.log('🔍 [GET FAVORITOS] Buscando favoritos para usuario:', currentUserId);
+
         const user = await User.findById(currentUserId)
             .populate({
                 path: 'usuariosFavoritos',
                 select: 'nombres.primero apellidos.primero social.fotoPerfil username amigos social.stats eclesiastico.rolPrincipal eclesiastico.ministerios fundacion.cargo'
             });
 
+        console.log('📊 [GET FAVORITOS] Favoritos encontrados:', user?.usuariosFavoritos?.length || 0);
+
         if (!user) {
             return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
         }
 
+        // Agregar contador de amigos a cada usuario favorito
+        const favoritesWithCount = user.usuariosFavoritos.map(fav => {
+            const favObj = fav.toObject();
+            // Calcular amigos: usar longitud del array si existe, sino usar stats
+            const amigosArray = fav.amigos || [];
+            const statsCount = fav.social?.stats?.amigos || 0;
+            favObj.friendsCount = amigosArray.length || statsCount;
 
+            console.log(`👤 [GET FAVORITOS] Usuario: ${fav.username}`, {
+                amigosArrayLength: amigosArray.length,
+                amigosArrayType: Array.isArray(amigosArray) ? 'array' : typeof amigosArray,
+                statsCount,
+                computedFriendsCount: favObj.friendsCount,
+                rawAmigos: amigosArray.slice(0, 3) // Primeros 3 IDs
+            });
 
-        res.json(formatSuccessResponse('Usuarios favoritos obtenidos', user.usuariosFavoritos));
+            return favObj;
+        });
+
+        console.log('✅ [GET FAVORITOS] Enviando respuesta con', favoritesWithCount.length, 'favoritos');
+
+        res.json(formatSuccessResponse('Usuarios favoritos obtenidos', favoritesWithCount));
     } catch (error) {
         console.error('Error al obtener favoritos:', error);
         res.status(500).json(formatErrorResponse('Error al obtener favoritos', [error.message]));

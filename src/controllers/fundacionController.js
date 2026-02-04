@@ -105,9 +105,15 @@ const solicitarUnirse = async (req, res) => {
         }
 
         // 🔒 REGLA DE NIVEL + TERRITORIO + ÁREA (Nueva restricción crítica)
-        // El superior debe ser del MISMO ÁREA, excepto si es Director General (Pastor) o Founder
+        // El superior debe ser del MISMO ÁREA (Verticalidad), ignorando prefijos como "Dirección de" o "Coordinación de"
+        // Ejemplo: "Coordinación de Salud" encontrará a "Dirección de Salud" porque el núcleo es "Salud"
+        const areaCore = area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+
+        // Escapar caracteres especiales para RegExp por seguridad
+        const areaRegex = new RegExp(areaCore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
         query.$or = [
-          { 'fundacion.area': area }, // Mismo área funcional (ej. Salud -> Salud)
+          { 'fundacion.area': { $regex: areaRegex } }, // Coincidencia inteligente del núcleo
           { 'fundacion.cargo': 'Director General (Pastor)' }, // Director General (Territorial)
           { 'seguridad.rolSistema': 'Founder' }, // Founder
           { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } } // Niveles globales

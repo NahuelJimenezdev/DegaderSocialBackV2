@@ -376,8 +376,14 @@ const getGroupPosts = async (req, res) => {
     }
 
     if (group.tipo !== 'publico') {
-      const isMember = group.miembros.some(m => m.usuario.equals(req.userId));
-      if (!isMember && !group.creador.equals(req.userId)) {
+      // Defensive check: ensure miembros exists and is an array
+      const members = Array.isArray(group.miembros) ? group.miembros : [];
+      const isMember = members.some(m => m && m.usuario && m.usuario.equals(req.userId));
+
+      // Defensive check: ensure creador exists
+      const isCreator = group.creador && group.creador.equals(req.userId);
+
+      if (!isMember && !isCreator) {
         return res.status(403).json(formatErrorResponse('No tienes acceso a las publicaciones de este grupo'));
       }
     }

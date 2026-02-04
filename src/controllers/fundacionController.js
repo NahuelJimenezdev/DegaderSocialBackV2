@@ -119,8 +119,21 @@ const solicitarUnirse = async (req, res) => {
           { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } } // Niveles globales
         ];
 
+        console.log(`🔎 [Fundación] Solicitante Area: "${area}" -> Core: "${areaCore}" -> Regex: ${areaRegex}`);
+        console.log(`🔎 [Fundación] Query Completa:`, JSON.stringify(query, null, 2));
+
         // Buscar usuarios en este nivel
-        const superiores = await User.find(query).select('_id nombres apellidos');
+        const superiores = await User.find(query).select('_id nombres apellidos fundacion seguridad');
+
+        console.log(`🔎 [Fundación] Resultados encontrados: ${superiores.length}`);
+        superiores.forEach(s => {
+          const matchArea = areaRegex.test(s.fundacion.area);
+          console.log(`   - Usuario: ${s.nombres.primero} ${s.apellidos.primero}`);
+          console.log(`     Área: "${s.fundacion.area}" (Match Regex? ${matchArea})`);
+          console.log(`     Cargo: "${s.fundacion.cargo}"`);
+          console.log(`     RolSis: "${s.seguridad?.rolSistema}"`);
+          console.log(`     Nivel: "${s.fundacion.nivel}"`);
+        });
 
         if (superiores.length > 0) {
           console.log(`✅ [Fundación] Superior encontrado en nivel ${nivelObjetivo}: ${superiores.length} usuarios.`);
@@ -379,11 +392,18 @@ const aprobarSolicitud = async (req, res) => {
 
     console.log(`🛡️ [Aprobación] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}, AreaAprob=${aprobador.fundacion.area}, AreaSolic=${solicitante.fundacion.area}`);
 
-    // Verificar misma área y TERRITORIO (excepto globales/founder)
+    // Verificar misma área (con lógica Smart Match para ignorar prefijos) y TERRITORIO (excepto globales/founder)
     if (!esFounder && !esGlobal) {
-      if (!esDirectorGeneral && aprobador.fundacion.area !== solicitante.fundacion.area) {
-        console.warn(`⛔ [Aprobación] 403 Área Diferente (y no es DG)`);
-        return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
+      if (!esDirectorGeneral) {
+        // Smart Match: Extraer "Núcleo" del área (ej. "Salud" de "Dirección de Salud")
+        const areaAprobadorCore = aprobador.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+        const areaSolicitanteCore = solicitante.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+
+        // Comparar núcleos (Case Insensitive)
+        if (areaAprobadorCore.toLowerCase() !== areaSolicitanteCore.toLowerCase()) {
+          console.warn(`⛔ [Aprobación] 403 Área Diferente (y no es DG). AprobCore: "${areaAprobadorCore}" vs SolicCore: "${areaSolicitanteCore}"`);
+          return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
+        }
       }
 
       // 🔒 VALIDACIÓN TERRITORIAL ESTRICTA
@@ -552,10 +572,17 @@ const rechazarSolicitud = async (req, res) => {
     console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}, AreaAprob=${aprobador.fundacion.area}, AreaSolic=${solicitante.fundacion.area}`);
 
     if (!esFounder && !esGlobal) {
-      // Si NO es Director General, debe coincidir el área
-      if (!esDirectorGeneral && aprobador.fundacion.area !== solicitante.fundacion.area) {
-        console.warn(`⛔ [Rechazo] 403 Área Diferente (y no es DG)`);
-        return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
+      // Verificar misma área (Smart Match) y TERRITORIO (excepto globales/founder)
+      if (!esDirectorGeneral) {
+        // Smart Match: Extraer "Núcleo" del área
+        const areaAprobadorCore = aprobador.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+        const areaSolicitanteCore = solicitante.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+
+        // Comparar núcleos (Case Insensitive)
+        if (areaAprobadorCore.toLowerCase() !== areaSolicitanteCore.toLowerCase()) {
+          console.warn(`⛔ [Rechazo] 403 Área Diferente. AprobCore: "${areaAprobadorCore}" vs SolicCore: "${areaSolicitanteCore}"`);
+          return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
+        }
       }
       // 🔒 VALIDACIÓN TERRITORIAL ESTRICTA
       const paisAprobador = aprobador.fundacion.territorio?.pais;

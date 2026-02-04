@@ -207,8 +207,14 @@ class SocketService {
       const conversation = await Conversation.findById(conversationId);
       if (!conversation) return;
 
-      // Si se pasa messageId, marcar ese y anteriores. Si no, marcar todos los no leídos de otros.
-      // Simplificación: usaremos el método marcarComoLeido del modelo que ya maneja "todos"
+      // 0. Obtener contador de no leídos ANTES de marcar como leído
+      const unreadEntry = conversation.mensajesNoLeidos.find(
+        m => m.usuario && m.usuario.toString() === readerId
+      );
+      const previousUnreadCount = unreadEntry ? unreadEntry.cantidad : 0;
+
+      console.log(`🔢 [SOCKET] Unread count for ${readerId} was: ${previousUnreadCount}`);
+
       if (!messageId) {
         await conversation.marcarComoLeido(readerId);
 
@@ -225,11 +231,11 @@ class SocketService {
 
         // 🆕 Emitir evento al LECTOR para que actualice su contador global de notificaciones
         // (El hook useMessageCounter escucha 'conversationRead')
-        // Necesitamos enviar messageId o simplemente indicarle que refresque la conv
+        // Enviamos previousUnreadCount para que el cliente reste esa cantidad
         this.io.to(`user:${readerId}`).emit('conversationRead', {
           conversationId,
           userId: readerId,
-          unreadCount: 0 // Asumimos que leyó todo
+          unreadCount: previousUnreadCount // Enviar la cantidad que acabamos de leer
         });
       }
     } catch (e) {

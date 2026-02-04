@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.13.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.4...v1.13.0) (2026-02-04)
+
+
+### Features
+
+* **favoritos:** agregar contador calculado de amigos en respuesta del backend ([750a55e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/750a55ec990f86abe67c5b729bda39252aab7df4))
+
 ### [1.12.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.3...v1.12.4) (2026-02-04)
 
 ### [1.12.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.12.2...v1.12.3) (2026-02-04)

@@ -39,6 +39,13 @@ class SocketService {
     socket.on('subscribeMeetings', (data) => this.handleSubscribeMeetings(socket, data));
     socket.on('unsubscribeMeetings', (data) => this.handleUnsubscribeMeetings(socket, data));
 
+    // Indicador de escritura (Global Chat)
+    socket.on('typing_start', (data) => this.handleTypingStart(socket, data));
+    socket.on('typing_stop', (data) => this.handleTypingStop(socket, data));
+
+    // Estado de mensajes
+    socket.on('message_read', (data) => this.handleMessageRead(socket, data));
+
     // Generic room management (for Iglesias, etc.)
     socket.on('joinRoom', (room) => {
       if (typeof room === 'string') {
@@ -152,6 +159,70 @@ class SocketService {
     if (socket.userId) {
       socket.leave(`meetings:${userId}`);
       console.log(`📅 Usuario ${userId} desuscrito de reuniones`);
+    }
+  }
+
+  handleTypingStart(socket, { recipientId, conversationId }) {
+    if (socket.userId && recipientId) {
+      // Emitir evento a la sala personal del receptor
+      // Esto es más seguro que emitir a toda la conversación si no queremos broadcast masivo
+      // O podemos emitir a la sala de conversación si ambos están suscritos
+      if (conversationId) {
+        socket.to(`conversation:${conversationId}`).emit('user_typing_start', {
+          userId: socket.userId,
+          conversationId
+        });
+      } else {
+        // Fallback: emitir directo al usuario si no hay conversationId (nuevo chat)
+        socket.to(`user:${recipientId}`).emit('user_typing_start', {
+          userId: socket.userId
+        });
+      }
+      // console.log(`✍️ Usuario ${socket.userId} escribiendo a ${recipientId}`);
+    }
+  }
+
+  handleTypingStop(socket, { recipientId, conversationId }) {
+    if (socket.userId && recipientId) {
+      if (conversationId) {
+        socket.to(`conversation:${conversationId}`).emit('user_typing_stop', {
+          userId: socket.userId,
+          conversationId
+        });
+      } else {
+        socket.to(`user:${recipientId}`).emit('user_typing_stop', {
+          userId: socket.userId
+        });
+      }
+    }
+  }
+
+  // Confirmación de lectura
+  async handleMessageRead(socket, { conversationId, messageId, readerId }) {
+    try {
+      const Conversation = require('../models/Conversation');
+      // Buscar conversación
+      const conversation = await Conversation.findById(conversationId);
+      if (!conversation) return;
+
+      // Si se pasa messageId, marcar ese y anteriores. Si no, marcar todos los no leídos de otros.
+      // Simplificación: usaremos el método marcarComoLeido del modelo que ya maneja "todos"
+      if (!messageId) {
+        await conversation.marcarComoLeido(readerId);
+
+        // Notificar a los OTROS participantes que sus mensajes fueron leídos
+        conversation.participantes.forEach(p => {
+          if (p.toString() !== readerId) {
+            this.io.to(`user:${p}`).emit('messages_read_update', {
+              conversationId,
+              readerId,
+              readAt: new Date()
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Error en handleMessageRead", e);
     }
   }
 

@@ -28,6 +28,14 @@ const messageSchema = new mongoose.Schema({
   },
   fechaLeido: {
     type: Date
+  },
+  estado: {
+    type: String,
+    enum: ['enviado', 'entregado', 'leido'],
+    default: 'enviado'
+  },
+  fechaEntregado: {
+    type: Date
   }
 }, {
   timestamps: true

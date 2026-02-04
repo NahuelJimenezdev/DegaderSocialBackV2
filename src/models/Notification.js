@@ -30,6 +30,7 @@ const notificationSchema = new mongoose.Schema({
       'nuevo_miembro_grupo',
       'nuevo_mensaje',
       'mensaje_pendiente',
+      'mensaje_grupo',
       'evento',
       'sistema',
       'respuesta_comentario',

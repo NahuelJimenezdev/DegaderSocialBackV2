@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.10.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.2...v1.10.3) (2026-02-04)
+
+
+### Bug Fixes
+
+* **chat:** emitir conversationRead al lector para actualizar contador de notificaciones global ([8afbc70](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/8afbc701c5fa18e95d0d447c6d41e89c7f698c4b))
+
 ### [1.10.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.10.1...v1.10.2) (2026-02-04)
 
 

@@ -24,20 +24,21 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
             "organismo_internacional", "organo_control", "directivo_general"
         ];
 
-        const nivelSolicitante = nivel;
+        const nivelSolicitante = nivel?.toLowerCase();
         const indexNivelSolicitante = nivelesOrdenados.indexOf(nivelSolicitante);
 
         // 2. Algoritmo de Escalada (Buscar superior inmediato)
         let notificacionEnviada = false;
         const territorioSolicitante = territorio || {};
 
-        console.log('🔍 [Fundación] Iniciando búsqueda de superior inmediato...');
+        console.log('🔍 [Fundación Util] Iniciando búsqueda de superior inmediato...');
         console.log(`   Solicitante: ${user.nombres?.primero} ${user.apellidos?.primero}`);
         console.log(`   Nivel: ${nivelSolicitante}, Cargo: ${cargo}`);
-        console.log(`   Territorio:`, territorioSolicitante);
 
         // Iterar hacia arriba buscando el primer nivel que tenga usuarios
-        for (let i = indexNivelSolicitante + 1; i < nivelesOrdenados.length; i++) {
+        const startLoop = indexNivelSolicitante >= 0 ? indexNivelSolicitante + 1 : nivelesOrdenados.length;
+
+        for (let i = startLoop; i < nivelesOrdenados.length; i++) {
             const nivelObjetivo = nivelesOrdenados[i];
 
             // Construir Query Base (Filtro Territorial Estricto + Nivel)
@@ -62,6 +63,17 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
             if (nivelObjetivo === 'municipal' && territorioSolicitante.municipio) {
                 query['fundacion.territorio.municipio'] = territorioSolicitante.municipio;
             }
+
+            // 🔒 REGLA DE NIVEL + TERRITORIO + ÁREA (Smart Match)
+            const areaCore = area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+            const areaRegex = new RegExp(areaCore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+            query.$or = [
+                { 'fundacion.area': { $regex: areaRegex } },
+                { 'fundacion.cargo': 'Director General (Pastor)' },
+                { 'seguridad.rolSistema': 'Founder' },
+                { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } }
+            ];
 
             // Buscar usuarios en este nivel
             const superiores = await User.find(query).select('_id nombres apellidos');

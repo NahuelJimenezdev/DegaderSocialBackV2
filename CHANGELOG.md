@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.12.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.11.3...v1.12.0) (2026-02-04)
+
+
+### Features
+
+* **user:** popular datos de iglesia en perfil publico de usuario ([692fd26](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/692fd26c803894facb244b10c69ee5ab8068d71a))
+
 ### [1.11.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.11.2...v1.11.3) (2026-02-04)
 
 

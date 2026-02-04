@@ -270,7 +270,7 @@ class SocketService {
 
     console.log(`📨 [SOCKET SERVICE] Emitiendo notificación a ${userId}`);
     console.log(`   Sala ${roomName} existe? ${roomExists}`);
-    console.log(`   Contenido: ${notification.tipo} - ${notification.contenido.substring(0, 30)}...`);
+    console.log(`   Contenido: ${notification.tipo} - ${notification.contenido?.substring(0, 30) || 'N/A'}...`);
 
     // Usar la sala 'user' que es automática tras autenticación, más robusto que 'notifications' manual
     this.io.to(roomName).emit('newNotification', notification);

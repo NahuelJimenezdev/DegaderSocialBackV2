@@ -222,6 +222,15 @@ class SocketService {
             });
           }
         });
+
+        // 🆕 Emitir evento al LECTOR para que actualice su contador global de notificaciones
+        // (El hook useMessageCounter escucha 'conversationRead')
+        // Necesitamos enviar messageId o simplemente indicarle que refresque la conv
+        this.io.to(`user:${readerId}`).emit('conversationRead', {
+          conversationId,
+          userId: readerId,
+          unreadCount: 0 // Asumimos que leyó todo
+        });
       }
     } catch (e) {
       console.error("Error en handleMessageRead", e);

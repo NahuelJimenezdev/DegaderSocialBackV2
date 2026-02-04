@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.13.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.1...v1.13.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* **amistad:** agregar sincronización de User.amigos en ruta legacy /api/amistades/aceptar ([2b276e8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2b276e8004e33a5a808a2938cbdbd99b54badc6e))
+
 ### [1.13.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.0...v1.13.1) (2026-02-04)
 
 

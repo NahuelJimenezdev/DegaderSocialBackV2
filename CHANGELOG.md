@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.13.7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.6...v1.13.7) (2026-02-05)
+
+
+### Bug Fixes
+
+* se agrega un diseño de alert como ios ([8ffb18e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/8ffb18e68bf41b15f92c6bfbe726d7fc6885ef9a))
+
 ### [1.13.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.5...v1.13.6) (2026-02-04)
 
 

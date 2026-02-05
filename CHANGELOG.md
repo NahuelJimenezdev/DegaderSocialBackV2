@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.15.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.14.0...v1.15.0) (2026-02-05)
+
+
+### Features
+
+* feed global para staff y founder ([2c55ab3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2c55ab3d566a3cc0724084ce05b1d2a933c7356f))
+
 ## [1.14.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.7...v1.14.0) (2026-02-05)
 
 

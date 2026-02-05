@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.14.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.7...v1.14.0) (2026-02-05)
+
+
+### Features
+
+* agregar sistema de onboarding con persistencia en backend ([a95f641](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a95f641dda0ef353a36cc1bdb4d3b363f0326b67))
+
 ### [1.13.7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.13.6...v1.13.7) (2026-02-05)
 
 

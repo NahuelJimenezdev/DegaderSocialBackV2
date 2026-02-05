@@ -129,6 +129,7 @@ const ticketRoutes = require('./routes/ticket.routes');
 const adminRoutes = require('./routes/admin.routes');
 const founderRoutes = require('./routes/founder.routes');
 const ministerioRoutes = require('./routes/ministerio.routes');
+const onboardingRoutes = require('./routes/onboarding.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -171,6 +172,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/founder', founderRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

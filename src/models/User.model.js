@@ -375,6 +375,13 @@ const UserV2Schema = new Schema({
   seguridad: { type: SeguridadSchema, default: () => ({}) },
   perfilPublicitario: { type: PerfilPublicitarioSchema, default: () => ({}) }, // Para sistema de anuncios
 
+  // User Onboarding (Tour Guiado)
+  onboarding: {
+    hasCompleted: { type: Boolean, default: false },
+    currentStep: { type: Number, default: null },
+    lastUpdated: { type: Date, default: null }
+  },
+
   // Relaciones Sociales (Arrays de IDs)
   // Se mantienen como arrays de IDs por compatibilidad, aunque se recomienda mover a colecciones pivote para escalabilidad masiva
   amigos: [{ type: Schema.Types.ObjectId, ref: 'UserV2' }],

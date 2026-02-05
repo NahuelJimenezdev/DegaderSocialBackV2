@@ -237,24 +237,42 @@ const getFeed = async (req, res) => {
 
     const userGroupIds = userGroups.map(g => g._id);
 
+
+    // Identificar usuarios con roles de sistema (Founder, admin, moderador)
+    const User = require('../models/User.model');
+    const systemRoles = ['Founder', 'admin', 'moderador'];
+    const staffUsers = await User.find({
+      'seguridad.rolSistema': { $in: systemRoles }
+    }).select('_id');
+    const staffIds = staffUsers.map(u => u._id);
+
     // Obtener publicaciones
-    const posts = await Post.find({
+    const query = {
       $or: [
-        // 1. Posts de amigos en su perfil (sin grupo o grupo null)
+        // 1. Posts de amigos en su perfil
         {
           usuario: { $in: friendIds },
           privacidad: { $in: ['publico', 'amigos'] },
           $or: [{ grupo: { $exists: false } }, { grupo: null }]
         },
-        // 2. Mis posts (en cualquier lado)
+        // 2. Mis posts
         { usuario: req.userId },
         // 3. Posts de grupos donde soy miembro
         {
           grupo: { $in: userGroupIds },
           privacidad: { $ne: 'privado' }
+        },
+        // 4. [GLOBAL FEED] Posts PÚBLICOS de Staff (Founder/Admin/Mod)
+        // Esto permite mensajes de bienvenida globales y anuncios oficiales
+        {
+          usuario: { $in: staffIds },
+          privacidad: 'publico',
+          $or: [{ grupo: { $exists: false } }, { grupo: null }]
         }
       ]
-    })
+    };
+
+    const posts = await Post.find(query)
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
@@ -266,20 +284,7 @@ const getFeed = async (req, res) => {
       .limit(parseInt(limit))
       .skip(skip);
 
-    const total = await Post.countDocuments({
-      $or: [
-        {
-          usuario: { $in: friendIds },
-          privacidad: { $in: ['publico', 'amigos'] },
-          $or: [{ grupo: { $exists: false } }, { grupo: null }]
-        },
-        { usuario: req.userId },
-        {
-          grupo: { $in: userGroupIds },
-          privacidad: { $ne: 'privado' }
-        }
-      ]
-    });
+    const total = await Post.countDocuments(query);
 
     res.json({
       success: true,

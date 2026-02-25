@@ -11,6 +11,11 @@ const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const logger = require('./config/logger');
+const redisService = require('./services/redis.service');
+const metrics = require('./infrastructure/metrics/metrics.service');
+const distributedRateLimit = require('./middlewares/distributedRateLimit.middleware');
+const { initializeEventHandlers } = require('./infrastructure/events/eventHandlers');
+const { startWorker } = require('./workers/ranking.worker');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (required for rate-limit behind Nginx/Cloudflare)
@@ -38,6 +43,28 @@ const limiter = rateLimit({
 
 // Apply rate limiting to all requests
 app.use('/api/', limiter);
+
+// 🕵️ Monitoring & Metrics (Protected Access)
+app.get('/metrics', async (req, res) => {
+  if (!metrics.validateAccess(req)) {
+    return res.status(403).json({ error: 'Acceso denegado a métricas' });
+  }
+  res.set('Content-Type', metrics.contentType);
+  res.end(await metrics.getMetrics());
+});
+
+// Middleware para trackear tiempo de respuesta de la API
+app.use((req, res, next) => {
+  const end = metrics.startTimer();
+  res.on('finish', () => {
+    end({
+      method: req.method,
+      route: req.route?.path || req.path,
+      status_code: res.statusCode
+    });
+  });
+  next();
+});
 
 // Configurar Socket.IO con CORS
 const io = new Server(httpServer, {
@@ -130,6 +157,8 @@ const adminRoutes = require('./routes/admin.routes');
 const founderRoutes = require('./routes/founder.routes');
 const ministerioRoutes = require('./routes/ministerio.routes');
 const onboardingRoutes = require('./routes/onboarding.routes');
+const arenaRoutes = require('./modules/arena/routes/arena.routes');
+const economyRoutes = require('./modules/economy/economy.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -173,6 +202,8 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/founder', founderRoutes);
 app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/arena', arenaRoutes);
+app.use('/api/economy', distributedRateLimit({ maxPerMinute: 30 }), economyRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {
@@ -204,6 +235,17 @@ console.log(`   Base de datos: ${process.env.DB_NAME}`);
 mongoose.connect(uri)
   .then(() => {
     console.log('✅ Conectado a MongoDB');
+
+    // Conectar a Redis
+    redisService.connect();
+
+    // Inicializar Infraestructura de Arena
+    initializeEventHandlers();
+
+    // Iniciar Worker (Si esta instancia debe actuar como worker)
+    if (process.env.RUN_WORKER === 'true' || process.env.NODE_ENV === 'development') {
+      startWorker();
+    }
 
     // Inicio del servidor con Socket.IO (solo después de conectar a DB)
     httpServer.listen(PORT, '0.0.0.0', () => {

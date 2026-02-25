@@ -412,7 +412,47 @@ const UserV2Schema = new Schema({
 
   // RollingCode / E-commerce (Legacy support)
   carrito: { type: Schema.Types.ObjectId, ref: 'Cart' },
-  favoritos: [{ type: Schema.Types.ObjectId, ref: 'Product' }]
+  favoritos: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
+
+  // ==========================================
+  // 🏟️ ARENA Y GAMIFICACIÓN (La Senda del Reino)
+  // ==========================================
+  arena: {
+    level: { type: String, enum: ['facil', 'medio', 'dificil', 'experto'], default: 'facil' },
+    xp: { type: Number, default: 0 },
+    totalScore: { type: Number, default: 0 },
+    rankPoints: { type: Number, default: 0 },
+    league: { type: String, default: 'bronze' },
+    streak: { type: Number, default: 0 },
+    lastGameAt: { type: Date },
+    country: { type: String }, // Cacheado para ranking por país
+    achievements: [{ type: String }],
+    completedChallenges: [{ type: Schema.Types.ObjectId, ref: 'Challenge' }], // Anti-farming
+    antiCheatFlags: {
+      suspiciousAttempts: { type: Number, default: 0 },
+      lastIp: { type: String },
+      lockedUntil: { type: Date },
+      shadowBanned: { type: Boolean, default: false }
+    }
+  },
+
+  // ==========================================
+  // 💎 SUSCRIPCIÓN Y SAAS
+  // ==========================================
+  subscription: {
+    plan: { type: String, enum: ['free', 'pro', 'elite'], default: 'free' },
+    expiresAt: { type: Date }
+  },
+
+  // ==========================================
+  // 💰 ECONOMÍA Y RECOMPENSAS
+  // ==========================================
+  economy: {
+    coins: { type: Number, default: 0 },
+    gems: { type: Number, default: 0 },
+    xpBoostActiveUntil: { type: Date },
+    cosmeticItems: [{ type: String }] // IDs de cosméticos desbloqueados
+  }
 
 }, {
   timestamps: true,
@@ -483,6 +523,11 @@ UserV2Schema.index({
   "eclesiastico.iglesia": 1,
   "eclesiastico.rolPrincipal": 1
 });
+
+// Arena e Índices de Ranking
+UserV2Schema.index({ "arena.rankPoints": -1 });
+UserV2Schema.index({ "arena.country": 1, "arena.rankPoints": -1 });
+UserV2Schema.index({ "arena.level": 1 });
 
 const UserV2 = model('UserV2', UserV2Schema);
 

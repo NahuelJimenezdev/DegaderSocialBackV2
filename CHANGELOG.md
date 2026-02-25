@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.16.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.15.0...v1.16.0) (2026-02-25)
+
+
+### Features
+
+* **arena:** ranking jerárquico, anti-farming y persistencia robusta ([35f92cc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/35f92cc2175e97c46a1f9ca3c4463a3fd872e65d))
+
 ## [1.15.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.14.0...v1.15.0) (2026-02-05)
 
 

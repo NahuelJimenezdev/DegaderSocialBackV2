@@ -34,24 +34,31 @@ class AchievementsService {
      * Verifica y desbloquea nuevos logros para el usuario
      */
     async checkAndUnlock(user, sessionData) {
-        const currentAchievements = new Set(user.arena.achievements || []);
+        if (!user.arena) user.arena = {};
+        if (!user.arena.achievements) user.arena.achievements = [];
+
+        const currentAchievements = new Set(user.arena.achievements);
         let newlyUnlocked = [];
 
+        logger.info(`[Achievements] 🔍 Verificando logros para ${user.username || user._id}. Actuales: ${user.arena.achievements.length}`);
+
         for (const [key, definition] of Object.entries(this.ACHIEVEMENTS_DEFINITIONS)) {
-            if (!currentAchievements.has(definition.id)) {
-                const isUnlocked = await definition.check(user, sessionData);
-                if (isUnlocked) {
-                    newlyUnlocked.push(definition.id);
-                    user.arena.achievements.push(definition.id);
+            try {
+                if (!currentAchievements.has(definition.id)) {
+                    const isUnlocked = await definition.check(user, sessionData);
+                    if (isUnlocked) {
+                        newlyUnlocked.push(definition.id);
+                        user.arena.achievements.push(definition.id);
+                        logger.info(`[Achievements] 🏆 LOGRO DESBLOQUEADO: ${definition.id}`);
+                    }
                 }
+            } catch (err) {
+                logger.error(`[Achievements] ❌ Error verificando logro ${key}: ${err.message}`);
             }
         }
 
         if (newlyUnlocked.length > 0) {
-            await user.save();
-            console.log(`[Achievements] 🏆 ${newlyUnlocked.length} nuevos logros para ${user._id}`);
-
-            // Emitir evento para posible notificación en tiempo real vía sockets
+            // Emitir evento para sockets pero NO guardar aquí (se guarda en arena.service.js)
             eventBus.emit('arena:achievements:unlocked', {
                 userId: user._id,
                 achievements: newlyUnlocked

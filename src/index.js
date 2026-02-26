@@ -80,9 +80,6 @@ const io = new Server(httpServer, {
   }
 });
 
-// Inicializar servicio de Socket.IO
-const socketService = require('./services/socketService');
-socketService.initialize(io);
 
 // Hacer io accesible globalmente
 app.set('io', io);
@@ -226,18 +223,22 @@ app.use((err, req, res, next) => {
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Debug: Mostrar la URI (sin la contraseña por seguridad)
-console.log('🔍 Intentando conectar a MongoDB...');
-console.log(`   Usuario: ${process.env.DB_USER}`);
-console.log(`   Cluster: ${DB_CLUSTER}`);
-console.log(`   Base de datos: ${process.env.DB_NAME}`);
+// Configuración de conexión con opciones de robustez
+const options = {
+  autoIndex: process.env.NODE_ENV !== 'production',
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
 
-mongoose.connect(uri)
+mongoose.connect(uri, options)
   .then(() => {
     console.log('✅ Conectado a MongoDB');
 
     // Conectar a Redis
     redisService.connect();
+
+    // Inicializar Socket.IO después de la DB para evitar MongoNotConnectedError
+    socketService.initialize(io);
 
     // Inicializar Infraestructura de Arena
     initializeEventHandlers();
@@ -255,9 +256,14 @@ mongoose.connect(uri)
     });
   })
   .catch((error) => {
-    console.error('❌ Error al conectar a MongoDB:', error);
+    console.error('❌ Error crítico al conectar a MongoDB:', error);
     process.exit(1);
   });
+
+// Eventos de conexión para monitoreo
+mongoose.connection.on('disconnected', () => console.log('⚠️ MongoDB desconectado. Reintentando...'));
+mongoose.connection.on('reconnected', () => console.log('❇️ MongoDB reconectado'));
+mongoose.connection.on('error', (err) => console.error('🔴 Error en conexión MongoDB:', err));
 
 // Manejo de cierre graceful
 process.on('SIGINT', async () => {

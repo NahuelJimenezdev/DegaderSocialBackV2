@@ -92,18 +92,24 @@ async function handleGameResult(data) {
                 !user.arena.completedChallenges.map(c => c.toString()).includes(id.toString())
             );
 
-            // Calcular proporción de recompensa (Solo por los desafíos nuevos)
+            // Calcular proporción de recompensa
             const totalCorrect = correctQuestionIds.length;
             const newCorrectCount = newCorrectIds.length;
 
-            // Si no hay nuevos aciertos, las ganancias son 0 para esta sesión
             let effectiveXP = 0;
             let effectiveScore = 0;
 
-            if (totalCorrect > 0 && newCorrectCount > 0) {
-                const ratio = newCorrectCount / totalCorrect;
-                effectiveXP = Math.round((Number(xpEarned) || 0) * ratio);
-                effectiveScore = newCorrectCount; // 1 punto por cada desafío NUEVO acertado
+            if (totalCorrect > 0) {
+                if (newCorrectCount > 0) {
+                    // Recompensa completa por nuevos desafíos
+                    const ratio = newCorrectCount / totalCorrect;
+                    effectiveXP = Math.round((Number(xpEarned) || 0) * ratio);
+                    effectiveScore = newCorrectCount;
+                } else {
+                    // Recompensa de "Entrenamiento" (50%) para desafíos repetidos para que no se vea el reset a cero
+                    effectiveXP = Math.round((Number(xpEarned) || 0) * 0.5);
+                    effectiveScore = 0; // El ranking solo sube con desafíos nuevos
+                }
             }
 
             // Validar valores numéricos para evitar NaN
@@ -114,23 +120,29 @@ async function handleGameResult(data) {
             user.arena.rankPoints = currentRankPoints + effectiveScore;
             user.arena.lastGameAt = new Date();
 
+            // Actualizar estadísticas de participación
+            user.arena.gamesPlayed = (user.arena.gamesPlayed || 0) + 1;
+            if (effectiveXP > 0) {
+                user.arena.wins = (user.arena.wins || 0) + 1;
+            }
+
             // Añadir nuevos desafíos a la lista de completados
             if (newCorrectIds.length > 0) {
                 user.arena.completedChallenges.push(...newCorrectIds);
             }
 
-            logger.info(`[Worker] 🛡️ Anti-Farming - Usuario ${userId}: Acertados: ${totalCorrect}, Nuevos: ${newCorrectCount}. Recompensa: +${effectiveXP} XP, +${effectiveScore} RankPoints`);
+            logger.info(`[Worker] 🛡️ Anti-Farming - Usuario ${userId}: Acertados: ${totalCorrect}, Nuevos: ${newCorrectCount}. Recompensa: +${effectiveXP} XP. Stats: ${user.arena.wins}W/${user.arena.gamesPlayed}G`);
 
-            // Sincronizar país si no está cacheado en arena (legacy repair)
-            if (!user.arena.country && user.personal?.ubicacion?.pais) {
+            // Sincronizar país y estado si no están cacheados en arena (Muy importante para Ranking Regional/Provincial)
+            if (user.personal?.ubicacion?.pais) {
                 user.arena.country = user.personal.ubicacion.pais;
             }
+            const userState = user.personal?.ubicacion?.estado;
 
             await user.save();
 
             // Actualizar Redis (Ranking Jerárquico: Global, País, Estado)
-            const userCountry = user.arena.country || user.personal?.ubicacion?.pais;
-            const userState = user.personal?.ubicacion?.estado;
+            const userCountry = user.arena.country;
 
             await rankingService.updateRank(userId, user.arena.rankPoints, userCountry, userState);
 

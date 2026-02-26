@@ -426,6 +426,8 @@ const UserV2Schema = new Schema({
     streak: { type: Number, default: 0 },
     lastGameAt: { type: Date },
     country: { type: String }, // Cacheado para ranking por país
+    wins: { type: Number, default: 0 },
+    gamesPlayed: { type: Number, default: 0 },
     achievements: [{ type: String }],
     completedChallenges: [{ type: Schema.Types.ObjectId, ref: 'Challenge' }], // Anti-farming
     antiCheatFlags: {

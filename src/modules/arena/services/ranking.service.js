@@ -128,10 +128,15 @@ class RankingService {
         try {
             const query = {};
             if (type === 'country' && country) {
-                query['personal.ubicacion.pais'] = country;
+                query.$or = [
+                    { 'personal.ubicacion.pais': country },
+                    { 'arena.country': country }
+                ];
             } else if (type === 'state' && country && state) {
-                query['personal.ubicacion.pais'] = country;
-                query['personal.ubicacion.estado'] = state;
+                query.$and = [
+                    { $or: [{ 'personal.ubicacion.pais': country }, { 'arena.country': country }] },
+                    { 'personal.ubicacion.estado': state }
+                ];
             }
 
             const users = await User.find(query)

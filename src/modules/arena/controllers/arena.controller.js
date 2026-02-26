@@ -68,8 +68,14 @@ class ArenaController {
                     country: user.personal?.ubicacion?.pais || '',
                     state: user.personal?.ubicacion?.estado || ''
                 },
-                arena: user.arena,
-                economy: user.economy,
+                arena: {
+                    ...user.arena,
+                    wins: user.arena?.wins || 0,
+                    gamesPlayed: user.arena?.gamesPlayed || 0,
+                    xp: user.arena?.xp || 0,
+                    level: user.arena?.level || 'facil'
+                },
+                economy: user.economy || { coins: 0, gems: 0 },
                 ranking: globalRank
             };
 

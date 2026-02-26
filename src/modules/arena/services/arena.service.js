@@ -66,6 +66,7 @@ class ArenaService {
                 userId,
                 level,
                 score,
+                correctAnswers: score, // Campo requerido por el modelo ArenaSession
                 xpEarned: effectiveXP,
                 totalQuestions: sessionData.totalQuestions || correctQuestionIds.length,
                 duration: sessionData.duration || 60,

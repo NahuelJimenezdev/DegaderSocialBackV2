@@ -77,80 +77,29 @@ async function handleGameResult(data) {
         logger.error(`[Worker] ⚠️ Error al crear ArenaSession (No crítico para ranking): ${err.message}`);
     }
 
-    // 2. Si NO es shadowBanned, actualizar rankings y XP real
+    // 2. Si NO es shadowBanned, actualizar rankings en Redis
     if (!isShadowBanned) {
-        // Actualizar MongoDB (XP y RankPoints)
         const user = await User.findById(userId);
         if (user) {
-            // Asegurar que el objeto arena existe
-            if (!user.arena) user.arena = {};
-            if (!user.arena.completedChallenges) user.arena.completedChallenges = [];
-
-            // Lógica Anti-Farming: Filtrar solo desafíos nuevos
-            const correctQuestionIds = sessionData.correctQuestionIds || [];
-            const newCorrectIds = correctQuestionIds.filter(id =>
-                !user.arena.completedChallenges.map(c => c.toString()).includes(id.toString())
-            );
-
-            // Calcular proporción de recompensa
-            const totalCorrect = correctQuestionIds.length;
-            const newCorrectCount = newCorrectIds.length;
-
-            let effectiveXP = 0;
-            let effectiveScore = 0;
-
-            if (totalCorrect > 0) {
-                if (newCorrectCount > 0) {
-                    // Recompensa completa por nuevos desafíos
-                    const ratio = newCorrectCount / totalCorrect;
-                    effectiveXP = Math.round((Number(xpEarned) || 0) * ratio);
-                    effectiveScore = newCorrectCount;
-                } else {
-                    // Recompensa de "Entrenamiento" (50%) para desafíos repetidos para que no se vea el reset a cero
-                    effectiveXP = Math.round((Number(xpEarned) || 0) * 0.5);
-                    effectiveScore = 0; // El ranking solo sube con desafíos nuevos
-                }
-            }
-
-            // Validar valores numéricos para evitar NaN
-            const currentXP = Number(user.arena.xp) || 0;
-            const currentRankPoints = Number(user.arena.rankPoints) || 0;
-
-            user.arena.xp = currentXP + effectiveXP;
-            user.arena.rankPoints = currentRankPoints + effectiveScore;
-            user.arena.lastGameAt = new Date();
-
-            // Actualizar estadísticas de participación
-            user.arena.gamesPlayed = (user.arena.gamesPlayed || 0) + 1;
-            if (effectiveXP > 0) {
-                user.arena.wins = (user.arena.wins || 0) + 1;
-            }
-
-            // Añadir nuevos desafíos a la lista de completados
-            if (newCorrectIds.length > 0) {
-                user.arena.completedChallenges.push(...newCorrectIds);
-            }
-
-            logger.info(`[Worker] 🛡️ Anti-Farming - Usuario ${userId}: Acertados: ${totalCorrect}, Nuevos: ${newCorrectCount}. Recompensa: +${effectiveXP} XP. Stats: ${user.arena.wins}W/${user.arena.gamesPlayed}G`);
-
             // Sincronizar país y estado si no están cacheados en arena (Muy importante para Ranking Regional/Provincial)
+            if (!user.arena) user.arena = {}; // Ensure arena object exists
             if (user.personal?.ubicacion?.pais) {
                 user.arena.country = user.personal.ubicacion.pais;
             }
             const userState = user.personal?.ubicacion?.estado;
 
-            await user.save();
+            // Only save if country/state were updated and need persistence
+            if (user.isModified('arena.country') || user.isModified('arena.state')) {
+                await user.save();
+            }
 
             // Actualizar Redis (Ranking Jerárquico: Global, País, Estado)
             const userCountry = user.arena.country;
+            const rankPoints = Number(user.arena.rankPoints) || 0; // Use existing rankPoints from user document
 
-            await rankingService.updateRank(userId, user.arena.rankPoints, userCountry, userState);
-
-            // 3. Verificar Logros
-            await achievementsService.checkAndUnlock(user, sessionData);
+            await rankingService.updateRank(userId, rankPoints, userCountry, userState);
 
             metrics.incRankUpdate();
-            metrics.incXp(xpEarned);
         }
     } else {
         console.log(`[Worker] 🕶️ ShadowBan activo para ${userId}. Ignorando actualización de ranking.`);

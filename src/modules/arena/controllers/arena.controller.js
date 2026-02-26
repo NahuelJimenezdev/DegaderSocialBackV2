@@ -23,11 +23,15 @@ class ArenaController {
     async submitResult(req, res) {
         try {
             const userId = req.user.id;
-            const clientIp = req.ip || req.headers['x-forwarded-for'];
+            // const clientIp = req.ip || req.headers['x-forwarded-for']; // No longer needed as req.ip is passed directly
 
-            const result = await arenaService.processSessionResult(userId, req.body, clientIp);
+            const result = await arenaService.processSessionResult(userId, req.body, req.ip);
 
-            res.json(formatSuccessResponse('Resultado procesado', result));
+            res.status(200).json({
+                success: true,
+                message: 'Desafío completado con éxito',
+                data: result
+            });
         } catch (error) {
             res.status(500).json({ message: 'Error procesando resultado', error: error.message });
         }

@@ -77,9 +77,14 @@ class ArenaService {
             logger.error(`[ArenaService] ⚠️ Error al registrar sesión: ${err.message}`);
         }
 
-        // 4. Verificar Logros
-        logger.info(`[ArenaService] 🏆 Verificando logros...`);
-        const unlocked = await achievementsService.checkAndUnlock(user, sessionData);
+        // 4. Verificar Logros (Opcional, no debe bloquear el XP)
+        let unlocked = [];
+        try {
+            logger.info(`[ArenaService] 🏆 Verificando logros...`);
+            unlocked = await achievementsService.checkAndUnlock(user, sessionData);
+        } catch (err) {
+            logger.error(`[ArenaService] ⚠️ Error en verificación de logros: ${err.message}`);
+        }
 
         try {
             await user.save();

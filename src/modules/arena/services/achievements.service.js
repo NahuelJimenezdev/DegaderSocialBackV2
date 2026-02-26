@@ -1,6 +1,7 @@
 const User = require('../../../models/User.model');
 const ArenaSession = require('../../../models/arenaSession.model');
 const eventBus = require('../../../infrastructure/events/eventBus');
+const logger = require('../../../config/logger');
 
 class AchievementsService {
     /**

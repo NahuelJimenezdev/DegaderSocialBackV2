@@ -17,6 +17,7 @@ const distributedRateLimit = require('./middlewares/distributedRateLimit.middlew
 const { initializeEventHandlers } = require('./infrastructure/events/eventHandlers');
 const { startWorker } = require('./workers/ranking.worker');
 
+const socketService = require('./services/socketService');
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (required for rate-limit behind Nginx/Cloudflare)
 const httpServer = createServer(app);

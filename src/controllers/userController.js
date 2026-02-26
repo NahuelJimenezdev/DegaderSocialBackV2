@@ -397,7 +397,7 @@ const uploadBanner = async (req, res) => {
     const { id } = req.params;
 
     // Verificar que el usuario está actualizando su propio banner o es admin
-    if (req.userId !== id && req.user?.seguridad?.rolSistema !== 'admin') {
+    if (req.userId.toString() !== id && req.user?.seguridad?.rolSistema !== 'admin') {
       return res.status(403).json(formatErrorResponse('No tienes permiso para actualizar este banner'));
     }
 
@@ -443,7 +443,7 @@ const deleteBanner = async (req, res) => {
     const { id } = req.params;
 
     // Verificar que el usuario está eliminando su propio banner o es admin
-    if (req.userId !== id && req.user?.seguridad?.rolSistema !== 'admin') {
+    if (req.userId.toString() !== id && req.user?.seguridad?.rolSistema !== 'admin') {
       return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar este banner'));
     }
 

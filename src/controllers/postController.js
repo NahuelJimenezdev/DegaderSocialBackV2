@@ -1,8 +1,35 @@
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const Group = require('../models/Group');
+const Friendship = require('../models/Friendship'); // 🆕 Importar modelo de amistad
+const UserV2 = require('../models/User.model'); // 🆕 Importar modelo de usuario para verificar roles
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
+
+/**
+ * Helper: Verificar si el usuario puede interactuar con el post de otro usuario
+ */
+const canInteractWithPost = async (userId, targetUserId) => {
+  // 1. Si es el mismo usuario, permitido
+  if (userId.toString() === targetUserId.toString()) return true;
+
+  // 2. Verificar rol del usuario que interactúa (Staff puede moderar/interactuar)
+  const actingUser = await UserV2.findById(userId).select('seguridad.rolSistema');
+  if (actingUser && ['Founder', 'admin', 'moderador'].includes(actingUser.seguridad?.rolSistema)) {
+    return true;
+  }
+
+  // 3. Verificar amistad aceptada
+  const friendship = await Friendship.findOne({
+    $or: [
+      { solicitante: userId, receptor: targetUserId },
+      { solicitante: targetUserId, receptor: userId }
+    ],
+    estado: 'aceptada'
+  });
+
+  return !!friendship;
+};
 
 /**
  * Crear publicación
@@ -482,6 +509,12 @@ const toggleLike = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
     }
 
+    // 🆕 RESTRICT: Solo amigos pueden dar like (excepto staff o autor)
+    const canLike = await canInteractWithPost(req.userId, post.usuario);
+    if (!canLike) {
+      return res.status(403).json(formatErrorResponse('Debes ser amigo del autor para reaccionar a esta publicación'));
+    }
+
     const likeIndex = post.likes.indexOf(req.userId);
 
     if (likeIndex > -1) {
@@ -641,6 +674,12 @@ const addComment = async (req, res) => {
 
     if (!post) {
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
+    }
+
+    // 🆕 RESTRICT: Solo amigos pueden comentar (excepto staff o autor)
+    const canComment = await canInteractWithPost(req.userId, post.usuario);
+    if (!canComment) {
+      return res.status(403).json(formatErrorResponse('Debes ser amigo del autor para comentar esta publicación'));
     }
 
     // Si es una respuesta, verificar que el comentario padre existe y no sea ya una respuesta
@@ -883,6 +922,12 @@ const sharePost = async (req, res) => {
 
     if (!originalPost) {
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
+    }
+
+    // 🆕 RESTRICT: Solo amigos pueden compartir (excepto staff o autor)
+    const canShare = await canInteractWithPost(req.userId, originalPost.usuario);
+    if (!canShare) {
+      return res.status(403).json(formatErrorResponse('Debes ser amigo del autor para compartir esta publicación'));
     }
 
     // Crear nueva publicación compartida

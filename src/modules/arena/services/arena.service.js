@@ -9,14 +9,19 @@ class ArenaService {
      * Procesa el final de una partida de forma síncrona para garantizar persistencia
      */
     async processSessionResult(userId, sessionData, clientIp) {
+        logger.info(`[ArenaService] 🏁 Iniciando proceso para usuario: ${userId}`);
         const user = await arenaRepository.findUserById(userId);
-        if (!user) throw new Error('Usuario no encontrado');
+        if (!user) {
+            logger.error(`[ArenaService] ❌ Usuario no encontrado: ${userId}`);
+            throw new Error('Usuario no encontrado');
+        }
 
         // Asegurar inicialización profunda del objeto arena
         if (!user.arena) user.arena = {};
         if (!user.arena.completedChallenges) user.arena.completedChallenges = [];
 
         const { level, xpEarned, score, correctQuestionIds = [] } = sessionData;
+        logger.info(`[ArenaService] 📥 Datos recibidos: Score=${score}, XPEarned=${xpEarned}, Questions=${correctQuestionIds.length}`);
 
         // 1. Lógica Anti-Farming segura
         const currentCompletedIds = (user.arena.completedChallenges || []).map(id => id.toString());
@@ -30,9 +35,11 @@ class ArenaService {
                 const ratio = newCorrectIds.length / correctQuestionIds.length;
                 effectiveXP = Math.round((Number(xpEarned) || 0) * ratio);
                 effectiveScore = newCorrectIds.length;
+                logger.info(`[ArenaService] ✨ Recompensa Completa: +${effectiveXP} XP (${newCorrectIds.length} nuevos)`);
             } else {
                 effectiveXP = Math.round((Number(xpEarned) || 0) * 0.5);
                 effectiveScore = 0;
+                logger.info(`[ArenaService] 🔄 Recompensa Entrenamiento (50%): +${effectiveXP} XP (0 nuevos)`);
             }
         }
 
@@ -48,10 +55,13 @@ class ArenaService {
         }
 
         // Sincronizar ubicación
-        if (user.personal?.ubicacion?.pais) user.arena.country = user.personal.ubicacion.pais;
+        if (user.personal?.ubicacion?.pais) {
+            user.arena.country = user.personal.ubicacion.pais;
+        }
 
         // 3. Registrar Sesión Histórica
         try {
+            logger.info(`[ArenaService] 📝 Registrando sesión histórica...`);
             await arenaRepository.createSession({
                 userId,
                 level,
@@ -63,13 +73,20 @@ class ArenaService {
                 endedAt: new Date()
             });
         } catch (err) {
-            logger.error(`[ArenaService] ⚠️ Error al registrar sesión (no bloqueante): ${err.message}`);
+            logger.error(`[ArenaService] ⚠️ Error al registrar sesión: ${err.message}`);
         }
 
         // 4. Verificar Logros
+        logger.info(`[ArenaService] 🏆 Verificando logros...`);
         const unlocked = await achievementsService.checkAndUnlock(user, sessionData);
 
-        await user.save();
+        try {
+            await user.save();
+            logger.info(`[ArenaService] ✅ ÉXITO: Datos persistidos para ${userId}. Total XP: ${user.arena.xp}`);
+        } catch (err) {
+            logger.error(`[ArenaService] ❌ ERROR AL GUARDAR USUARIO: ${err.message}`);
+            throw err;
+        }
         logger.info(`[ArenaService] ✅ Éxito síncrono para ${userId}: +${effectiveXP} XP. Total: ${user.arena.xp}`);
 
         // 4. Emitir evento para el worker (Ranking en Redis - Sigue siendo asíncrono)

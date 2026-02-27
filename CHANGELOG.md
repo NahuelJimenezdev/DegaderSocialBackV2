@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.18.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.17.13...v1.18.0) (2026-02-27)
+
+
+### Features
+
+* expandida lógica de logros en el backend para soportar nuevas categorías (XP, rachas, velocidad, consistencia) ([627266b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/627266b3374d9fb2d545b6bb7fd3d1355e1d6096))
+
 ### [1.17.13](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.17.12...v1.17.13) (2026-02-27)
 
 ## [1.16.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.15.0...v1.16.0) (2026-02-25)

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.18.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.18.0...v1.18.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* añadida verificación de logros en getMyStatus para desbloqueo retroactivo ([e298313](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e2983134493ecd1d8370a8c6e40de3cd8c114092))
+
 ## [1.18.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.17.13...v1.18.0) (2026-02-27)
 
 

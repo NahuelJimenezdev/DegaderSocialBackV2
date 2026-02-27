@@ -4,7 +4,7 @@ const path = require('path');
 const AdCredit = require(path.join(__dirname, '../models/AdCredit'));
 const CreditTransaction = require(path.join(__dirname, '../models/CreditTransaction'));
 
-const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rvdlva0.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
+const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${process.env.DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority`;
 
 /**
  * Script para agregar créditos a un usuario
@@ -18,7 +18,7 @@ async function addCredits() {
 
     if (!userId || !cantidad) {
       console.log('❌ Uso: node src/scripts/addCredits.js <userId> <cantidad>');
-      console.log('   Ejemplo: node src/scripts/addCredits.js 6930dbc5d78b11c2d6d6d683 1000');
+      console.log('   Ejemplo: node src/scripts/addCredits.js 69627230f6fd262be9eeb2ad 1000');
       process.exit(1);
     }
 

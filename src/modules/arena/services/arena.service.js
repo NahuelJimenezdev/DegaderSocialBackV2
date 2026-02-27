@@ -70,6 +70,8 @@ class ArenaService {
                 xpEarned: effectiveXP,
                 totalQuestions: sessionData.totalQuestions || correctQuestionIds.length,
                 duration: sessionData.duration || 60,
+                bestStreak: sessionData.bestStreak || 0,
+                fastestAnswer: sessionData.fastestAnswer || 999,
                 correctQuestionIds,
                 endedAt: new Date()
             });

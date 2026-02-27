@@ -49,6 +49,14 @@ const ArenaSessionSchema = new Schema({
     isSuspicious: {
         type: Boolean,
         default: false
+    },
+    bestStreak: {
+        type: Number,
+        default: 0
+    },
+    fastestAnswer: {
+        type: Number, // Segundos
+        default: 999
     }
 }, {
     timestamps: true

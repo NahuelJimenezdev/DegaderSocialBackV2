@@ -1,5 +1,6 @@
 const arenaService = require('../services/arena.service');
 const rankingService = require('../services/ranking.service');
+const achievementsService = require('../services/achievements.service');
 const arenaRepository = require('../repositories/arena.repository');
 const { formatSuccessResponse } = require('../../../utils/validators');
 
@@ -62,6 +63,12 @@ class ArenaController {
 
             if (!user) {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
+            // Proactive Achievement Check (Unlock missing achievements for veteran players)
+            const newlyUnlocked = await achievementsService.checkAndUnlock(user, {});
+            if (newlyUnlocked.length > 0) {
+                await user.save();
             }
 
             const responseData = {

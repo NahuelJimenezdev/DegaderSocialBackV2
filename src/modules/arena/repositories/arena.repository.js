@@ -15,11 +15,37 @@ class ArenaRepository {
         return await User.findByIdAndUpdate(userId, update, { new: true });
     }
 
-    async getRandomChallenges(level, limit = 5) {
-        return await Challenge.aggregate([
-            { $match: { level, 'metadata.active': true } },
+    async getRandomChallenges(level, limit = 5, excludeIds = []) {
+        const query = { level, 'metadata.active': true };
+
+        if (excludeIds.length > 0) {
+            const objectIds = excludeIds.map(id => {
+                try {
+                    return new (require('mongoose').Types.ObjectId)(id);
+                } catch (e) {
+                    return null;
+                }
+            }).filter(id => id !== null);
+
+            if (objectIds.length > 0) {
+                query._id = { $nin: objectIds };
+            }
+        }
+
+        const challenges = await Challenge.aggregate([
+            { $match: query },
             { $sample: { size: limit } }
         ]);
+
+        // Si no hay suficientes preguntas no completadas, relajar la restricción
+        if (challenges.length < limit && excludeIds.length > 0) {
+            return await Challenge.aggregate([
+                { $match: { level, 'metadata.active': true } },
+                { $sample: { size: limit } }
+            ]);
+        }
+
+        return challenges;
     }
 
     async createSession(sessionData) {

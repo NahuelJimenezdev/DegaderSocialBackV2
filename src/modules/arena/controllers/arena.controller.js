@@ -11,7 +11,13 @@ class ArenaController {
     async getChallenges(req, res) {
         try {
             const { level } = req.query;
-            const challenges = await arenaRepository.getRandomChallenges(level || 'facil');
+            const userId = req.user.id;
+
+            // Buscar al usuario para obtener sus desafíos completados
+            const user = await arenaRepository.findUserById(userId);
+            const excludeIds = user?.arena?.completedChallenges || [];
+
+            const challenges = await arenaRepository.getRandomChallenges(level || 'facil', 5, excludeIds);
             res.json(formatSuccessResponse('Desafíos obtenidos', challenges));
         } catch (error) {
             res.status(500).json({ message: 'Error obteniendo desafíos', error: error.message });

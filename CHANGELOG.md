@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.19.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.18.2...v1.19.0) (2026-02-28)
+
+
+### Features
+
+* **arena:** implementar variedad de desafíos y seeder masivo ([57f54a3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/57f54a37153fd62af1720d5ef2d295b5904d3145))
+
 ### [1.18.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.18.1...v1.18.2) (2026-02-28)
 
 ### [1.18.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.18.0...v1.18.1) (2026-02-27)

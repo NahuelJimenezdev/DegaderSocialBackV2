@@ -1,0 +1,1402 @@
+[
+{
+"level": "facil",
+"question": "¿Quién fue el rey sabio hijo de David?",
+"options": [
+{ "id": "A", "text": "Salomón" },
+{ "id": "B", "text": "Saúl" },
+{ "id": "C", "text": "Roboam" },
+{ "id": "D", "text": "Josías" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue juez mujer en Israel?",
+"options": [
+{ "id": "A", "text": "Rut" },
+{ "id": "B", "text": "Débora" },
+{ "id": "C", "text": "Ester" },
+{ "id": "D", "text": "Sara" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "jueces", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta lloró por Jerusalén?",
+"options": [
+{ "id": "A", "text": "Isaías" },
+{ "id": "B", "text": "Elías" },
+{ "id": "C", "text": "Jeremías" },
+{ "id": "D", "text": "Amós" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué rey consultó a una adivina?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Salomón" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Ezequías" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién caminó con Dios y desapareció?",
+"options": [
+{ "id": "A", "text": "Noé" },
+{ "id": "B", "text": "Enoc" },
+{ "id": "C", "text": "Elías" },
+{ "id": "D", "text": "Abraham" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el constructor del arca?",
+"options": [
+{ "id": "A", "text": "Noé" },
+{ "id": "B", "text": "Moisés" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "David" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "antiguo_testamento", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hijo de Jacob más amado?",
+"options": [
+{ "id": "A", "text": "Rubén" },
+{ "id": "B", "text": "Judá" },
+{ "id": "C", "text": "José" },
+{ "id": "D", "text": "Leví" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue rey después de Salomón en Judá?",
+"options": [
+{ "id": "A", "text": "Jeroboam" },
+{ "id": "B", "text": "Roboam" },
+{ "id": "C", "text": "Josías" },
+{ "id": "D", "text": "Saúl" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue rey del norte después de Salomón?",
+"options": [
+{ "id": "A", "text": "Roboam" },
+{ "id": "B", "text": "David" },
+{ "id": "C", "text": "Jeroboam" },
+{ "id": "D", "text": "Ezequías" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta vio el valle de huesos secos?",
+"options": [
+{ "id": "A", "text": "Isaías" },
+{ "id": "B", "text": "Daniel" },
+{ "id": "C", "text": "Jeremías" },
+{ "id": "D", "text": "Ezequiel" }
+],
+"correctAnswer": "D",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue hermano mayor de Moisés?",
+"options": [
+{ "id": "A", "text": "Aarón" },
+{ "id": "B", "text": "Josué" },
+{ "id": "C", "text": "Caleb" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue hermana de Moisés?",
+"options": [
+{ "id": "A", "text": "Débora" },
+{ "id": "B", "text": "Miriam" },
+{ "id": "C", "text": "Rut" },
+{ "id": "D", "text": "Ester" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Cómo se llamaba el gigante derrotado por David?",
+"options": [
+{ "id": "A", "text": "Goliat" },
+{ "id": "B", "text": "Saúl" },
+{ "id": "C", "text": "Sansón" },
+{ "id": "D", "text": "Absalón" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "historicos", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué rey tuvo un sueño de una gran estatua?",
+"options": [
+{ "id": "A", "text": "Darío" },
+{ "id": "B", "text": "Ciro" },
+{ "id": "C", "text": "Nabucodonosor" },
+{ "id": "D", "text": "Saúl" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién interpretó el sueño de la estatua?",
+"options": [
+{ "id": "A", "text": "Jeremías" },
+{ "id": "B", "text": "Daniel" },
+{ "id": "C", "text": "Isaías" },
+{ "id": "D", "text": "Elías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta vio una rueda dentro de otra rueda?",
+"options": [
+{ "id": "A", "text": "Ezequiel" },
+{ "id": "B", "text": "Oseas" },
+{ "id": "C", "text": "Amós" },
+{ "id": "D", "text": "Jonás" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue hijo de Abraham con Agar?",
+"options": [
+{ "id": "A", "text": "Isaac" },
+{ "id": "B", "text": "Jacob" },
+{ "id": "C", "text": "Ismael" },
+{ "id": "D", "text": "José" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién vendió su primogenitura por comida?",
+"options": [
+{ "id": "A", "text": "Jacob" },
+{ "id": "B", "text": "Esaú" },
+{ "id": "C", "text": "José" },
+{ "id": "D", "text": "Rubén" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién engañó a Isaac para recibir la bendición?",
+"options": [
+{ "id": "A", "text": "Esaú" },
+{ "id": "B", "text": "Jacob" },
+{ "id": "C", "text": "Ismael" },
+{ "id": "D", "text": "José" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue madre de José?",
+"options": [
+{ "id": "A", "text": "Sara" },
+{ "id": "B", "text": "Rebeca" },
+{ "id": "C", "text": "Raquel" },
+{ "id": "D", "text": "Lea" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "matriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién construyó el templo en Jerusalén?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Salomón" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Josías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el padre de Isaac?",
+"options": [
+{ "id": "A", "text": "Jacob" },
+{ "id": "B", "text": "Noé" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "Moisés" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la esposa de Abraham?",
+"options": [
+{ "id": "A", "text": "Rebeca" },
+{ "id": "B", "text": "Raquel" },
+{ "id": "C", "text": "Sara" },
+{ "id": "D", "text": "Rut" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "matriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién interpretó los sueños del faraón?",
+"options": [
+{ "id": "A", "text": "Daniel" },
+{ "id": "B", "text": "José" },
+{ "id": "C", "text": "Moisés" },
+{ "id": "D", "text": "Aarón" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la primera mujer creada por Dios?",
+"options": [
+{ "id": "A", "text": "Sara" },
+{ "id": "B", "text": "Eva" },
+{ "id": "C", "text": "Rebeca" },
+{ "id": "D", "text": "Marta" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién derribó las murallas de Jericó?",
+"options": [
+{ "id": "A", "text": "Moisés" },
+{ "id": "B", "text": "Josué" },
+{ "id": "C", "text": "David" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "historicos", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la reina que salvó a su pueblo?",
+"options": [
+{ "id": "A", "text": "Rut" },
+{ "id": "B", "text": "Ester" },
+{ "id": "C", "text": "Débora" },
+{ "id": "D", "text": "Sara" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "mujeres_destacadas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hombre más fuerte de la Biblia?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Sansón" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Gedeón" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "jueces", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue lanzado al foso de los leones?",
+"options": [
+{ "id": "A", "text": "Jeremías" },
+{ "id": "B", "text": "Daniel" },
+{ "id": "C", "text": "Isaías" },
+{ "id": "D", "text": "Elías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el primer rey de Israel?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Salomón" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el profeta que desafió a los profetas de Baal?",
+"options": [
+{ "id": "A", "text": "Eliseo" },
+{ "id": "B", "text": "Isaías" },
+{ "id": "C", "text": "Elías" },
+{ "id": "D", "text": "Jeremías" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores_y_menores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue discípulo del profeta Elías?",
+"options": [
+{ "id": "A", "text": "Eliseo" },
+{ "id": "B", "text": "Jonás" },
+{ "id": "C", "text": "Samuel" },
+{ "id": "D", "text": "Ezequiel" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién pidió sabiduría a Dios?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Salomón" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Josías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué rey comenzó a reinar siendo niño e hizo lo recto ante Dios?",
+"options": [
+{ "id": "A", "text": "Ezequías" },
+{ "id": "B", "text": "Saúl" },
+{ "id": "C", "text": "Josías" },
+{ "id": "D", "text": "Acab" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué rey enfermó y Dios le dio más años de vida?",
+"options": [
+{ "id": "A", "text": "Salomón" },
+{ "id": "B", "text": "Ezequías" },
+{ "id": "C", "text": "David" },
+{ "id": "D", "text": "Saúl" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta habló del Mesías sufriente?",
+"options": [
+{ "id": "A", "text": "Isaías" },
+{ "id": "B", "text": "Jonás" },
+{ "id": "C", "text": "Amós" },
+{ "id": "D", "text": "Oseas" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta escribió sobre el nuevo pacto?",
+"options": [
+{ "id": "A", "text": "Ezequiel" },
+{ "id": "B", "text": "Jeremías" },
+{ "id": "C", "text": "Daniel" },
+{ "id": "D", "text": "Joel" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el esposo de Rut?",
+"options": [
+{ "id": "A", "text": "Booz" },
+{ "id": "B", "text": "Elimelec" },
+{ "id": "C", "text": "Isaac" },
+{ "id": "D", "text": "Jacob" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "mujeres_destacadas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la suegra de Rut?",
+"options": [
+{ "id": "A", "text": "Sara" },
+{ "id": "B", "text": "Rebeca" },
+{ "id": "C", "text": "Noemí" },
+{ "id": "D", "text": "Ester" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "mujeres_destacadas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué juez tocó trompetas antes de la batalla?",
+"options": [
+{ "id": "A", "text": "Sansón" },
+{ "id": "B", "text": "Samuel" },
+{ "id": "C", "text": "Gedeón" },
+{ "id": "D", "text": "Débora" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "jueces", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta menor fue tragado por un gran pez?",
+"options": [
+{ "id": "A", "text": "Amós" },
+{ "id": "B", "text": "Jonás" },
+{ "id": "C", "text": "Miqueas" },
+{ "id": "D", "text": "Oseas" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_menores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta anunció la reconstrucción del templo junto a Zorobabel?",
+"options": [
+{ "id": "A", "text": "Hageo" },
+{ "id": "B", "text": "Isaías" },
+{ "id": "C", "text": "Jeremías" },
+{ "id": "D", "text": "Daniel" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_menores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué rey gobernaba cuando Daniel fue lanzado al foso de los leones?",
+"options": [
+{ "id": "A", "text": "Saúl" },
+{ "id": "B", "text": "Darío" },
+{ "id": "C", "text": "Salomón" },
+{ "id": "D", "text": "Acab" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "historicos", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue rey antes de David?",
+"options": [
+{ "id": "A", "text": "Samuel" },
+{ "id": "B", "text": "Saúl" },
+{ "id": "C", "text": "Salomón" },
+{ "id": "D", "text": "Isaí" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién construyó el templo en Jerusalén?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Saúl" },
+{ "id": "C", "text": "Salomón" },
+{ "id": "D", "text": "Josué" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién recibió los Diez Mandamientos?",
+"options": [
+{ "id": "A", "text": "Aarón" },
+{ "id": "B", "text": "Moisés" },
+{ "id": "C", "text": "Josué" },
+{ "id": "D", "text": "Abraham" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿En qué monte recibió Moisés la ley?",
+"options": [
+{ "id": "A", "text": "Monte Carmelo" },
+{ "id": "B", "text": "Monte Sinaí" },
+{ "id": "C", "text": "Monte Sion" },
+{ "id": "D", "text": "Monte de los Olivos" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hermano de Moisés y primer sumo sacerdote?",
+"options": [
+{ "id": "A", "text": "Josué" },
+{ "id": "B", "text": "Aarón" },
+{ "id": "C", "text": "Samuel" },
+{ "id": "D", "text": "Isaac" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la madre de Moisés?",
+"options": [
+{ "id": "A", "text": "Miriam" },
+{ "id": "B", "text": "Sara" },
+{ "id": "C", "text": "Jocabed" },
+{ "id": "D", "text": "Ana" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién encontró a Moisés en el río?",
+"options": [
+{ "id": "A", "text": "La hija del faraón" },
+{ "id": "B", "text": "Sara" },
+{ "id": "C", "text": "Ester" },
+{ "id": "D", "text": "Débora" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién escribió el libro de Lamentaciones?",
+"options": [
+{ "id": "A", "text": "Isaías" },
+{ "id": "B", "text": "Jeremías" },
+{ "id": "C", "text": "Ezequiel" },
+{ "id": "D", "text": "Daniel" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue lanzado al horno de fuego?",
+"options": [
+{ "id": "A", "text": "Daniel" },
+{ "id": "B", "text": "Sadrac" },
+{ "id": "C", "text": "Isaías" },
+{ "id": "D", "text": "Jeremías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue compañero de Sadrac en el horno?",
+"options": [
+{ "id": "A", "text": "Mesac" },
+{ "id": "B", "text": "Samuel" },
+{ "id": "C", "text": "Elías" },
+{ "id": "D", "text": "Josué" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el otro compañero en el horno de fuego?",
+"options": [
+{ "id": "A", "text": "Abed-nego" },
+{ "id": "B", "text": "David" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Isaac" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién ungió a David como rey?",
+"options": [
+{ "id": "A", "text": "Elías" },
+{ "id": "B", "text": "Samuel" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Moisés" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el padre de David?",
+"options": [
+{ "id": "A", "text": "Isaí" },
+{ "id": "B", "text": "Samuel" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "Salomón" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la madre de Isaac?",
+"options": [
+{ "id": "A", "text": "Rebeca" },
+{ "id": "B", "text": "Sara" },
+{ "id": "C", "text": "Raquel" },
+{ "id": "D", "text": "Ana" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la madre de Jacob?",
+"options": [
+{ "id": "A", "text": "Raquel" },
+{ "id": "B", "text": "Lea" },
+{ "id": "C", "text": "Rebeca" },
+{ "id": "D", "text": "Sara" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la esposa de Isaac?",
+"options": [
+{ "id": "A", "text": "Rebeca" },
+{ "id": "B", "text": "Raquel" },
+{ "id": "C", "text": "Sara" },
+{ "id": "D", "text": "Ester" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué hijo de David se rebeló contra él?",
+"options": [
+{ "id": "A", "text": "Salomón" },
+{ "id": "B", "text": "Absalón" },
+{ "id": "C", "text": "Isaac" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hijo mayor de Adán?",
+"options": [
+{ "id": "A", "text": "Set" },
+{ "id": "B", "text": "Caín" },
+{ "id": "C", "text": "Abel" },
+{ "id": "D", "text": "Enoc" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hermano de Caín?",
+"options": [
+{ "id": "A", "text": "Noé" },
+{ "id": "B", "text": "Abraham" },
+{ "id": "C", "text": "Abel" },
+{ "id": "D", "text": "Isaac" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién sobrevivió al diluvio con su familia?",
+"options": [
+{ "id": "A", "text": "Abraham" },
+{ "id": "B", "text": "Noé" },
+{ "id": "C", "text": "Lot" },
+{ "id": "D", "text": "Isaac" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué señal puso Dios después del diluvio?",
+"options": [
+{ "id": "A", "text": "Una estrella" },
+{ "id": "B", "text": "Una nube" },
+{ "id": "C", "text": "Un arcoíris" },
+{ "id": "D", "text": "Un fuego" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue sobrino de Abraham?",
+"options": [
+{ "id": "A", "text": "Isaac" },
+{ "id": "B", "text": "Jacob" },
+{ "id": "C", "text": "Lot" },
+{ "id": "D", "text": "Esaú" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué ciudad fue destruida junto a Gomorra?",
+"options": [
+{ "id": "A", "text": "Jerusalén" },
+{ "id": "B", "text": "Nazaret" },
+{ "id": "C", "text": "Sodoma" },
+{ "id": "D", "text": "Babilonia" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el padre de 12 hijos que formaron las tribus de Israel?",
+"options": [
+{ "id": "A", "text": "Isaac" },
+{ "id": "B", "text": "Jacob" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "José" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién interpretaba sueños en Egipto?",
+"options": [
+{ "id": "A", "text": "Moisés" },
+{ "id": "B", "text": "Daniel" },
+{ "id": "C", "text": "José" },
+{ "id": "D", "text": "Aarón" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién luchó con un ángel?",
+"options": [
+{ "id": "A", "text": "Isaac" },
+{ "id": "B", "text": "Moisés" },
+{ "id": "C", "text": "Jacob" },
+{ "id": "D", "text": "Elías" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue llamado amigo de Dios?",
+"options": [
+{ "id": "A", "text": "Isaac" },
+{ "id": "B", "text": "David" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué mujer fue reina y salvó a su pueblo?",
+"options": [
+{ "id": "A", "text": "Rut" },
+{ "id": "B", "text": "Ester" },
+{ "id": "C", "text": "Débora" },
+{ "id": "D", "text": "Ana" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "mujeres_destacadas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la madre de Samuel?",
+"options": [
+{ "id": "A", "text": "Sara" },
+{ "id": "B", "text": "Ana" },
+{ "id": "C", "text": "Rebeca" },
+{ "id": "D", "text": "Raquel" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "mujeres_destacadas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la jueza mujer de Israel?",
+"options": [
+{ "id": "A", "text": "Rut" },
+{ "id": "B", "text": "Débora" },
+{ "id": "C", "text": "Ester" },
+{ "id": "D", "text": "Miriam" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "lideres_israel", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue amiga fiel de Noemí?",
+"options": [
+{ "id": "A", "text": "Ester" },
+{ "id": "B", "text": "Sara" },
+{ "id": "C", "text": "Rut" },
+{ "id": "D", "text": "Marta" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "mujeres_destacadas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién traicionó a Sansón?",
+"options": [
+{ "id": "A", "text": "Dalila" },
+{ "id": "B", "text": "Ester" },
+{ "id": "C", "text": "Jezabel" },
+{ "id": "D", "text": "Ana" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "historicos", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hombre más fuerte de la Biblia?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Goliat" },
+{ "id": "C", "text": "Sansón" },
+{ "id": "D", "text": "Saúl" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "lideres_israel", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién escribió muchos Salmos?",
+"options": [
+{ "id": "A", "text": "Salomón" },
+{ "id": "B", "text": "David" },
+{ "id": "C", "text": "Moisés" },
+{ "id": "D", "text": "Isaías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta habló del valle de huesos secos?",
+"options": [
+{ "id": "A", "text": "Jeremías" },
+{ "id": "B", "text": "Daniel" },
+{ "id": "C", "text": "Ezequiel" },
+{ "id": "D", "text": "Oseas" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué profeta dijo “Heme aquí”?",
+"options": [
+{ "id": "A", "text": "Isaías" },
+{ "id": "B", "text": "Jonás" },
+{ "id": "C", "text": "Amós" },
+{ "id": "D", "text": "Miqueas" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el padre de Juan el Bautista?",
+"options": [
+{ "id": "A", "text": "José" },
+{ "id": "B", "text": "Zacarías" },
+{ "id": "C", "text": "Pedro" },
+{ "id": "D", "text": "Eliseo" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "nuevo_testamento", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién abrió el Mar Rojo?",
+"options": [
+{ "id": "A", "text": "Josué" },
+{ "id": "B", "text": "Moisés" },
+{ "id": "C", "text": "Elías" },
+{ "id": "D", "text": "David" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hermano de Moisés?",
+"options": [
+{ "id": "A", "text": "Aarón" },
+{ "id": "B", "text": "Josué" },
+{ "id": "C", "text": "Samuel" },
+{ "id": "D", "text": "Elías" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "exodo", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién conquistó Jericó?",
+"options": [
+{ "id": "A", "text": "Moisés" },
+{ "id": "B", "text": "David" },
+{ "id": "C", "text": "Josué" },
+{ "id": "D", "text": "Saúl" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "historicos", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el primer rey de Israel?",
+"options": [
+{ "id": "A", "text": "David" },
+{ "id": "B", "text": "Salomón" },
+{ "id": "C", "text": "Saúl" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién derrotó a Goliat?",
+"options": [
+{ "id": "A", "text": "Saúl" },
+{ "id": "B", "text": "David" },
+{ "id": "C", "text": "Salomón" },
+{ "id": "D", "text": "Josué" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hijo rey de David conocido por su sabiduría?",
+"options": [
+{ "id": "A", "text": "Saúl" },
+{ "id": "B", "text": "Samuel" },
+{ "id": "C", "text": "Salomón" },
+{ "id": "D", "text": "Josué" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "reyes", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue tragado por un gran pez?",
+"options": [
+{ "id": "A", "text": "Jonás" },
+{ "id": "B", "text": "Elías" },
+{ "id": "C", "text": "Daniel" },
+{ "id": "D", "text": "Isaías" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_menores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue llevado al foso de los leones?",
+"options": [
+{ "id": "A", "text": "Jeremías" },
+{ "id": "B", "text": "Daniel" },
+{ "id": "C", "text": "Ezequiel" },
+{ "id": "D", "text": "Nehemías" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas_mayores", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue profeta en el tiempo del rey Acab?",
+"options": [
+{ "id": "A", "text": "Elías" },
+{ "id": "B", "text": "Jonás" },
+{ "id": "C", "text": "Samuel" },
+{ "id": "D", "text": "Amós" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "profetas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién ayudó a reconstruir los muros de Jerusalén?",
+"options": [
+{ "id": "A", "text": "Esdras" },
+{ "id": "B", "text": "Nehemías" },
+{ "id": "C", "text": "Isaías" },
+{ "id": "D", "text": "Josué" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "historicos", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el primer hombre?",
+"options": [
+{ "id": "A", "text": "Noé" },
+{ "id": "B", "text": "Adán" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "Moisés" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue la primera mujer?",
+"options": [
+{ "id": "A", "text": "Sara" },
+{ "id": "B", "text": "Eva" },
+{ "id": "C", "text": "Rebeca" },
+{ "id": "D", "text": "Raquel" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién construyó el arca?",
+"options": [
+{ "id": "A", "text": "Moisés" },
+{ "id": "B", "text": "Noé" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "David" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue llamado por Dios para salir de su tierra?",
+"options": [
+{ "id": "A", "text": "Isaac" },
+{ "id": "B", "text": "Jacob" },
+{ "id": "C", "text": "Abraham" },
+{ "id": "D", "text": "José" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Cómo se llamaba la esposa de Abraham?",
+"options": [
+{ "id": "A", "text": "Sara" },
+{ "id": "B", "text": "Rebeca" },
+{ "id": "C", "text": "Raquel" },
+{ "id": "D", "text": "Rut" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue el hijo prometido de Abraham?",
+"options": [
+{ "id": "A", "text": "Ismael" },
+{ "id": "B", "text": "Isaac" },
+{ "id": "C", "text": "Jacob" },
+{ "id": "D", "text": "Esaú" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue hijo de Isaac?",
+"options": [
+{ "id": "A", "text": "José" },
+{ "id": "B", "text": "Moisés" },
+{ "id": "C", "text": "Jacob" },
+{ "id": "D", "text": "Samuel" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Qué otro nombre recibió Jacob?",
+"options": [
+{ "id": "A", "text": "Israel" },
+{ "id": "B", "text": "Judá" },
+{ "id": "C", "text": "Benjamín" },
+{ "id": "D", "text": "Leví" }
+],
+"correctAnswer": "A",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "patriarcas", "active": true }
+},
+{
+"level": "facil",
+"question": "¿Quién fue vendido por sus hermanos?",
+"options": [
+{ "id": "A", "text": "Esaú" },
+{ "id": "B", "text": "Isaac" },
+{ "id": "C", "text": "José" },
+{ "id": "D", "text": "David" }
+],
+"correctAnswer": "C",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+},
+{
+"level": "facil",
+"question": "¿A qué país fue llevado José?",
+"options": [
+{ "id": "A", "text": "Babilonia" },
+{ "id": "B", "text": "Egipto" },
+{ "id": "C", "text": "Roma" },
+{ "id": "D", "text": "Grecia" }
+],
+"correctAnswer": "B",
+"xpReward": 10,
+"difficultyMultiplier": 1,
+"metadata": { "category": "genesis", "active": true }
+}
+]

@@ -806,13 +806,15 @@ const getMessages = async (req, res) => {
 const sendMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, replyTo, tipo = 'texto', files = [] } = req.body;
+    const { content, contenido, metadata, replyTo, tipo = 'texto', files = [] } = req.body;
+
+    const finalContent = content || contenido;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    if (!content || content.trim().length === 0) {
+    if (!finalContent || finalContent.trim().length === 0) {
       return res.status(400).json(formatErrorResponse('El mensaje no puede estar vacío'));
     }
 
@@ -831,8 +833,9 @@ const sendMessage = async (req, res) => {
     const messageData = {
       grupo: id,
       author: req.userId,
-      content: content.trim(),
+      content: finalContent.trim(),
       tipo,
+      metadata,
       files
     };
 

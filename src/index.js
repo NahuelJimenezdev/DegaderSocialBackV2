@@ -74,7 +74,8 @@ const io = new Server(httpServer, {
       'http://localhost:5173',
       'http://localhost:5174',
       'http://localhost:3000',
-      'http://3.144.132.207'  // Servidor AWS en producción
+      'https://degadersocial.com',
+      'http://degadersocial.com'
     ],
     methods: ['GET', 'POST'],
     credentials: true
@@ -91,7 +92,8 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
-    'http://3.144.132.207'  // Servidor AWS en producción
+    'https://degadersocial.com',
+    'http://degadersocial.com'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.20.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.19.3...v1.20.0) (2026-03-01)
+
+
+### Features
+
+* implementar sistema progresivo de imagenes ([de0853b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/de0853b115688ea05faac68264109353a4d5744b))
+
 ### [1.19.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.19.2...v1.19.3) (2026-03-01)
 
 ### [1.19.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.19.1...v1.19.2) (2026-03-01)

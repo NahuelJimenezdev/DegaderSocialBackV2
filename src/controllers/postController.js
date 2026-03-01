@@ -5,6 +5,7 @@ const Friendship = require('../models/Friendship'); // 🆕 Importar modelo de a
 const UserV2 = require('../models/User.model'); // 🆕 Importar modelo de usuario para verificar roles
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
+const { processAndUploadImage } = require('../services/imageOptimizationService');
 
 /**
  * Helper: Verificar si el usuario puede interactuar con el post de otro usuario
@@ -79,14 +80,21 @@ const createPost = async (req, res) => {
 
       for (const file of req.files) {
         try {
-          const fileUrl = await uploadToR2(file.buffer, file.originalname, 'posts');
-          console.log('✅ [CREATE POST] File uploaded to R2:', fileUrl);
-
           // Clasificar por tipo de archivo
           if (file.mimetype.startsWith('image/')) {
-            uploadedImages.push({ url: fileUrl });
+            const optimizedResult = await processAndUploadImage(file.buffer, file.originalname, 'posts');
+            uploadedImages.push({
+              url: optimizedResult.large || optimizedResult.medium || optimizedResult.small,
+              small: optimizedResult.small,
+              medium: optimizedResult.medium,
+              large: optimizedResult.large,
+              blurHash: optimizedResult.blurHash
+            });
+            console.log('✅ [CREATE POST] Image optimized and uploaded to R2');
           } else if (file.mimetype.startsWith('video/')) {
+            const fileUrl = await uploadToR2(file.buffer, file.originalname, 'posts');
             uploadedVideos.push({ url: fileUrl });
+            console.log('✅ [CREATE POST] Video uploaded to R2:', fileUrl);
           }
         } catch (uploadError) {
           console.error('❌ [CREATE POST] Error uploading file to R2:', uploadError);

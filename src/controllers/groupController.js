@@ -4,6 +4,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User.model');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
+const { processAndUploadImage } = require('../services/imageOptimizationService');
 
 /**
  * Obtener todos los grupos
@@ -244,8 +245,9 @@ const createGroup = async (req, res) => {
 
     // Agregar imagen si se subió
     if (req.file) {
-      const imageUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'groups');
-      groupData.imagen = imageUrl;
+      const optimizedResult = await processAndUploadImage(req.file.buffer, req.file.originalname, 'groups');
+      groupData.imagen = optimizedResult.large || optimizedResult.medium || optimizedResult.url || optimizedResult.small;
+      groupData.avatar = optimizedResult;
       console.log('🖼️ Imagen agregada a R2:', groupData.imagen);
     }
 
@@ -329,8 +331,9 @@ const updateGroup = async (req, res) => {
           console.error('Error al eliminar imagen anterior de R2:', error);
         }
       }
-      const imageUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'groups');
-      group.imagen = imageUrl;
+      const optimizedResult = await processAndUploadImage(req.file.buffer, req.file.originalname, 'groups');
+      group.imagen = optimizedResult.large || optimizedResult.medium || optimizedResult.url || optimizedResult.small;
+      group.avatar = optimizedResult;
     }
 
     await group.save();
@@ -685,11 +688,12 @@ const uploadGroupAvatar = async (req, res) => {
     }
 
     // Subir nueva imagen a R2
-    const imageUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'groups');
-    group.imagen = imageUrl;
+    const optimizedResult = await processAndUploadImage(req.file.buffer, req.file.originalname, 'groups');
+    group.imagen = optimizedResult.large || optimizedResult.medium || optimizedResult.url || optimizedResult.small;
+    group.avatar = optimizedResult;
     await group.save();
 
-    res.json(formatSuccessResponse('Avatar actualizado exitosamente', { imagen: group.imagen }));
+    res.json(formatSuccessResponse('Avatar actualizado exitosamente', { imagen: group.imagen, avatar: group.avatar }));
   } catch (error) {
     console.error('Error al subir avatar:', error);
     res.status(500).json(formatErrorResponse('Error al subir avatar', [error.message]));
@@ -1890,6 +1894,23 @@ const sendMessageWithFiles = async (req, res) => {
       if (file.mimetype.startsWith('image/')) tipo = 'image';
       else if (file.mimetype.startsWith('video/')) tipo = 'video';
       else if (file.mimetype.startsWith('audio/')) tipo = 'audio';
+
+      if (tipo === 'image') {
+        const imageOptimizationService = require('../services/imageOptimizationService');
+        const optimizedData = await imageOptimizationService.processAndUploadImage(
+          file.buffer, 'group-attachments'
+        );
+        return {
+          url: optimizedData.url,
+          small: optimizedData.small,
+          medium: optimizedData.medium,
+          large: optimizedData.large,
+          blurHash: optimizedData.blurHash,
+          nombre: file.originalname,
+          tipo: tipo,
+          tamaño: file.size
+        };
+      }
 
       // Subir archivo a R2
       const fileUrl = await uploadToR2(file.buffer, file.originalname, 'group-attachments');

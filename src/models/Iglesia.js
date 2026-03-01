@@ -97,11 +97,36 @@ const IglesiaSchema = new Schema({
   },
 
   logo: { type: String },
+  logoObj: {
+    url: String,
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String
+  },
   portada: { type: String },
+  portadaObj: {
+    url: String,
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String
+  },
   galeria: [{ type: String }],
+  galeriaObjs: [{
+    url: String,
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String
+  }],
 
   multimedia: [{
     url: { type: String, required: true },
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String,
     tipo: { type: String, enum: ['image', 'video'], required: true },
     caption: String,
     fecha: { type: Date, default: Date.now }

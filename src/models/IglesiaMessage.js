@@ -43,6 +43,10 @@ const iglesiaMessageSchema = new mongoose.Schema({
   // Archivos adjuntos
   files: [{
     url: String,
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String,
     nombre: String,
     tipo: String,
     tamaño: Number

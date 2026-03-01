@@ -40,6 +40,11 @@ const groupMessageSchema = new mongoose.Schema({
     ref: 'GroupMessage',
     default: null
   },
+  // Metadatos adicionales (ej: publicación compartida)
+  metadata: {
+    type: Object,
+    default: null
+  },
   // Archivos adjuntos
   files: [{
     url: String,

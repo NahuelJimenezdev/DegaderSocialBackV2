@@ -22,6 +22,11 @@ const messageSchema = new mongoose.Schema({
     tipo: String,
     tamaño: Number
   },
+  // Metadatos adicionales (ej: publicación compartida)
+  metadata: {
+    type: Object,
+    default: null
+  },
   leido: {
     type: Boolean,
     default: false

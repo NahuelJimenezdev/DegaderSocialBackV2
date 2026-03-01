@@ -200,7 +200,7 @@ const getOrCreateConversation = async (req, res) => {
 const sendMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { contenido, tipo = 'texto' } = req.body;
+    const { contenido, metadata, tipo = 'texto' } = req.body;
 
     console.log('💬 [SEND MESSAGE] Conversación:', id);
     console.log('💬 [SEND MESSAGE] Archivos:', req.files ? req.files.length : 0);
@@ -230,6 +230,7 @@ const sendMessage = async (req, res) => {
       emisor: req.userId,
       contenido: contenido ? contenido.trim() : '',
       tipo,
+      metadata,
       leido: false
     };
 

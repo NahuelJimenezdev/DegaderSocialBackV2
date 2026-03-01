@@ -891,7 +891,7 @@ const sendMessage = async (req, res) => {
             receptor: recipientId,
             emisor: req.userId,
             tipo: 'nuevo_mensaje',
-            contenido: `${senderName} envió un mensaje en ${iglesia.nombre}`,
+            contenido: `envió un mensaje en ${iglesia.nombre}`,
             referencia: {
               tipo: 'Iglesia',
               id: iglesia._id

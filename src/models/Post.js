@@ -46,6 +46,10 @@ const postSchema = new mongoose.Schema({
   // Nuevos campos para soportar múltiples imágenes y videos (base64)
   images: [{
     url: { type: String, required: true, trim: true },
+    small: { type: String, trim: true },
+    medium: { type: String, trim: true },
+    large: { type: String, trim: true },
+    blurHash: { type: String, trim: true },
     alt: { type: String, default: '', trim: true }
   }],
   videos: [{

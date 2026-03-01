@@ -166,6 +166,14 @@ const uploadGroupAttachments = multer({
   limits: { fileSize: 100 * 1024 * 1024 } // 100 MB para archivos de grupo
 }).array('attachments', 20);
 
+// Middleware de upload para imágenes optimizadas (memoria, max 15MB)
+const optimizedStorage = multer.memoryStorage();
+const uploadOptimized = multer({
+  storage: optimizedStorage,
+  fileFilter: imageFileFilter,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15 MB
+}).single('imagen');
+
 // Manejador de errores de multer
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -197,5 +205,6 @@ module.exports = {
   uploadMessageFile,
   uploadConversationFiles,
   uploadGroupAttachments,
+  uploadOptimized,
   handleUploadError
 };

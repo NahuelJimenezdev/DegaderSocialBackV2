@@ -4,6 +4,7 @@ const Meeting = require('../models/Meeting'); // Importar Meeting para conteo gl
 const UserV2 = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
+const imageOptimizationService = require('../services/imageOptimizationService');
 
 /**
  * Crear una nueva iglesia
@@ -430,9 +431,10 @@ const updateIglesia = async (req, res) => {
       if (req.files.logo && req.files.logo[0]) {
         console.log('📤 [UPDATE IGLESIA] Subiendo logo a R2...');
         try {
-          const logoUrl = await uploadToR2(req.files.logo[0].buffer, req.files.logo[0].originalname, 'iglesias');
-          console.log('✅ [UPDATE IGLESIA] Logo subido a R2:', logoUrl);
-          iglesia.logo = logoUrl;
+          const optimizedLogo = await imageOptimizationService.processAndUploadImage(req.files.logo[0].buffer, 'iglesias');
+          console.log('✅ [UPDATE IGLESIA] Logo subido a R2:', optimizedLogo.url);
+          iglesia.logo = optimizedLogo.url;
+          iglesia.logoObj = optimizedLogo;
         } catch (uploadError) {
           console.error('❌ [UPDATE IGLESIA] Error al subir logo:', uploadError);
         }
@@ -440,9 +442,10 @@ const updateIglesia = async (req, res) => {
       if (req.files.portada && req.files.portada[0]) {
         console.log('📤 [UPDATE IGLESIA] Subiendo portada a R2...');
         try {
-          const portadaUrl = await uploadToR2(req.files.portada[0].buffer, req.files.portada[0].originalname, 'iglesias');
-          console.log('✅ [UPDATE IGLESIA] Portada subida a R2:', portadaUrl);
-          iglesia.portada = portadaUrl;
+          const optimizedPortada = await imageOptimizationService.processAndUploadImage(req.files.portada[0].buffer, 'iglesias');
+          console.log('✅ [UPDATE IGLESIA] Portada subida a R2:', optimizedPortada.url);
+          iglesia.portada = optimizedPortada.url;
+          iglesia.portadaObj = optimizedPortada;
         } catch (uploadError) {
           console.error('❌ [UPDATE IGLESIA] Error al subir portada:', uploadError);
         }
@@ -470,11 +473,14 @@ const updateIglesia = async (req, res) => {
     if (req.files && req.files.galeria && req.files.galeria.length > 0) {
       console.log('📤 [UPDATE IGLESIA] Subiendo fotos nuevas a galería...');
       try {
-        const galeriaPromises = req.files.galeria.map(file =>
-          uploadToR2(file.buffer, file.originalname, 'iglesias/galeria')
-        );
-        const newUrls = await Promise.all(galeriaPromises);
-        iglesia.galeria = [...iglesia.galeria, ...newUrls];
+        const galeriaPromises = req.files.galeria.map(async (file) => {
+          return await imageOptimizationService.processAndUploadImage(file.buffer, 'iglesias/galeria');
+        });
+        const newImages = await Promise.all(galeriaPromises);
+        const newUrls = newImages.map(img => img.url);
+        iglesia.galeria = [...(iglesia.galeria || []), ...newUrls];
+        if (!iglesia.galeriaObjs) iglesia.galeriaObjs = [];
+        iglesia.galeriaObjs = [...iglesia.galeriaObjs, ...newImages];
       } catch (uploadError) {
         console.error('❌ Error subiendo galería:', uploadError);
       }
@@ -485,14 +491,28 @@ const updateIglesia = async (req, res) => {
       console.log('📤 [UPDATE IGLESIA] Subiendo archivos multimedia...');
       try {
         const multimediaPromises = req.files.multimedia.map(async (file) => {
-          const url = await uploadToR2(file.buffer, file.originalname, 'iglesias/multimedia');
           const isVideo = file.mimetype.startsWith('video/');
-          return {
-            url,
-            tipo: isVideo ? 'video' : 'image',
-            caption: req.body.multimediaCaption || 'Contenido Multimedia',
-            fecha: new Date()
-          };
+          if (isVideo) {
+            const url = await uploadToR2(file.buffer, file.originalname, 'iglesias/multimedia');
+            return {
+              url,
+              tipo: 'video',
+              caption: req.body.multimediaCaption || 'Contenido Multimedia',
+              fecha: new Date()
+            };
+          } else {
+            const optimized = await imageOptimizationService.processAndUploadImage(file.buffer, 'iglesias/multimedia');
+            return {
+              url: optimized.url,
+              small: optimized.small,
+              medium: optimized.medium,
+              large: optimized.large,
+              blurHash: optimized.blurHash,
+              tipo: 'image',
+              caption: req.body.multimediaCaption || 'Contenido Multimedia',
+              fecha: new Date()
+            };
+          }
         });
 
         const newMultimedia = await Promise.all(multimediaPromises);
@@ -836,6 +856,23 @@ const sendMessage = async (req, res) => {
 
       const uploadPromises = req.files.map(async (file) => {
         try {
+          let isImage = file.mimetype.startsWith('image/');
+
+          if (isImage) {
+            const optimized = await imageOptimizationService.processAndUploadImage(file.buffer, 'iglesias/messages');
+            console.log('✅ [SEND MESSAGE] Imagen optimizada y subida:', optimized.url);
+            return {
+              url: optimized.url,
+              small: optimized.small,
+              medium: optimized.medium,
+              large: optimized.large,
+              blurHash: optimized.blurHash,
+              nombre: file.originalname,
+              tipo: file.mimetype,
+              tamaño: file.size
+            };
+          }
+
           const fileUrl = await uploadToR2(file.buffer, file.originalname, 'iglesias/messages');
           console.log('✅ [SEND MESSAGE] Archivo subido a R2:', fileUrl);
           return {

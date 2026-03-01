@@ -18,6 +18,10 @@ const messageSchema = new mongoose.Schema({
   },
   archivo: {
     url: String,
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String,
     nombre: String,
     tipo: String,
     tamaño: Number

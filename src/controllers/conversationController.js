@@ -2,6 +2,7 @@
 const Friendship = require('../models/Friendship');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
+const { processAndUploadImage } = require('../services/imageOptimizationService');
 
 /**
  * Obtener todas las conversaciones del usuario
@@ -241,21 +242,37 @@ const sendMessage = async (req, res) => {
       const file = req.files[0]; // Por ahora, tomar el primer archivo
 
       try {
-        const fileUrl = await uploadToR2(file.buffer, file.originalname, 'messages');
-        console.log('✅ [SEND MESSAGE] Archivo subido a R2:', fileUrl);
-
-        // Detectar tipo de archivo automáticamente
         const esImagen = file.mimetype.startsWith('image/');
         const esVideo = file.mimetype.startsWith('video/');
         const esAudio = file.mimetype.startsWith('audio/');
 
         mensaje.tipo = esImagen ? 'imagen' : esVideo ? 'video' : esAudio ? 'audio' : 'archivo';
-        mensaje.archivo = {
-          url: fileUrl,
-          nombre: file.originalname,
-          tipo: file.mimetype,
-          tamaño: file.size
-        };
+
+        if (esImagen) {
+          const optimizedResult = await processAndUploadImage(file.buffer, file.originalname, 'messages');
+          console.log('✅ [SEND MESSAGE] Image optimized and uploaded to R2');
+
+          mensaje.archivo = {
+            url: optimizedResult.large || optimizedResult.medium || optimizedResult.small,
+            small: optimizedResult.small,
+            medium: optimizedResult.medium,
+            large: optimizedResult.large,
+            blurHash: optimizedResult.blurHash,
+            nombre: file.originalname,
+            tipo: file.mimetype,
+            tamaño: file.size
+          };
+        } else {
+          const fileUrl = await uploadToR2(file.buffer, file.originalname, 'messages');
+          console.log('✅ [SEND MESSAGE] Archivo subido a R2:', fileUrl);
+
+          mensaje.archivo = {
+            url: fileUrl,
+            nombre: file.originalname,
+            tipo: file.mimetype,
+            tamaño: file.size
+          };
+        }
       } catch (uploadError) {
         console.error('❌ [SEND MESSAGE] Error al subir archivo a R2:', uploadError);
         return res.status(500).json(formatErrorResponse('Error al subir archivo', [uploadError.message]));

@@ -16,6 +16,13 @@ const groupSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  avatar: {
+    url: String,
+    small: String,
+    medium: String,
+    large: String,
+    blurHash: String
+  },
   tipo: {
     type: String,
     enum: ['publico', 'privado', 'secreto'],

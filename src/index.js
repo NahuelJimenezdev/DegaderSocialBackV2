@@ -159,6 +159,7 @@ const ministerioRoutes = require('./routes/ministerio.routes');
 const onboardingRoutes = require('./routes/onboarding.routes');
 const arenaRoutes = require('./modules/arena/routes/arena.routes');
 const economyRoutes = require('./modules/economy/economy.routes');
+const uploadRoutes = require('./routes/upload.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -204,6 +205,7 @@ app.use('/api/founder', founderRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/arena', arenaRoutes);
 app.use('/api/economy', distributedRateLimit({ maxPerMinute: 30 }), economyRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

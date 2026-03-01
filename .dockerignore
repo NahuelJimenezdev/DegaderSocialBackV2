@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.git
+.env
+tests
+docs
+infrastructure/metrics
+CHANGELOG.md
+SECURITY_SCRIPTS.md
+debug_output.txt
+*.md

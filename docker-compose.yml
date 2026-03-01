@@ -1,0 +1,48 @@
+services:
+  backend:
+    build: .
+    container_name: degader-backend
+    restart: always
+    env_file: .env
+    ports:
+      - "3001:3001"
+    volumes:
+      - uploads_data:/usr/src/app/uploads
+    depends_on:
+      - redis
+    networks:
+      - degader-network
+
+  redis:
+    image: redis:alpine
+    container_name: degader-redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - degader-network
+
+  frontend:
+    build: 
+      context: ../DegaderSocialFrontV2
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=https://degadersocial.com/api
+        - VITE_ENV=production
+    container_name: degader-frontend
+    restart: always
+    ports:
+      - "8080:80"
+    networks:
+      - degader-network
+
+networks:
+  degader-network:
+    driver: bridge
+
+volumes:
+  uploads_data:
+  redis_data:

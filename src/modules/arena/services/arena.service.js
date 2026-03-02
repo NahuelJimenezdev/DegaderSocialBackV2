@@ -89,7 +89,7 @@ class ArenaService {
         }
 
         try {
-            await user.save();
+            await user.save({ validateModifiedOnly: true });
             logger.info(`[ArenaService] ✅ ÉXITO: Datos persistidos para ${userId}. Total XP: ${user.arena.xp}`);
         } catch (err) {
             logger.error(`[ArenaService] ❌ ERROR AL GUARDAR USUARIO: ${err.message}`);
@@ -126,7 +126,7 @@ class ArenaService {
         const user = await arenaRepository.findUserById(userId);
         if (user) {
             user.arena.antiCheatFlags.shadowBanned = true;
-            await user.save();
+            await user.save({ validateModifiedOnly: true });
             metrics.incShadowBan();
             eventBus.emit(eventBus.constructor.Events.ARENA_USER_SHADOWBANNED, { userId, reason });
         }

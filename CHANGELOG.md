@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.22.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.21.0...v1.22.0) (2026-03-02)
+
+
+### Features
+
+* **perfil:** agregar paginas de configuracion y privacidad de cuenta ([93e536f](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/93e536f9115c518c5065208b1c855f51a8929415))
+
 ## [1.21.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.20.1...v1.21.0) (2026-03-02)
 
 

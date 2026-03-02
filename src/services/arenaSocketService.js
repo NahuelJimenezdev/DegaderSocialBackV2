@@ -75,25 +75,30 @@ class ArenaSocketService {
         // Notificar al Jugador 1 con datos del Oponente 2
         this.io.to(p1.socketId).emit('arena:matchFound', {
           matchId: newMatch._id,
+          player1Id: p1.userId,
+          player2Id: p2.userId,
           opponent: user2
         });
 
         // Notificar al Jugador 2 con datos del Oponente 1
         this.io.to(p2.socketId).emit('arena:matchFound', {
           matchId: newMatch._id,
+          player1Id: p1.userId,
+          player2Id: p2.userId,
           opponent: user1
         });
 
         console.log(`⚔️ [ARENA] Partida Creada: ${newMatch._id} (${p1.userId} vs ${p2.userId})`);
 
-        // 3. Empezar primera ronda luego de 3 segundos visuales (MOCK de carga)
+        // 3. Empezar primera ronda luego de 7 segundos visuales (MOCK de carga)
         setTimeout(() => {
+          console.log(`🚀 [ARENA] Enviando roundStart para partida ${newMatch._id}`);
           this.io.to(roomId).emit('arena:roundStart', {
             roundNum: 1,
             // MOCK: Generar un ID de pregunta aleatorio que los clientes usen para buscar el JSON local
             questionId: Math.floor(Math.random() * 10).toString()
           });
-        }, 3000);
+        }, 7000);
 
       } catch (error) {
         console.error('❌ [ARENA] Error creando partida:', error);

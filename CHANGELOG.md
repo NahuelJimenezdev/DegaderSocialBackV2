@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.22.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.4...v1.22.5) (2026-03-02)
+
+
+### Bug Fixes
+
+* **arena:** avoid unrelated validation errors on user save by using validateModifiedOnly ([cd2a413](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/cd2a41302885802e380a7ac52af1669a62496083))
+
 ### [1.22.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.3...v1.22.4) (2026-03-02)
 
 ### [1.22.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.2...v1.22.3) (2026-03-02)

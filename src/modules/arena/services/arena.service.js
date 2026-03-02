@@ -65,13 +65,13 @@ class ArenaService {
             await arenaRepository.createSession({
                 userId,
                 level,
-                score,
-                correctAnswers: score, // Campo requerido por el modelo ArenaSession
+                score: Number(score) || 0,
+                correctAnswers: Number(score) || 0, // Campo requerido por el modelo ArenaSession
                 xpEarned: effectiveXP,
-                totalQuestions: sessionData.totalQuestions || correctQuestionIds.length,
-                duration: sessionData.duration || 60,
-                bestStreak: sessionData.bestStreak || 0,
-                fastestAnswer: sessionData.fastestAnswer || 999,
+                totalQuestions: Number(sessionData.totalQuestions) || correctQuestionIds.length || 1,
+                duration: Number(sessionData.duration) || 60,
+                bestStreak: Number(sessionData.bestStreak) || 0,
+                fastestAnswer: Number(sessionData.fastestAnswer) || 999,
                 correctQuestionIds,
                 endedAt: new Date()
             });

@@ -64,6 +64,8 @@ router.post('/:id/join', iglesiaController.unirseIglesia);
 router.post('/:id/leave', iglesiaController.leaveIglesia);
 router.delete('/:id/join', iglesiaController.cancelarSolicitud);
 router.put('/:id', uploadMiddleware, iglesiaController.updateIglesia);
+router.delete('/:id', iglesiaController.eliminarIglesia);
+router.put('/:id/transferir-admin', iglesiaController.transferirLiderazgo);
 router.post('/:id/solicitudes/:userId', iglesiaController.gestionarSolicitud);
 
 // Rutas de Chat

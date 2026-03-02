@@ -74,7 +74,7 @@ class ArenaController {
             // Proactive Achievement Check (Unlock missing achievements for veteran players)
             const newlyUnlocked = await achievementsService.checkAndUnlock(user, {});
             if (newlyUnlocked.length > 0) {
-                await user.save();
+                await user.save({ validateModifiedOnly: true });
             }
 
             const responseData = {

@@ -1059,6 +1059,90 @@ const getGlobalStats = async (req, res) => {
   }
 };
 
+/**
+ * Eliminar Iglesia (solo pastor principal)
+ * DELETE /api/iglesias/:id
+ */
+const eliminarIglesia = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json(formatErrorResponse('ID inválido'));
+
+    const iglesia = await Iglesia.findById(id);
+    if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
+
+    if (iglesia.pastorPrincipal.toString() !== req.userId.toString()) {
+      return res.status(403).json(formatErrorResponse('Solo el pastor principal puede eliminar la iglesia'));
+    }
+
+    // Actualizar todos los miembros
+    await UserV2.updateMany(
+      { _id: { $in: iglesia.miembros } },
+      {
+        $set: {
+          esMiembroIglesia: false,
+          'eclesiastico.activo': false,
+          'eclesiastico.iglesia': null,
+          'eclesiastico.rolPrincipal': 'miembro',
+          'eclesiastico.ministerios': [],
+          'eclesiastico.historialRoles': []
+        }
+      }
+    );
+
+    await Iglesia.findByIdAndDelete(id);
+
+    res.json(formatSuccessResponse('Iglesia eliminada exitosamente'));
+  } catch (error) {
+    console.error('Error al eliminar iglesia:', error);
+    res.status(500).json(formatErrorResponse('Error al eliminar iglesia', [error.message]));
+  }
+};
+
+/**
+ * Transferir Liderazgo (solo pastor principal)
+ * PUT /api/iglesias/:id/transferir-admin
+ */
+const transferirLiderazgo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nuevoPastorId } = req.body;
+
+    if (!isValidObjectId(id) || !isValidObjectId(nuevoPastorId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const iglesia = await Iglesia.findById(id);
+    if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
+
+    if (iglesia.pastorPrincipal.toString() !== req.userId.toString()) {
+      return res.status(403).json(formatErrorResponse('Solo el pastor principal puede transferir el liderazgo'));
+    }
+
+    if (!iglesia.miembros.includes(nuevoPastorId)) {
+      return res.status(400).json(formatErrorResponse('El nuevo pastor debe ser miembro de la iglesia'));
+    }
+
+    // Actualizar pastor anterior
+    await UserV2.findByIdAndUpdate(req.userId, {
+      'eclesiastico.rolPrincipal': 'miembro'
+    });
+
+    // Actualizar nuevo pastor
+    await UserV2.findByIdAndUpdate(nuevoPastorId, {
+      'eclesiastico.rolPrincipal': 'pastor_principal'
+    });
+
+    iglesia.pastorPrincipal = nuevoPastorId;
+    await iglesia.save();
+
+    res.json(formatSuccessResponse('Liderazgo transferido exitosamente'));
+  } catch (error) {
+    console.error('Error al transferir liderazgo:', error);
+    res.status(500).json(formatErrorResponse('Error al transferir liderazgo', [error.message]));
+  }
+};
+
 module.exports = {
   crearIglesia,
   obtenerIglesias,
@@ -1073,5 +1157,7 @@ module.exports = {
   reactToMessage,
   getGlobalStats,
   leaveIglesia,
-  getExMiembros
+  getExMiembros,
+  eliminarIglesia,
+  transferirLiderazgo
 };

@@ -1,5 +1,22 @@
 const mongoose = require('mongoose');
 
+const attendanceRequestSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserV2',
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'denied'],
+    default: 'pending',
+  },
+  requestedAt: {
+    type: Date,
+    default: Date.now,
+  }
+}, { _id: false });
+
 const MeetingSchema = new mongoose.Schema({
   creator: {
     type: mongoose.Schema.Types.ObjectId,
@@ -39,8 +56,20 @@ const MeetingSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['administrative', 'training', 'community', 'personal', 'oracion', 'estudio_biblico', 'culto', 'escuela_dominical', 'capacitacion', 'grupal', 'comercial'],
-    default: 'personal',
+    enum: [
+      // Nuevos tipos globales
+      'publica', 'capacitacion', 'grupal',
+      // Tipos de iglesia
+      'administrative', 'training', 'community', 'oracion',
+      'estudio_biblico', 'culto', 'escuela_dominical', 'personal',
+    ],
+    default: 'publica',
+  },
+  // Visibilidad derivada del tipo
+  visibility: {
+    type: String,
+    enum: ['public', 'private', 'group'],
+    default: 'public',
   },
   status: {
     type: String,
@@ -49,12 +78,20 @@ const MeetingSchema = new mongoose.Schema({
   },
   targetMinistry: {
     type: String,
-    default: 'todos', // 'todos' o nombre del ministerio (ej: 'musica', 'juventud')
+    default: 'todos',
   },
+  // Usuarios confirmados/aprobados (pueden Unirse)
   attendees: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserV2'
   }],
+  // Usuarios invitados por el creador (reciben notificación, deben pedir "Asistiré")
+  invitedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserV2'
+  }],
+  // Solicitudes de asistencia (pendiente / aprobado / denegado)
+  attendanceRequests: [attendanceRequestSchema],
   startsAt: {
     type: Date,
     required: true,
@@ -69,7 +106,8 @@ const MeetingSchema = new mongoose.Schema({
 });
 
 MeetingSchema.index({ startsAt: 1 });
-
 MeetingSchema.index({ date: 1, type: 1 });
+MeetingSchema.index({ creator: 1 });
+MeetingSchema.index({ group: 1 });
 
 module.exports = mongoose.model('Meeting', MeetingSchema);

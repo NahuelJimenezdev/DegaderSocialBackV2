@@ -56,9 +56,16 @@ const startMeetingCron = () => {
         .populate('attendees', 'nombre apellido');
 
       for (const meeting of meetings) {
-        const meetingDateTime = new Date(meeting.date);
-        const [hours, minutes] = (meeting.time || '00:00').split(':');
-        meetingDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        // 🕒 Calcular inicio de reunión usando startsAt (UTC real) como fuente primaria
+        let meetingDateTime;
+        if (meeting.startsAt) {
+          meetingDateTime = new Date(meeting.startsAt);
+        } else {
+          // Fallback legacy para reuniones antiguas sin startsAt
+          meetingDateTime = new Date(meeting.date);
+          const [h, m] = (meeting.time || '00:00').split(':');
+          meetingDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
+        }
 
         // Calcular duración en minutos
         let durationMinutes = 60;
@@ -96,16 +103,23 @@ const startMeetingCron = () => {
             global.emitMeetingUpdate(attendeeIds, meeting, 'statusChange');
           }
 
-          // Notificar cuando comienza
+          // Notificar cuando comienza — con protección contra duplicados
           if (oldStatus === 'upcoming' && newStatus === 'in-progress') {
-            for (const attendee of meeting.attendees) {
-              await createMeetingNotification(
-                attendee._id,
-                meeting.creator._id,
-                'meeting_starting',
-                `La reunión "${meeting.title}" ha comenzado`,
-                meeting._id
-              );
+            const existingStartNotification = await Notification.findOne({
+              'metadata.meetingId': meeting._id,
+              'metadata.eventType': 'meeting_starting'
+            });
+
+            if (!existingStartNotification) {
+              for (const attendee of meeting.attendees) {
+                await createMeetingNotification(
+                  attendee._id,
+                  meeting.creator._id,
+                  'meeting_starting',
+                  `La reunión "${meeting.title}" ha comenzado`,
+                  meeting._id
+                );
+              }
             }
           }
 

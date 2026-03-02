@@ -256,7 +256,24 @@ const PerfilSocialSchema = new Schema({
     mostrarEmail: { type: Boolean, default: false },
     mostrarTelefono: { type: Boolean, default: false },
     permitirMensajes: { type: Boolean, default: true },
-    permitirEtiquetas: { type: Boolean, default: true }
+    permitirEtiquetas: { type: Boolean, default: true },
+    // Nuevas configuraciones proyectadas
+    amigosVisible: { type: String, enum: ['todos', 'amigos', 'solo_yo'], default: 'todos' },
+    iglesiaVisible: { type: Boolean, default: true },
+    arenaIncognito: { type: Boolean, default: false },
+    quienPuedeMensajear: { type: String, enum: ['todos', 'amigos', 'nadie'], default: 'todos' }
+  }
+}, { _id: false });
+
+// 4.5 Preferencias de Usuario (Tema, Alertas)
+const PreferenciasSchema = new Schema({
+  tema: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
+  sonidoAlertas: { type: Boolean, default: true },
+  notificaciones: {
+    mensajes: { type: Boolean, default: true },
+    solicitudes: { type: Boolean, default: true },
+    iglesia: { type: Boolean, default: true },
+    arena: { type: Boolean, default: true }
   }
 }, { _id: false });
 
@@ -372,6 +389,7 @@ const UserV2Schema = new Schema({
   fundacion: { type: PerfilFundacionSchema }, // Opcional, solo si esMiembroFundacion
   eclesiastico: { type: PerfilEclesiasticoSchema }, // Opcional, solo si esMiembroIglesia
   social: { type: PerfilSocialSchema, default: () => ({}) },
+  preferencias: { type: PreferenciasSchema, default: () => ({}) },
   seguridad: { type: SeguridadSchema, default: () => ({}) },
   perfilPublicitario: { type: PerfilPublicitarioSchema, default: () => ({}) }, // Para sistema de anuncios
 
@@ -421,13 +439,20 @@ const UserV2Schema = new Schema({
     level: { type: String, enum: ['facil', 'medio', 'dificil', 'experto'], default: 'facil' },
     xp: { type: Number, default: 0 },
     totalScore: { type: Number, default: 0 },
-    rankPoints: { type: Number, default: 0 },
-    league: { type: String, default: 'bronze' },
+    rankPoints: { type: Number, default: 0 }, // Puntos de Gloria (PG)
+    league: { type: String, enum: ['discipulo', 'creyente', 'guerrero_luz', 'guardian', 'emisario_reino'], default: 'discipulo' },
     streak: { type: Number, default: 0 },
+    highestStreak: { type: Number, default: 0 },
     lastGameAt: { type: Date },
     country: { type: String }, // Cacheado para ranking por país
     wins: { type: Number, default: 0 },
+    losses: { type: Number, default: 0 },
     gamesPlayed: { type: Number, default: 0 },
+    statsByMode: {
+      tower: { wins: { type: Number, default: 0 }, gamesPlayed: { type: Number, default: 0 } },
+      arena: { wins: { type: Number, default: 0 }, gamesPlayed: { type: Number, default: 0 } },
+      territory: { wins: { type: Number, default: 0 }, gamesPlayed: { type: Number, default: 0 } }
+    },
     achievements: [{ type: String }],
     completedChallenges: [{ type: Schema.Types.ObjectId, ref: 'Challenge' }], // Anti-farming
     antiCheatFlags: {

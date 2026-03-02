@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const UserV2 = require('../models/User.model');
 const Friendship = require('../models/Friendship');
+const arenaSocketService = require('./arenaSocketService');
 
 class SocketService {
   constructor() {
@@ -10,7 +11,10 @@ class SocketService {
 
   initialize(io) {
     this.io = io;
-    this.io.on('connection', (socket) => this.handleConnection(socket));
+    this.io.on('connection', (socket) => {
+      this.handleConnection(socket);
+      arenaSocketService.initialize(this.io, socket, this.connectedUsers);
+    });
 
     // Hacer funciones helper globales (para compatibilidad con controladores existentes)
     global.io = io;

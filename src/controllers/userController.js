@@ -253,6 +253,22 @@ const updateProfile = async (req, res) => {
       }
     }
 
+    // Actualizar configuración de preferencias
+    if (req.body.preferencias) {
+      if (req.body.preferencias.tema !== undefined) {
+        updates['preferencias.tema'] = req.body.preferencias.tema;
+      }
+      if (req.body.preferencias.sonidoAlertas !== undefined) {
+        updates['preferencias.sonidoAlertas'] = req.body.preferencias.sonidoAlertas;
+      }
+      if (req.body.preferencias.notificaciones) {
+        updates['preferencias.notificaciones'] = {
+          ...updates['preferencias.notificaciones'],
+          ...req.body.preferencias.notificaciones
+        };
+      }
+    }
+
     // Actualizar flag de miembro fundación
     if (req.body.esMiembroFundacion !== undefined) {
       updates['esMiembroFundacion'] = req.body.esMiembroFundacion;

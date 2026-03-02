@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.21.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.20.1...v1.21.0) (2026-03-02)
+
+
+### Features
+
+* **iglesia:** agregar opciones de eliminar y transferir administracion ([0d129f9](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0d129f9d06a7f16e79a30b1704061712650293ce))
+* **reuniones:** rediseno sistema con tipos Publica/Capacitacion/Grupal, flujo de asistencia con aprobacion, modal de gestion del creador y fix de notificaciones fantasma ([165341e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/165341e4b936fdbcf6c596feda2cc36ed1604994))
+
 ### [1.20.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.20.0...v1.20.1) (2026-03-02)
 
 

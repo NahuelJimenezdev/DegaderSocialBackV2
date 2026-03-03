@@ -440,7 +440,7 @@ const UserV2Schema = new Schema({
     xp: { type: Number, default: 0 },
     totalScore: { type: Number, default: 0 },
     rankPoints: { type: Number, default: 0 }, // Puntos de Gloria (PG)
-    league: { type: String, enum: ['discipulo', 'creyente', 'guerrero_luz', 'guardian', 'emisario_reino'], default: 'discipulo' },
+    league: { type: String, enum: ['discipulo', 'creyente', 'guerrero_luz', 'guardian', 'emisario_reino', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'master', 'grandmaster'], default: 'discipulo' },
     streak: { type: Number, default: 0 },
     highestStreak: { type: Number, default: 0 },
     lastGameAt: { type: Date },

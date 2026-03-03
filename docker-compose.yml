@@ -4,6 +4,8 @@ services:
     container_name: degader-backend
     restart: always
     env_file: .env
+    environment:
+      - REDIS_HOST=redis
     ports:
       - "3001:3001"
     volumes:

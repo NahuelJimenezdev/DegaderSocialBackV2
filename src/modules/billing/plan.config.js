@@ -1,7 +1,7 @@
 /**
  * Configuración de Planes SaaS para La Senda del Reino
  */
-export const PLANS_CONFIG = {
+const PLANS_CONFIG = {
     FREE: {
         id: 'free',
         label: 'Gracia (Free)',
@@ -24,3 +24,5 @@ export const PLANS_CONFIG = {
         specialLeagues: true
     }
 };
+
+module.exports = { PLANS_CONFIG };

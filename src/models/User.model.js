@@ -10,7 +10,7 @@ const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 
 // Niveles jerárquicos Fundación
 const NIVELES_FUNDACION = [
-  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal"
+  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial"
 ];
 
 const AREAS_FUNDACION = [

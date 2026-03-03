@@ -46,7 +46,10 @@ const notificationSchema = new mongoose.Schema({
       'post_editado',
       'miembro_abandono_iglesia',
       'ministerio_asignado',
-      'ministerio_removido'
+      'ministerio_removido',
+      'ministerio_actualizado',
+      'ministerio_notificacion',
+      'ministerio_anuncio'
     ],
     required: true
   },

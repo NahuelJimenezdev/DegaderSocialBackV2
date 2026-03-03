@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.22.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.5...v1.22.6) (2026-03-03)
+
+
+### Bug Fixes
+
+* corregir error 500 al asignar cargos de ministerio y añadir enums de notificaciones faltantes ([d1de225](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/d1de225e469c624864c54289fb6f8d99a78edf3f))
+* permitir a Founder aprobar solicitudes de fundación y corrección de error 500 ([1e2e9bc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/1e2e9bcdff448c28bf82087096efdb428b3bfe52))
+
 ### [1.22.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.4...v1.22.5) (2026-03-02)
 
 

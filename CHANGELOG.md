@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.22.8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.7...v1.22.8) (2026-03-03)
+
+
+### Bug Fixes
+
+* **models:** permitir ligas legado en enum de arena.league para evitar error de validacion 500 ([4c0473b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/4c0473b117e2fa770a8b672613528a06eae0a269))
+* **workers:** add error listeners to bullmq queue and worker to prevent Node crashes on redis connection failure ([f76fabc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/f76fabcd91dcb1307e6a42067f7e43ba7f12eefa))
+
 ### [1.22.7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.6...v1.22.7) (2026-03-03)
 
 

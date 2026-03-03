@@ -95,6 +95,11 @@ const asignarMinisterio = async (req, res) => {
 
         // Verificar permisos del solicitante
         const solicitante = await UserV2.findById(req.userId).select('eclesiastico');
+
+        if (!solicitante) {
+            return res.status(401).json(formatErrorResponse('Solicitante no encontrado o sesión inválida'));
+        }
+
         const esPastorPrincipal = iglesia.pastorPrincipal.toString() === req.userId.toString();
         const esAdminIglesia = solicitante.eclesiastico?.rolPrincipal === 'adminIglesia' &&
             solicitante.eclesiastico?.iglesia?.toString() === iglesiaId;
@@ -120,7 +125,20 @@ const asignarMinisterio = async (req, res) => {
             return res.status(400).json(formatErrorResponse('El usuario no es miembro de esta iglesia'));
         }
 
+        // Asegurar que el objeto eclesiastico existe
+        if (!usuario.eclesiastico) {
+            usuario.eclesiastico = {
+                activo: true,
+                iglesia: iglesiaId,
+                ministerios: []
+            };
+        }
+
         // Verificar si ya tiene este ministerio
+        if (!usuario.eclesiastico.ministerios) {
+            usuario.eclesiastico.ministerios = [];
+        }
+
         const ministerios = usuario.eclesiastico.ministerios || [];
         const ministerioExistente = ministerios.find(m => m.nombre === ministerio);
 
@@ -253,6 +271,10 @@ const actualizarMinisterio = async (req, res) => {
         const iglesia = await Iglesia.findById(iglesiaId);
         const solicitante = await UserV2.findById(req.userId).select('eclesiastico');
 
+        if (!solicitante) {
+            return res.status(401).json(formatErrorResponse('Solicitante no encontrado'));
+        }
+
         const esPastorPrincipal = iglesia.pastorPrincipal.toString() === req.userId.toString();
         const esAdminIglesia = solicitante.eclesiastico?.rolPrincipal === 'adminIglesia' &&
             solicitante.eclesiastico?.iglesia?.toString() === iglesiaId.toString();
@@ -361,6 +383,10 @@ const removerMinisterio = async (req, res) => {
         const iglesia = await Iglesia.findById(iglesiaId);
         const solicitante = await UserV2.findById(req.userId).select('eclesiastico');
 
+        if (!solicitante) {
+            return res.status(401).json(formatErrorResponse('Solicitante no encontrado'));
+        }
+
         const esPastorPrincipal = iglesia.pastorPrincipal.toString() === req.userId.toString();
         const esAdminIglesia = solicitante.eclesiastico?.rolPrincipal === 'adminIglesia' &&
             solicitante.eclesiastico?.iglesia?.toString() === iglesiaId.toString();
@@ -463,7 +489,7 @@ const gestionarMiembroMinisterio = async (req, res) => {
         }
 
         // Verificar que el solicitante es líder del ministerio
-        const ministerioLider = lider.eclesiastico.ministerios.find(m => m.nombre === ministerioNombre && m.cargo === 'lider');
+        const ministerioLider = lider.eclesiastico.ministerios?.find(m => m.nombre === ministerioNombre && m.cargo === 'lider');
 
         // O es pastor/admin
         const iglesia = await Iglesia.findById(lider.eclesiastico.iglesia._id);

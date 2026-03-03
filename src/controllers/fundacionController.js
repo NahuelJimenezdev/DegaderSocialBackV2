@@ -349,7 +349,14 @@ const aprobarSolicitud = async (req, res) => {
 
     // Obtener aprobador
     const aprobador = await User.findById(aprobadorId);
-    if (!aprobador || !aprobador.esMiembroFundacion || aprobador.fundacion?.estadoAprobacion !== 'aprobado') {
+    if (!aprobador) {
+      return res.status(404).json(formatErrorResponse('Aprobador no encontrado'));
+    }
+
+    const esFounder = aprobador.seguridad?.rolSistema === 'Founder' || aprobador.email === 'founderdegader@degader.org';
+
+    // Si no es Founder, debe ser miembro aprobado de la fundación
+    if (!esFounder && (!aprobador.esMiembroFundacion || aprobador.fundacion?.estadoAprobacion !== 'aprobado')) {
       return res.status(403).json(formatErrorResponse('No tienes permisos para aprobar solicitudes'));
     }
 
@@ -370,38 +377,41 @@ const aprobarSolicitud = async (req, res) => {
       "organismo_internacional", "organo_control", "directivo_general"
     ];
 
-    const indexAprobador = nivelesOrdenados.indexOf(aprobador.fundacion.nivel?.toLowerCase());
     const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel?.toLowerCase());
 
-    console.log(`🛡️ [Aprobación] Validando Jerarquía: Aprobador (${aprobador.fundacion.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
+    // Si el aprobador es Founder, tiene el nivel máximo posible
+    let indexAprobador = esFounder ? 999 : nivelesOrdenados.indexOf(aprobador.fundacion?.nivel?.toLowerCase());
+
+    console.log(`🛡️ [Aprobación] Validando Jerarquía: Aprobador (${aprobador.fundacion?.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
 
     // Debe ser estrictamente superior (índice mayor)
-    if (indexAprobador <= indexSolicitante) {
+    if (indexAprobador <= indexSolicitante && !esFounder) {
       console.warn(`⛔ [Aprobación] 403 Jerarquía Insuficiente`);
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden aprobar'));
     }
 
     const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
-    const esGlobal = nivelesGlobales.includes(aprobador.fundacion.nivel?.toLowerCase());
-    const esFounder = aprobador.seguridad?.rolSistema === 'Founder';
+    const esGlobal = nivelesGlobales.includes(aprobador.fundacion?.nivel?.toLowerCase()) || esFounder;
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
-    // Usamos trim() para evitar errores
-    const cargoAprobador = aprobador.fundacion.cargo?.trim();
+    const cargoAprobador = aprobador.fundacion?.cargo?.trim();
     const esDirectorGeneral = cargoAprobador === 'Director General (Pastor)';
 
-    console.log(`🛡️ [Aprobación] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}, AreaAprob=${aprobador.fundacion.area}, AreaSolic=${solicitante.fundacion.area}`);
+    console.log(`🛡️ [Aprobación] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);
 
     // Verificar misma área (con lógica Smart Match para ignorar prefijos) y TERRITORIO (excepto globales/founder)
     if (!esFounder && !esGlobal) {
       if (!esDirectorGeneral) {
         // Smart Match: Extraer "Núcleo" del área (ej. "Salud" de "Dirección de Salud")
-        const areaAprobadorCore = aprobador.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
-        const areaSolicitanteCore = solicitante.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+        const areaAprobador = aprobador.fundacion?.area || "";
+        const areaSolicitante = solicitante.fundacion?.area || "";
+
+        const areaAprobadorCore = areaAprobador.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+        const areaSolicitanteCore = areaSolicitante.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
 
         // Comparar núcleos (Case Insensitive)
         if (areaAprobadorCore.toLowerCase() !== areaSolicitanteCore.toLowerCase()) {
-          console.warn(`⛔ [Aprobación] 403 Área Diferente (y no es DG). AprobCore: "${areaAprobadorCore}" vs SolicCore: "${areaSolicitanteCore}"`);
+          console.warn(`⛔ [Aprobación] 403 Área Diferente. AprobCore: "${areaAprobadorCore}" vs SolicCore: "${areaSolicitanteCore}"`);
           return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
         }
       }
@@ -414,8 +424,6 @@ const aprobarSolicitud = async (req, res) => {
         console.warn(`⛔ [Aprobación] 403 País Diferente`);
         return res.status(403).json(formatErrorResponse('No tienes jurisdicción en este territorio (País diferente)'));
       }
-
-      // Validaciones adicionales (Provincia/Municipio) podrían ir aquí si se requiere estrictez total hacia abajo
     }
 
     // Aprobar solicitud
@@ -430,10 +438,10 @@ const aprobarSolicitud = async (req, res) => {
     // ========================================
     try {
       const Notification = require('../models/Notification');
-      const io = req.app.get('io'); // Declarar io una sola vez
+      const io = req.app.get('io');
 
-      // 🧹 Limpiar notificación original de solicitud
-      const deletedNotifications = await Notification.deleteMany({
+      // 🧹 Limpiar notificación original de solicitud (si el aprobador es un receptor)
+      await Notification.deleteMany({
         receptor: aprobadorId,
         emisor: solicitante._id,
         tipo: 'solicitud_fundacion'
@@ -441,12 +449,11 @@ const aprobarSolicitud = async (req, res) => {
       console.log('🧹 [Fundación] Notificación original eliminada');
 
       // 📡 Notificar al aprobador que la notificación fue eliminada
-      if (io && deletedNotifications.deletedCount > 0) {
+      if (io) {
         io.to(`notifications:${aprobadorId}`).emit('notificationDeleted', {
           emisorId: solicitante._id,
           tipo: 'solicitud_fundacion'
         });
-        console.log(`📡 Notificación de eliminación enviada a: ${aprobadorId}`);
       }
 
       // Crear notificación de aprobación
@@ -459,7 +466,7 @@ const aprobarSolicitud = async (req, res) => {
           nivel: solicitante.fundacion.nivel,
           area: solicitante.fundacion.area,
           cargo: solicitante.fundacion.cargo,
-          aprobadoPor: aprobador.nombreCompleto
+          aprobadoPor: aprobador.nombreCompleto || `${aprobador.nombres.primero} ${aprobador.apellidos.primero}`
         }
       });
 
@@ -475,8 +482,7 @@ const aprobarSolicitud = async (req, res) => {
           console.log(`🔔 Notificación de aprobación enviada a: ${solicitante._id}`);
         }
 
-        // 📡 BROADCAST: Actualizar listas en tiempo real para todos los usuarios conectados
-        // Esto actualiza: Solicitudes Pendientes y Panel de Monitoreo Global
+        // 📡 BROADCAST: Actualizar listas en tiempo real
         io.emit('fundacion:solicitudActualizada', {
           userId: solicitante._id,
           accion: 'aprobada',
@@ -496,7 +502,6 @@ const aprobarSolicitud = async (req, res) => {
             }
           }
         });
-        console.log('📡 Broadcast enviado: solicitud aprobada');
       }
     } catch (notifError) {
       console.error('❌ Error creando notificación de aprobación:', notifError);
@@ -529,7 +534,14 @@ const rechazarSolicitud = async (req, res) => {
 
     // Obtener aprobador
     const aprobador = await User.findById(aprobadorId);
-    if (!aprobador || !aprobador.esMiembroFundacion || aprobador.fundacion?.estadoAprobacion !== 'aprobado') {
+    if (!aprobador) {
+      return res.status(404).json(formatErrorResponse('Aprobador no encontrado'));
+    }
+
+    const esFounder = aprobador.seguridad?.rolSistema === 'Founder' || aprobador.email === 'founderdegader@degader.org';
+
+    // Si no es Founder, debe ser miembro aprobado de la fundación
+    if (!esFounder && (!aprobador.esMiembroFundacion || aprobador.fundacion?.estadoAprobacion !== 'aprobado')) {
       return res.status(403).json(formatErrorResponse('No tienes permisos para rechazar solicitudes'));
     }
 
@@ -550,33 +562,36 @@ const rechazarSolicitud = async (req, res) => {
       "organismo_internacional", "organo_control", "directivo_general"
     ];
 
-    const indexAprobador = nivelesOrdenados.indexOf(aprobador.fundacion.nivel?.toLowerCase());
     const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel?.toLowerCase());
 
-    console.log(`🛡️ [Rechazo] Validando Jerarquía: Aprobador (${aprobador.fundacion.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
+    // Si el aprobador es Founder, tiene el nivel máximo posible
+    let indexAprobador = esFounder ? 999 : nivelesOrdenados.indexOf(aprobador.fundacion?.nivel?.toLowerCase());
 
-    if (indexAprobador <= indexSolicitante) {
+    console.log(`🛡️ [Rechazo] Validando Jerarquía: Aprobador (${aprobador.fundacion?.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
+
+    if (indexAprobador <= indexSolicitante && !esFounder) {
       console.warn(`⛔ [Rechazo] 403 Jerarquía Insuficiente`);
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden rechazar'));
     }
 
     const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
-    const esGlobal = nivelesGlobales.includes(aprobador.fundacion.nivel?.toLowerCase());
-    const esFounder = aprobador.seguridad?.rolSistema === 'Founder';
+    const esGlobal = nivelesGlobales.includes(aprobador.fundacion?.nivel?.toLowerCase()) || esFounder;
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
-    // Usamos trim() para evitar errores por espacios en blanco accidentales "Director General (Pastor) "
-    const cargoAprobador = aprobador.fundacion.cargo?.trim();
+    const cargoAprobador = aprobador.fundacion?.cargo?.trim();
     const esDirectorGeneral = cargoAprobador === 'Director General (Pastor)';
 
-    console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}, AreaAprob=${aprobador.fundacion.area}, AreaSolic=${solicitante.fundacion.area}`);
+    console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);
 
     if (!esFounder && !esGlobal) {
       // Verificar misma área (Smart Match) y TERRITORIO (excepto globales/founder)
       if (!esDirectorGeneral) {
         // Smart Match: Extraer "Núcleo" del área
-        const areaAprobadorCore = aprobador.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
-        const areaSolicitanteCore = solicitante.fundacion.area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+        const areaAprobador = aprobador.fundacion?.area || "";
+        const areaSolicitante = solicitante.fundacion?.area || "";
+
+        const areaAprobadorCore = areaAprobador.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+        const areaSolicitanteCore = areaSolicitante.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
 
         // Comparar núcleos (Case Insensitive)
         if (areaAprobadorCore.toLowerCase() !== areaSolicitanteCore.toLowerCase()) {
@@ -584,6 +599,7 @@ const rechazarSolicitud = async (req, res) => {
           return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
         }
       }
+
       // 🔒 VALIDACIÓN TERRITORIAL ESTRICTA
       const paisAprobador = aprobador.fundacion.territorio?.pais;
       const paisSolicitante = solicitante.fundacion.territorio?.pais;
@@ -607,10 +623,10 @@ const rechazarSolicitud = async (req, res) => {
     // ========================================
     try {
       const Notification = require('../models/Notification');
-      const io = req.app.get('io'); // Declarar io una sola vez
+      const io = req.app.get('io');
 
       // 🧹 Limpiar notificación original de solicitud
-      const deletedNotifications = await Notification.deleteMany({
+      await Notification.deleteMany({
         receptor: aprobadorId,
         emisor: solicitante._id,
         tipo: 'solicitud_fundacion'
@@ -618,12 +634,11 @@ const rechazarSolicitud = async (req, res) => {
       console.log('🧹 [Fundación] Notificación original eliminada');
 
       // 📡 Notificar al aprobador que la notificación fue eliminada
-      if (io && deletedNotifications.deletedCount > 0) {
+      if (io) {
         io.to(`notifications:${aprobadorId}`).emit('notificationDeleted', {
           emisorId: solicitante._id,
           tipo: 'solicitud_fundacion'
         });
-        console.log(`📡 Notificación de eliminación enviada a: ${aprobadorId}`);
       }
 
       // Crear notificación de rechazo
@@ -652,8 +667,7 @@ const rechazarSolicitud = async (req, res) => {
           console.log(`🔔 Notificación de rechazo enviada a: ${solicitante._id}`);
         }
 
-        // 📡 BROADCAST: Actualizar listas en tiempo real para todos los usuarios conectados
-        // Esto actualiza: Solicitudes Pendientes y Panel de Monitoreo Global
+        // 📡 BROADCAST: Actualizar listas en tiempo real
         io.emit('fundacion:solicitudActualizada', {
           userId: solicitante._id,
           accion: 'rechazada',
@@ -674,7 +688,6 @@ const rechazarSolicitud = async (req, res) => {
             }
           }
         });
-        console.log('📡 Broadcast enviado: solicitud rechazada');
       }
     } catch (notifError) {
       console.error('❌ Error creando notificación de rechazo:', notifError);

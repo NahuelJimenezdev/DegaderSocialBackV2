@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.22.7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.6...v1.22.7) (2026-03-03)
+
+
+### Bug Fixes
+
+* corregir error 500 en aprobación de fundación y habilitar bypass para Founder ([5c5d686](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5c5d686f70a7b9485a30101e541e3001c3903c2a))
+* corregir sintaxis ESM a CommonJS en plan.config.js ([5e82904](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5e8290497962a5387a783c41ac494056adb5c5bf))
+* **fundacion:** prevenir error 500 al aprobar solicitudes si founder no tiene cargo asignado ([cc94350](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/cc943508bccc917930212dee88e24daf31794848))
+
 ### [1.22.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.5...v1.22.6) (2026-03-03)
 
 

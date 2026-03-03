@@ -401,9 +401,15 @@ const aprobarSolicitud = async (req, res) => {
 
     // Verificar misma área (con lógica Smart Match para ignorar prefijos) y TERRITORIO (excepto globales/founder)
     if (!esFounder && !esGlobal) {
+      // Si llegamos aquí no es Founder ni Global, por lo tanto aprobador.fundacion DEBE existir
+      if (!aprobador.fundacion) {
+        console.error('❌ [Aprobación] Error crítico: El aprobador no tiene perfil de fundación pero no es Global/Founder');
+        return res.status(403).json(formatErrorResponse('No tienes perfil de fundación para aprobar'));
+      }
+
       if (!esDirectorGeneral) {
         // Smart Match: Extraer "Núcleo" del área (ej. "Salud" de "Dirección de Salud")
-        const areaAprobador = aprobador.fundacion?.area || "";
+        const areaAprobador = aprobador.fundacion.area || "";
         const areaSolicitante = solicitante.fundacion?.area || "";
 
         const areaAprobadorCore = areaAprobador.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
@@ -584,10 +590,16 @@ const rechazarSolicitud = async (req, res) => {
     console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);
 
     if (!esFounder && !esGlobal) {
+      // Si llegamos aquí no es Founder ni Global, por lo tanto aprobador.fundacion DEBE existir
+      if (!aprobador.fundacion) {
+        console.error('❌ [Rechazo] Error crítico: El rechazador no tiene perfil de fundación pero no es Global/Founder');
+        return res.status(403).json(formatErrorResponse('No tienes perfil de fundación para rechazar'));
+      }
+
       // Verificar misma área (Smart Match) y TERRITORIO (excepto globales/founder)
       if (!esDirectorGeneral) {
         // Smart Match: Extraer "Núcleo" del área
-        const areaAprobador = aprobador.fundacion?.area || "";
+        const areaAprobador = aprobador.fundacion.area || "";
         const areaSolicitante = solicitante.fundacion?.area || "";
 
         const areaAprobadorCore = areaAprobador.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();

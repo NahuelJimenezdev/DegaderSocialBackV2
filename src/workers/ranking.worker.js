@@ -18,6 +18,11 @@ const connection = {
 // Configuración de la Cola (Disponible para que la app principal añada tareas)
 const rankingQueue = new Queue('ranking-tasks', { connection });
 
+// 🛡️ Agregar manejador de error para evitar que crashee si Redis falla
+rankingQueue.on('error', (err) => {
+    console.error(`[BullMQ] ❌ Error en la Cola ranking-tasks: ${err.message}`);
+});
+
 /**
  * LÓGICA DEL WORKER (Puede correr en un proceso separado)
  */
@@ -49,6 +54,9 @@ const startWorker = () => {
 
     worker.on('completed', (job) => console.log(`[Worker] ✅ Tarea ${job.id} finalizada`));
     worker.on('failed', (job, err) => console.error(`[Worker] ❌ Tarea ${job.id} falló:`, err.message));
+    worker.on('error', (err) => {
+        console.error(`[BullMQ] ❌ Error en el Worker: ${err.message}`);
+    });
 
     return worker;
 };

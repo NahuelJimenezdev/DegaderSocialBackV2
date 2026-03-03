@@ -294,7 +294,7 @@ const listarSolicitudes = async (req, res) => {
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
     // Los Directores Generales NO tienen área funcional, gobiernan un territorio completo
-    const cargoActual = currentUser.fundacion.cargo?.trim();
+    const cargoActual = currentUser.fundacion?.cargo ? currentUser.fundacion.cargo.trim() : '';
     const esDirectorGeneral = cargoActual === 'Director General (Pastor)';
 
     if (!esGlobal && !esDirectorGeneral) {
@@ -394,7 +394,7 @@ const aprobarSolicitud = async (req, res) => {
     const esGlobal = nivelesGlobales.includes(aprobador.fundacion?.nivel?.toLowerCase()) || esFounder;
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
-    const cargoAprobador = aprobador.fundacion?.cargo?.trim();
+    const cargoAprobador = aprobador.fundacion?.cargo ? aprobador.fundacion.cargo.trim() : '';
     const esDirectorGeneral = cargoAprobador === 'Director General (Pastor)';
 
     console.log(`🛡️ [Aprobación] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);
@@ -584,7 +584,7 @@ const rechazarSolicitud = async (req, res) => {
     const esGlobal = nivelesGlobales.includes(aprobador.fundacion?.nivel?.toLowerCase()) || esFounder;
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
-    const cargoAprobador = aprobador.fundacion?.cargo?.trim();
+    const cargoAprobador = aprobador.fundacion?.cargo ? aprobador.fundacion.cargo.trim() : '';
     const esDirectorGeneral = cargoAprobador === 'Director General (Pastor)';
 
     console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);

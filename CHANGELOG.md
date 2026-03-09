@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.23.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.8...v1.23.0) (2026-03-09)
+
+
+### Features
+
+* agregar cargo de secretario/a con lógica de género y cargos en niveles local/barrial ([70bd41e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/70bd41e4c0a7e0159e6391c8133c80c78841d37c))
+
 ### [1.22.8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.22.7...v1.22.8) (2026-03-03)
 
 

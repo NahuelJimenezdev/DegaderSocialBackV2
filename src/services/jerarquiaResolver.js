@@ -52,6 +52,7 @@ const CARGOS = [
   'Director Departamental',
   'Coordinador Municipal',
 
+  'Secretario/a',
   'Profesional',
   'Encargado',
   'Asistente',

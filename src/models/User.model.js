@@ -85,6 +85,7 @@ const CARGOS_FUNDACION = [
 
   // Órganos de Control
   "Auditor",
+  "Secretario/a",
   "Miembro Comité Ético",
   "Delegado Internacional"
 ];
@@ -93,6 +94,7 @@ const ROLES_FUNCIONALES = [
   "profesional",
   "encargado",
   "asistente",
+  "secretario/a",
   "voluntario",
   "pastor"
 ];

@@ -224,13 +224,16 @@ const getMyMeetings = async (req, res) => {
       if (meeting.status === 'cancelled') continue;
 
       let meetingDateTime;
+      let timeStr = String(meeting.time || '00:00');
+      if (!timeStr.includes(':')) timeStr = '00:00';
+
       if (meeting.startsAt) {
         meetingDateTime = new Date(meeting.startsAt);
       } else if (meeting.date instanceof Date) {
         const year = meeting.date.getUTCFullYear();
         const month = meeting.date.getUTCMonth();
         const day = meeting.date.getUTCDate();
-        const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
+        const [hours, minutes] = timeStr.split(':').map(Number);
         meetingDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
       } else if (typeof meeting.date === 'string') {
         // Si es un string, intentar parsearlo
@@ -239,7 +242,7 @@ const getMyMeetings = async (req, res) => {
           const year = dateObj.getUTCFullYear();
           const month = dateObj.getUTCMonth();
           const day = dateObj.getUTCDate();
-          const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
+          const [hours, minutes] = timeStr.split(':').map(Number);
           meetingDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
         } else {
           meetingDateTime = new Date(); // Fallback
@@ -248,12 +251,19 @@ const getMyMeetings = async (req, res) => {
         meetingDateTime = new Date(); // Fallback total
       }
 
+      if (isNaN(meetingDateTime.getTime())) {
+        meetingDateTime = new Date();
+      }
+
       let durationMinutes = 60;
-      if (meeting.duration) {
-        if (meeting.duration.includes('minutos')) {
-          durationMinutes = parseInt(meeting.duration);
-        } else if (meeting.duration.includes('hora')) {
-          durationMinutes = parseFloat(meeting.duration) * 60;
+      if (meeting.duration !== undefined && meeting.duration !== null) {
+        const durationStr = String(meeting.duration);
+        if (durationStr.includes('minutos')) {
+          durationMinutes = parseInt(durationStr) || 60;
+        } else if (durationStr.includes('hora')) {
+          durationMinutes = (parseFloat(durationStr) || 1) * 60;
+        } else if (!isNaN(parseInt(durationStr))) {
+          durationMinutes = parseInt(durationStr);
         }
       }
 
@@ -274,7 +284,9 @@ const getMyMeetings = async (req, res) => {
 
         // Solo WebSocket, las notificaciones push van por el cron exclusivamente
         if (global.emitMeetingUpdate) {
-          const attendeeIds = meeting.attendees.map(id => id._id ? id._id.toString() : id.toString());
+          const attendeeIds = meeting.attendees
+            .filter(id => id != null)
+            .map(id => id._id ? id._id.toString() : id.toString());
           global.emitMeetingUpdate(attendeeIds, meeting, 'statusChange');
         }
       }
@@ -283,8 +295,9 @@ const getMyMeetings = async (req, res) => {
     res.status(200).json({ success: true, data: meetings });
 
   } catch (error) {
-    console.error('Error en getMyMeetings:', error);
-    res.status(500).json({ success: false, error: 'Error al obtener las reuniones.' });
+    console.error('Error en getMyMeetings:', error.message);
+    console.error(error.stack);
+    res.status(500).json({ success: false, error: 'Error al obtener las reuniones.', details: error.message, stack: error.stack });
   }
 };
 
@@ -300,6 +313,10 @@ const requestAttendance = async (req, res) => {
 
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
+    }
+
+    if (!meeting.creator) {
+      return res.status(404).json({ success: false, message: 'El creador de esta reunión ya no existe.' });
     }
 
     if (meeting.status === 'cancelled' || meeting.status === 'completed') {
@@ -430,6 +447,10 @@ const getCreatorMeetingDetail = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
+    if (!meeting.creator) {
+      return res.status(404).json({ success: false, message: 'El creador de esta reunión ya no existe.' });
+    }
+
     if (meeting.creator._id.toString() !== creatorId) {
       return res.status(403).json({ success: false, message: 'Solo el creador puede ver el detalle completo.' });
     }
@@ -473,7 +494,9 @@ const updateMeeting = async (req, res) => {
 
     // Notificar a attendees del cambio via WebSocket
     if (global.emitMeetingUpdate) {
-      const attendeeIds = meeting.attendees.map(a => (a._id || a).toString());
+      const attendeeIds = meeting.attendees
+        .filter(a => a != null)
+        .map(a => (a._id || a).toString());
       global.emitMeetingUpdate(attendeeIds, meeting, 'update');
     }
 

@@ -62,6 +62,8 @@ const MeetingSchema = new mongoose.Schema({
       // Tipos de iglesia
       'administrative', 'training', 'community', 'oracion',
       'estudio_biblico', 'culto', 'escuela_dominical', 'personal',
+      // Tipos legacy para evitar errores 500 al guardar reuniones viejas
+      'capacitacion', 'public', 'private', 'group'
     ],
     default: 'publica',
   },

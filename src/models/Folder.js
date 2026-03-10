@@ -45,6 +45,13 @@ const folderSchema = new mongoose.Schema({
     default: 'personal',
     index: true
   },
+  // Referencia a Grupo (para carpetas tipo "grupal")
+  grupo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    default: null,
+    index: true
+  },
 
   // Archivos contenidos
   archivos: [fileSchema],
@@ -249,6 +256,18 @@ folderSchema.statics.obtenerCarpetasUsuario = async function (userId, tipo = nul
     { 'compartidaCon.usuario': userId }
   ];
 
+  try {
+    const Group = mongoose.model('Group');
+    const userGroups = await Group.find({ 'miembros.usuario': userId }).select('_id');
+    if (userGroups && userGroups.length > 0) {
+      orConditions.push({
+        grupo: { $in: userGroups.map(g => g._id) }
+      });
+    }
+  } catch (error) {
+    console.error('Error obteniendo grupos del usuario para carpetas:', error);
+  }
+
   // Si tenemos info del usuario, incluir carpetas con visibilidad automática
   if (user) {
     // Por cargo
@@ -299,6 +318,7 @@ folderSchema.statics.obtenerCarpetasUsuario = async function (userId, tipo = nul
   return this.find(query)
     .populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil fundacion.cargo fundacion.area')
     .populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+    .populate('grupo', 'nombre imagen')
     .sort({ ultimaActividad: -1 });
 };
 

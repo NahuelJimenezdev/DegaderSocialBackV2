@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.23.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.23.2...v1.23.3) (2026-03-10)
+
+
+### Bug Fixes
+
+* **reuniones:** resolver error 500 al obtener mis reuniones ([68bf614](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/68bf614756bd3e158f96f28ae036c289d56d64f6))
+
 ### [1.23.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.23.1...v1.23.2) (2026-03-10)
 
 ### [1.23.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.23.0...v1.23.1) (2026-03-10)

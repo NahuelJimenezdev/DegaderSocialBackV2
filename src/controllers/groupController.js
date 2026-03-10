@@ -84,7 +84,7 @@ const getMyGroups = async (req, res) => {
     })
       .select('nombre imagen descripcion creador tipo')
       .sort({ createdAt: -1 });
-
+    console.log(`🔍 Buscando grupos para usuario ${userId}. Encontrados: ${groups.length}`);
     res.json(formatSuccessResponse('Mis grupos obtenidos exitosamente', groups));
   } catch (error) {
     console.error('Error al obtener mis grupos:', error);

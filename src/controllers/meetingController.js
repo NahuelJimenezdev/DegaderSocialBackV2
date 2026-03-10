@@ -226,12 +226,26 @@ const getMyMeetings = async (req, res) => {
       let meetingDateTime;
       if (meeting.startsAt) {
         meetingDateTime = new Date(meeting.startsAt);
-      } else {
+      } else if (meeting.date instanceof Date) {
         const year = meeting.date.getUTCFullYear();
         const month = meeting.date.getUTCMonth();
         const day = meeting.date.getUTCDate();
         const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
         meetingDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+      } else if (typeof meeting.date === 'string') {
+        // Si es un string, intentar parsearlo
+        const dateObj = new Date(meeting.date);
+        if (!isNaN(dateObj.getTime())) {
+          const year = dateObj.getUTCFullYear();
+          const month = dateObj.getUTCMonth();
+          const day = dateObj.getUTCDate();
+          const [hours, minutes] = (meeting.time || '00:00').split(':').map(Number);
+          meetingDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+        } else {
+          meetingDateTime = new Date(); // Fallback
+        }
+      } else {
+        meetingDateTime = new Date(); // Fallback total
       }
 
       let durationMinutes = 60;

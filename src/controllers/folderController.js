@@ -142,6 +142,7 @@ const crearCarpeta = async (req, res) => {
       color,
       icono,
       compartirCon, // Array de IDs manuales
+      grupoId, // ID del grupo (para tipo grupal)
       visibilidadPorCargo,
       visibilidadPorArea,
       visibilidadGeografica,
@@ -180,6 +181,7 @@ const crearCarpeta = async (req, res) => {
       descripcion: descripcion ? descripcion.trim() : '',
       propietario: userId,
       tipo: tipo || 'personal',
+      grupo: (tipo === 'grupal' && grupoId) ? grupoId : null,
       color: color || '#3B82F6',
       icono: icono || 'folder',
       compartidaCon: []

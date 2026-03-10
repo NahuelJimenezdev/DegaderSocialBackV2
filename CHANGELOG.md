@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.24.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.23.3...v1.24.0) (2026-03-10)
+
+
+### Features
+
+* **carpetas:** soporte grupal en schema y controlador ([7971c2b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7971c2b4c1c6385ed827666fb930cd0b18313868))
+
 ### [1.23.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.23.2...v1.23.3) (2026-03-10)
 
 

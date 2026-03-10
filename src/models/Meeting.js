@@ -58,7 +58,7 @@ const MeetingSchema = new mongoose.Schema({
     type: String,
     enum: [
       // Nuevos tipos globales
-      'publica', 'capacitacion', 'grupal',
+      'publica', 'privado', 'grupal',
       // Tipos de iglesia
       'administrative', 'training', 'community', 'oracion',
       'estudio_biblico', 'culto', 'escuela_dominical', 'personal',

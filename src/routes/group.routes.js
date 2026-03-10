@@ -8,6 +8,7 @@ const { uploadGroupImage, uploadGroupAttachments, handleUploadError } = require(
 router.use(authenticate);
 
 // Rutas de grupos
+router.get('/mis-grupos', groupController.getMyGroups);
 router.get('/', groupController.getAllGroups);
 router.get('/:id', groupController.getGroupById);
 router.get('/:id/members', groupController.getGroupMembers);

@@ -431,7 +431,7 @@ const updateIglesia = async (req, res) => {
       if (req.files.logo && req.files.logo[0]) {
         console.log('📤 [UPDATE IGLESIA] Subiendo logo a R2...');
         try {
-          const optimizedLogo = await imageOptimizationService.processAndUploadImage(req.files.logo[0].buffer, 'iglesias');
+          const optimizedLogo = await imageOptimizationService.processAndUploadImage(req.files.logo[0].buffer, req.files.logo[0].originalname, 'iglesias');
           console.log('✅ [UPDATE IGLESIA] Logo subido a R2:', optimizedLogo.url);
           iglesia.logo = optimizedLogo.url;
           iglesia.logoObj = optimizedLogo;
@@ -442,7 +442,7 @@ const updateIglesia = async (req, res) => {
       if (req.files.portada && req.files.portada[0]) {
         console.log('📤 [UPDATE IGLESIA] Subiendo portada a R2...');
         try {
-          const optimizedPortada = await imageOptimizationService.processAndUploadImage(req.files.portada[0].buffer, 'iglesias');
+          const optimizedPortada = await imageOptimizationService.processAndUploadImage(req.files.portada[0].buffer, req.files.portada[0].originalname, 'iglesias');
           console.log('✅ [UPDATE IGLESIA] Portada subida a R2:', optimizedPortada.url);
           iglesia.portada = optimizedPortada.url;
           iglesia.portadaObj = optimizedPortada;
@@ -474,7 +474,7 @@ const updateIglesia = async (req, res) => {
       console.log('📤 [UPDATE IGLESIA] Subiendo fotos nuevas a galería...');
       try {
         const galeriaPromises = req.files.galeria.map(async (file) => {
-          return await imageOptimizationService.processAndUploadImage(file.buffer, 'iglesias/galeria');
+          return await imageOptimizationService.processAndUploadImage(file.buffer, file.originalname, 'iglesias/galeria');
         });
         const newImages = await Promise.all(galeriaPromises);
         const newUrls = newImages.map(img => img.url);
@@ -940,10 +940,15 @@ const sendMessage = async (req, res) => {
             }
           });
 
-          // Emitir a la sala de notificaciones del usuario
-          io.to(`notifications:${recipientId}`).emit('newNotification', notification);
-          // También a la sala de usuario por si acaso (algunos componentes escuchan ahí)
-          io.to(`user:${recipientId}`).emit('newNotification', notification);
+          // Poblar emisor para que el nombre aparezca inmediatamente
+          const fullNotification = await Notification.findById(notification._id)
+            .populate('emisor', 'nombres apellidos social.fotoPerfil')
+            .lean();
+
+          // Emitir a la sala de notificaciones del usuario (Header/Dropdown)
+          io.to(`notifications:${recipientId}`).emit('newNotification', fullNotification || notification);
+
+          console.log(`🔔 Notificación enviada a ${recipientId}`);
         } catch (err) {
           console.error(`Error enviando notificación a ${recipientId}:`, err);
         }

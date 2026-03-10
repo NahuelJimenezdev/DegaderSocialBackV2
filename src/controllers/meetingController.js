@@ -2,6 +2,7 @@ const Meeting = require('../models/Meeting.js');
 const User = require('../models/User.model.js');
 const Group = require('../models/Group.js');
 const Notification = require('../models/Notification.js');
+const Friendship = require('../models/Friendship.js');
 
 // ─────────────────────────────────────────────
 // Helper: Crear notificación de reunión
@@ -34,7 +35,7 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
 const getVisibilityForType = (type) => {
   if (type === 'grupal') return 'group';
   if (type === 'publica') return 'public';
-  return 'private'; // capacitacion y tipos de iglesia
+  return 'private'; // privado y tipos de iglesia
 };
 
 // ─────────────────────────────────────────────
@@ -111,8 +112,8 @@ const createMeeting = async (req, res) => {
           .map(m => m.usuario.toString())
           .filter(id => id !== creatorId);
       }
-    } else if (type === 'capacitacion') {
-      // Capacitación: notificar solo a invitados específicos
+    } else if (type === 'privado' || type === 'capacitacion') {
+      // Privado: notificar solo a invitados específicos
       notifyIds = newMeeting.invitedUsers.map(id => id.toString());
     }
     // Pública: no notificar, solo se visualiza
@@ -148,10 +149,17 @@ const getMyMeetings = async (req, res) => {
   try {
     const user = await User.findById(userId).select('eclesiastico amigos');
 
-    // Buscar amigos del usuario para reuniones públicas
-    const friendIds = (user?.amigos || [])
-      .filter(a => a.estado === 'aceptado')
-      .map(a => (a.usuario || a).toString());
+    // Buscar amigos del usuario para reuniones públicas (usando el modelo Friendship)
+    const friendships = await Friendship.find({
+      $or: [
+        { solicitante: userId, estado: 'aceptada' },
+        { receptor: userId, estado: 'aceptada' }
+      ]
+    });
+
+    const friendIds = friendships.map(f =>
+      f.solicitante.toString() === userId ? f.receptor.toString() : f.solicitante.toString()
+    );
 
     // Query compuesta:
     // 1. Reuniones donde soy attendee (aprobado) o creador

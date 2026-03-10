@@ -70,6 +70,29 @@ const getAllGroups = async (req, res) => {
 };
 
 /**
+ * Obtener grupos del usuario actual (donde es miembro o creador)
+ * GET /api/grupos/mis-grupos
+ */
+const getMyGroups = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const groups = await Group.find({
+      $or: [
+        { creador: userId },
+        { 'miembros.usuario': userId }
+      ]
+    })
+      .select('nombre imagen descripcion creador tipo')
+      .sort({ createdAt: -1 });
+
+    res.json(formatSuccessResponse('Mis grupos obtenidos exitosamente', groups));
+  } catch (error) {
+    console.error('Error al obtener mis grupos:', error);
+    res.status(500).json(formatErrorResponse('Error al obtener tus grupos', [error.message]));
+  }
+};
+
+/**
  * Obtener grupo por ID
  * GET /api/grupos/:id
  */
@@ -2070,6 +2093,7 @@ const updateGroupNotificationSettings = async (req, res) => {
 };
 
 module.exports = {
+  getMyGroups,
   getAllGroups,
   getGroupById,
   createGroup,

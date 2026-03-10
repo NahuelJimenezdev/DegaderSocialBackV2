@@ -52,9 +52,12 @@ const processAndUploadImage = async (fileBuffer, originalName, folder = 'optimiz
         // Combine results
         const result = {
             blurHash,
-            // uploadUrls is an array of objects e.g. [{ small: url }, { medium: url }, { large: url }]
+            // uploadedUrls is an array of objects e.g. [{ small: url }, { medium: url }, { large: url }]
             ...Object.assign({}, ...uploadedUrls)
         };
+
+        // Add a default 'url' property (using large as default)
+        result.url = result.large;
 
         return result;
 

@@ -20,6 +20,8 @@ const AREAS_FUNDACION = [
   "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos",
   // Organismos Internacionales
   "Salvación Mundial", "Misión Internacional de Paz",
+  // Áreas Ejecuivas Transversales
+  "Despacho del Director", "Despacho del Subdirector",
   // Áreas por nivel nacional/regional/departamental/municipal
   "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
   // Áreas de Coordinación (Nivel Departamental/Municipal)
@@ -73,6 +75,7 @@ const CARGOS_FUNDACION = [
 
   // Direcciones por nivel
   "Director", // Agregado para compatibilidad con select de nivel nacional
+  "Subdirector",
   "Director Nacional",
   "Director Regional",
   "Director Departamental",

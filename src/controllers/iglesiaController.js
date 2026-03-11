@@ -477,8 +477,8 @@ const updateIglesia = async (req, res) => {
           return await imageOptimizationService.processAndUploadImage(file.buffer, file.originalname, 'iglesias/galeria');
         });
         const newImages = await Promise.all(galeriaPromises);
-        const newUrls = newImages.map(img => img.url);
-        iglesia.galeria = [...(iglesia.galeria || []), ...newUrls];
+        const newUrls = newImages.map(img => img.url || img.large || img.medium || img.small);
+        iglesia.galeria = [...(iglesia.galeria || []), ...newUrls].filter(Boolean); // Filter nulls
         if (!iglesia.galeriaObjs) iglesia.galeriaObjs = [];
         iglesia.galeriaObjs = [...iglesia.galeriaObjs, ...newImages];
       } catch (uploadError) {

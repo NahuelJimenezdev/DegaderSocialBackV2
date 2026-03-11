@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.25.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.24.1...v1.25.0) (2026-03-11)
+
+
+### Features
+
+* **fundacion:** agregar subdirector y areas ejecutivas transversales ([f382596](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/f382596e61b12e894c6db262b621ccec666a877e))
+
 ### [1.24.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.24.0...v1.24.1) (2026-03-11)
 
 

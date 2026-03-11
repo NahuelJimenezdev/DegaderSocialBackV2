@@ -204,6 +204,40 @@ const PerfilFundacionSchema = new Schema({
     pertenece: { type: Boolean, default: false },
     nombre: { type: String, enum: ["Salvación Mundial", "Misión Internacional de Paz"] },
     cargo: { type: String }
+  },
+
+  // Documentacion Especifica FHSYL (Aplicativo Republica Argentina)
+  documentacionFHSYL: {
+    upz: { type: String, trim: true },
+    ocupacion: { type: String, trim: true },
+    estadoCivil: { type: String, trim: true },
+    nombreConyuge: { type: String, trim: true },
+    hijos: [{
+      nombre: { type: String, trim: true },
+      edad: { type: Number }
+    }],
+    deseaSerCoordinadorLocalidad: { type: Boolean },
+    localidadCoordinar: { type: String, trim: true },
+    testimonioConversion: { type: String, trim: true },
+    llamadoPastoral: { type: String, trim: true },
+    virtudes: [{ type: String, trim: true }],
+    areasMejora: [{ type: String, trim: true }],
+    eventosExito: [{ type: String, trim: true }],
+    nombreCongregacionPastorea: { type: String, trim: true },
+    alianzaPastores: { type: String, trim: true },
+    referencias: [{
+      nombre: { type: String, trim: true },
+      relacion: { type: String, trim: true },
+      contacto: { type: String, trim: true }
+    }],
+    pastorQueInvito: { type: String, trim: true },
+    tieneCasaPropia: { type: Boolean },
+    iglesiaTienePropiedad: { type: Boolean },
+    necesidadesFamiliaPastoral: [{ type: String, trim: true }],
+    necesidadesCongregacion: [{ type: String, trim: true }],
+    profesionalesIglesia: { type: String, trim: true },
+    proyectoPsicosocial: { type: String, trim: true },
+    ultimaActualizacion: { type: Date, default: Date.now }
   }
 }, { _id: false });
 

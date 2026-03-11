@@ -10,6 +10,7 @@ router.use(authenticate);
 // Rutas específicas (deben ir ANTES de las rutas con parámetros dinámicos)
 router.get('/search', userController.searchUsers);
 router.put('/profile', userController.updateProfile);
+router.put('/documentacionFHSYL', userController.actualizarDocumentacionFHSYL);
 router.put('/avatar', uploadAvatar, handleUploadError, userController.uploadAvatar);
 router.delete('/deactivate', userController.deactivateAccount);
 

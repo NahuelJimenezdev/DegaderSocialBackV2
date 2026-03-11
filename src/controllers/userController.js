@@ -667,6 +667,43 @@ const getSavedPosts = async (req, res) => {
   }
 };
 
+/**
+ * Actualizar la documentación FHSYL (Aplicativo República Argentina)
+ * PUT /api/usuarios/documentacionFHSYL
+ */
+const actualizarDocumentacionFHSYL = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const documentacionData = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
+    // Inicializar fundación si no existe
+    if (!user.fundacion) {
+      user.fundacion = {};
+    }
+
+    user.fundacion.documentacionFHSYL = {
+      ...user.fundacion.documentacionFHSYL,
+      ...documentacionData,
+      ultimaActualizacion: new Date()
+    };
+
+    await user.save();
+    
+    // Obtener el usuario actualizado sin password para devolver al frontend
+    const updatedUser = await User.findById(userId).select('-password');
+
+    res.json(formatSuccessResponse('Documentación FHSYL actualizada exitosamente', updatedUser));
+  } catch (error) {
+    console.error('Error al actualizar documentación FHSYL:', error);
+    res.status(500).json(formatErrorResponse('Error al actualizar documentación FHSYL', [error.message]));
+  }
+};
+
 module.exports = {
   getAllUsers,
   searchUsers,
@@ -679,5 +716,6 @@ module.exports = {
   deactivateAccount,
   getUserStats,
   toggleSavePost,
-  getSavedPosts
+  getSavedPosts,
+  actualizarDocumentacionFHSYL
 };

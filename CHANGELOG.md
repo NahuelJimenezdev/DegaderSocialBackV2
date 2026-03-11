@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.25.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.25.0...v1.25.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* **iglesia:** evitar null en galeria al resolver imagen ([9df931b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/9df931bf23283ae92e6b0bc876dcf2f2cf51236e))
+
 ## [1.25.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.24.1...v1.25.0) (2026-03-11)
 
 

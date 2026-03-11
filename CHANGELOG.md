@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.26.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.25.1...v1.26.0) (2026-03-11)
+
+
+### Features
+
+* **fundacion:** schema y ruta para documentacion FHSYL ([dde060b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/dde060b11814dd66b26f787df5c1c25c1f949d90))
+
 ### [1.25.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.25.0...v1.25.1) (2026-03-11)
 
 

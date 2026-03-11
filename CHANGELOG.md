@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.24.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.24.0...v1.24.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* **carpetas:** permitir el acceso a miembros de un grupo ([1f86809](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/1f86809f23afc070903e6a3d9a34b1c0cb906e04))
+
 ## [1.24.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.23.3...v1.24.0) (2026-03-10)
 
 

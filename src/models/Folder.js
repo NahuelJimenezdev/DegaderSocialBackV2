@@ -185,6 +185,28 @@ folderSchema.methods.tienePermiso = async function (userId, accion = 'lectura') 
     }
   }
 
+  // Verificar pertenencia al grupo (si es una carpeta grupal)
+  if (this.grupo) {
+    try {
+      const Group = mongoose.model('Group');
+      const isMember = await Group.findOne({ 
+        _id: this.grupo, 
+        'miembros.usuario': userId 
+      });
+      
+      if (isMember) {
+        // En carpetas grupales, asumiremos que los miembros pueden al menos leer.
+        // Si quieres, puedes refinar la lógica de escritura según el rol en el grupo (admin/miembro).
+        // Por ahora daremos lectura/escritura a todos los miembros validos del grupo para simplificar
+        if (accion === 'lectura' || accion === 'escritura') {
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando pertenencia a grupo en tienePermiso:', error);
+    }
+  }
+
   // Si no está compartida explícitamente, verificar visibilidad automática (solo lectura)
   if (accion === 'lectura') {
     try {

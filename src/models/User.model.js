@@ -238,6 +238,20 @@ const PerfilFundacionSchema = new Schema({
     profesionalesIglesia: { type: String, trim: true },
     proyectoPsicosocial: { type: String, trim: true },
     ultimaActualizacion: { type: Date, default: Date.now }
+  },
+
+  // Nueva documentación: Entrevista
+  entrevista: {
+    completado: { type: Boolean, default: false },
+    respuestas: { type: Map, of: String },
+    fechaCompletado: { type: Date }
+  },
+
+  // Nueva documentación: Hoja de Vida
+  hojaDeVida: {
+    completado: { type: Boolean, default: false },
+    datos: { type: Map, of: Schema.Types.Mixed },
+    fechaCompletado: { type: Date }
   }
 }, { _id: false });
 

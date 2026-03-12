@@ -704,6 +704,37 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
   }
 };
 
+/**
+ * Actualizar documentos de entrevista de la Fundación
+ * PUT /api/usuarios/entrevistaFundacion
+ */
+const actualizarEntrevistaFundacion = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { respuestas } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+
+    if (!user.fundacion) user.fundacion = { activo: true };
+
+    user.fundacion.entrevista = {
+      completado: true,
+      respuestas: respuestas,
+      fechaCompletado: new Date()
+    };
+
+    await user.save();
+
+    res.json(formatSuccessResponse('Entrevista guardada exitosamente', {
+      entrevista: user.fundacion.entrevista
+    }));
+  } catch (error) {
+    console.error('Error al actualizar entrevista:', error);
+    res.status(500).json(formatErrorResponse('Error al guardar entrevista', [error.message]));
+  }
+};
+
 module.exports = {
   getAllUsers,
   searchUsers,
@@ -717,5 +748,6 @@ module.exports = {
   getUserStats,
   toggleSavePost,
   getSavedPosts,
-  actualizarDocumentacionFHSYL
+  actualizarDocumentacionFHSYL,
+  actualizarEntrevistaFundacion
 };

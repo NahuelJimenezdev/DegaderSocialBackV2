@@ -9,6 +9,7 @@ const {
   obtenerMiEstado,
   getAllSolicitudesAdmin
 } = require('../controllers/fundacionController');
+const { getUsuariosBajoJurisdiccion } = require('../controllers/fundacionAdminController');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
@@ -48,5 +49,11 @@ router.put('/rechazar/:userId', rechazarSolicitud);
  * Obtener TODAS las solicitudes (Solo Founder)
  */
 router.get('/admin/todas-solicitudes', getAllSolicitudesAdmin);
+
+/**
+ * GET /api/fundacion/admin/usuarios-jurisdiccion
+ * Listar usuarios aceptados bajo jurisdicción del director
+ */
+router.get('/admin/usuarios-jurisdiccion', getUsuariosBajoJurisdiccion);
 
 module.exports = router;

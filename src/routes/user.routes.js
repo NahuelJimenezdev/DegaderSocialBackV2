@@ -11,6 +11,7 @@ router.use(authenticate);
 router.get('/search', userController.searchUsers);
 router.put('/profile', userController.updateProfile);
 router.put('/documentacionFHSYL', userController.actualizarDocumentacionFHSYL);
+router.put('/entrevistaFundacion', userController.actualizarEntrevistaFundacion);
 router.put('/avatar', uploadAvatar, handleUploadError, userController.uploadAvatar);
 router.delete('/deactivate', userController.deactivateAccount);
 

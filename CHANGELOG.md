@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.26.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.5...v1.26.6) (2026-03-13)
+
+
+### Bug Fixes
+
+* Sincronización de datos personales (dirección, barrio, celular) al guardar documentación FHSYL ([164f3a0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/164f3a083ab3f8f47d19ba56f49977732a972326))
+
 ### [1.26.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.4...v1.26.5) (2026-03-13)
 
 

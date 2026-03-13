@@ -716,7 +716,7 @@ const actualizarEntrevistaFundacion = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
 
-    if (!user.fundacion) user.fundacion = { activo: true };
+    if (!user.fundacion) user.fundacion = { activo: false };
 
     user.fundacion.entrevista = {
       completado: true,

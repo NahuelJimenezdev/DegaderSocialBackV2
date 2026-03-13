@@ -142,7 +142,7 @@ const InfoPersonalSchema = new Schema({
 
 // 2. Perfil Fundación Sol y Luna (FHS&L)
 const PerfilFundacionSchema = new Schema({
-  activo: { type: Boolean, default: true },
+  activo: { type: Boolean, default: false },
   fechaIngreso: { type: Date, default: Date.now },
   codigoEmpleado: { type: String, trim: true }, // Legajo o ID interno
 

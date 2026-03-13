@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.26.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.4...v1.26.5) (2026-03-13)
+
+
+### Bug Fixes
+
+* Corregido Error 500 al guardar documentación (desactivado activo por defecto) ([b898abc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/b898abcb191c93c5e4cedebe166cae72a6ec3541))
+
 ### [1.26.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.3...v1.26.4) (2026-03-12)
 
 ### [1.26.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.2...v1.26.3) (2026-03-12)

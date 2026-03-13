@@ -686,6 +686,15 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
       user.fundacion = {};
     }
 
+    // Actualizar datos personales básicos si se proporcionan
+    if (!user.personal) user.personal = {};
+    if (!user.personal.ubicacion) user.personal.ubicacion = {};
+
+    if (documentacionData.direccion) user.personal.direccion = documentacionData.direccion;
+    if (documentacionData.celular) user.personal.celular = documentacionData.celular;
+    if (documentacionData.barrio) user.personal.ubicacion.barrio = documentacionData.barrio;
+    if (documentacionData.localidad) user.personal.ubicacion.ciudad = documentacionData.localidad;
+
     user.fundacion.documentacionFHSYL = {
       ...user.fundacion.documentacionFHSYL,
       ...documentacionData,

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.27.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.6...v1.27.0) (2026-03-14)
+
+
+### Features
+
+* Actualizado correo del founder a founderdegader@degadersocial.com en middlewares y controladores ([db1e93c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/db1e93c5f6fb9186e8166fe09f1f9727b35b7a93))
+* Implementado sistema de correos de bienvenida con nodemailer ([5674d6d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5674d6d84dbc2d5b50e4f7f55353c3a6f37bd523))
+
+
+### Bug Fixes
+
+* Añadido .trim() y logs de depuración para asegurar detección de founder en registro y login ([191977b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/191977bd586f412410f1033b99b04ceac2372226))
+* Arreglado permisos de banner para Founder y corregido borrado en R2 ([e2caf1c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e2caf1c7981c1755b545d16ec3914e0b6ad06dd9))
+
 ### [1.26.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.5...v1.26.6) (2026-03-13)
 
 

@@ -212,7 +212,7 @@ const isTrustAndSafety = (req, res, next) => {
   // Verificar múltiples fuentes de permisos de moderación
   const isModeratorRole = req.user.seguridad?.rolSistema === 'moderador';
   const isFounder = req.user.seguridad?.rolSistema === 'Founder';
-  const isFounderEmail = req.user.email === 'founderdegader@degader.org'; // FIX: Acceso por email
+  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com'; // FIX: Acceso por email
   const hasModeratorPermission = req.user.seguridad?.permisos?.moderarContenido === true;
   const hasNewRolField = req.user.rol === 'moderador' || req.user.rol === 'admin';
 
@@ -230,7 +230,7 @@ const isTrustAndSafety = (req, res, next) => {
  * Middleware para verificar rol Founder
  */
 const isFounder = (req, res, next) => {
-  const isFounderEmail = req.user.email === 'founderdegader@degader.org'; // FIX: Acceso por email
+  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com'; // FIX: Acceso por email
   if (req.user.seguridad?.rolSistema !== 'Founder' && !isFounderEmail) {
     return res.status(403).json({
       success: false,
@@ -247,7 +247,7 @@ const isTrustAndSafetyOrFounder = (req, res, next) => {
   const isModeratorRole = req.user.seguridad?.rolSistema === 'moderador';
   const hasModeratorPermission = req.user.seguridad?.permisos?.moderarContenido === true;
   const isFounderRole = req.user.seguridad?.rolSistema === 'Founder';
-  const isFounderEmail = req.user.email === 'founderdegader@degader.org';
+  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com';
 
   if (!isModeratorRole && !hasModeratorPermission && !isFounderRole && !isFounderEmail) {
     return res.status(403).json({

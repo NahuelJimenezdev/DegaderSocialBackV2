@@ -353,7 +353,7 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Aprobador no encontrado'));
     }
 
-    const esFounder = aprobador.seguridad?.rolSistema === 'Founder' || aprobador.email === 'founderdegader@degader.org';
+    const esFounder = aprobador.seguridad?.rolSistema === 'Founder' || aprobador.email === 'founderdegader@degadersocial.com';
 
     // Si no es Founder, debe ser miembro aprobado de la fundación
     if (!esFounder && (!aprobador.esMiembroFundacion || aprobador.fundacion?.estadoAprobacion !== 'aprobado')) {
@@ -544,7 +544,7 @@ const rechazarSolicitud = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Aprobador no encontrado'));
     }
 
-    const esFounder = aprobador.seguridad?.rolSistema === 'Founder' || aprobador.email === 'founderdegader@degader.org';
+    const esFounder = aprobador.seguridad?.rolSistema === 'Founder' || aprobador.email === 'founderdegader@degadersocial.com';
 
     // Si no es Founder, debe ser miembro aprobado de la fundación
     if (!esFounder && (!aprobador.esMiembroFundacion || aprobador.fundacion?.estadoAprobacion !== 'aprobado')) {

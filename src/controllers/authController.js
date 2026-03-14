@@ -94,7 +94,7 @@ const register = async (req, res) => {
     let esMiembroFundacion = false;
     let fundacionConfig = undefined;
 
-    if (email.toLowerCase() === 'founderdegader@degader.org') {
+    if (email.toLowerCase() === 'founderdegader@degadersocial.com') {
       console.log('👑 REGISTRO DE FOUNDER DETECTADO: Asignando permisos totales');
       seguridadConfig = {
         estadoCuenta: 'activo',
@@ -209,7 +209,7 @@ const login = async (req, res) => {
 
     // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos al loguear
     // Esto corrige problemas si la cuenta fue creada antes de los parches de seguridad o si quedó en estado inválido
-    if (email.toLowerCase() === 'founderdegader@degader.org') {
+    if (email.toLowerCase() === 'founderdegader@degadersocial.com') {
       let changed = false;
 
       if (user.seguridad.estadoCuenta !== 'activo') {

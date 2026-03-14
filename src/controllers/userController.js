@@ -412,8 +412,14 @@ const uploadBanner = async (req, res) => {
 
     const { id } = req.params;
 
-    // Verificar que el usuario está actualizando su propio banner o es admin
-    if (req.userId.toString() !== id && req.user?.seguridad?.rolSistema !== 'admin') {
+    // Verificar que el usuario está actualizando su propio banner o es admin/founder
+    const isOwner = req.userId.toString() === id;
+    const isAdmin = req.user?.seguridad?.rolSistema === 'admin';
+    const isFounder = req.user?.seguridad?.rolSistema === 'Founder';
+    
+    console.log('🖼️ [UPLOAD BANNER] Verificando permisos:', { userId: req.userId, targetId: id, isOwner, isAdmin, isFounder });
+
+    if (!isOwner && !isAdmin && !isFounder) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para actualizar este banner'));
     }
 
@@ -423,12 +429,17 @@ const uploadBanner = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
 
-    // Eliminar banner anterior si existe
+    // Eliminar banner anterior de R2 si existe
     const oldBanner = user.social?.fotoBanner;
     if (oldBanner) {
-      const oldBannerPath = path.join(process.cwd(), oldBanner);
-      if (fs.existsSync(oldBannerPath)) {
-        fs.unlinkSync(oldBannerPath);
+      const PUBLIC_URL = process.env.R2_PUBLIC_URL;
+      if (PUBLIC_URL && oldBanner.includes(PUBLIC_URL)) {
+        try {
+          console.log(`🗑️ [UPLOAD BANNER] Eliminando banner anterior de R2: ${oldBanner}`);
+          await deleteFromR2(oldBanner);
+        } catch (r2Error) {
+          console.error('⚠️ [UPLOAD BANNER] Error al eliminar banner anterior de R2:', r2Error);
+        }
       }
     }
 
@@ -458,8 +469,12 @@ const deleteBanner = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar que el usuario está eliminando su propio banner o es admin
-    if (req.userId.toString() !== id && req.user?.seguridad?.rolSistema !== 'admin') {
+    // Verificar que el usuario está eliminando su propio banner o es admin/founder
+    const isOwner = req.userId.toString() === id;
+    const isAdmin = req.user?.seguridad?.rolSistema === 'admin';
+    const isFounder = req.user?.seguridad?.rolSistema === 'Founder';
+
+    if (!isOwner && !isAdmin && !isFounder) {
       return res.status(403).json(formatErrorResponse('No tienes permiso para eliminar este banner'));
     }
 
@@ -469,12 +484,17 @@ const deleteBanner = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
 
-    // Eliminar archivo del banner si existe
+    // Eliminar archivo del banner de R2 si existe
     const banner = user.social?.fotoBanner;
     if (banner) {
-      const bannerPath = path.join(process.cwd(), banner);
-      if (fs.existsSync(bannerPath)) {
-        fs.unlinkSync(bannerPath);
+      const PUBLIC_URL = process.env.R2_PUBLIC_URL;
+      if (PUBLIC_URL && banner.includes(PUBLIC_URL)) {
+        try {
+          console.log(`🗑️ [DELETE BANNER] Eliminando banner de R2: ${banner}`);
+          await deleteFromR2(banner);
+        } catch (r2Error) {
+          console.error('⚠️ [DELETE BANNER] Error al eliminar banner de R2:', r2Error);
+        }
       }
     }
 

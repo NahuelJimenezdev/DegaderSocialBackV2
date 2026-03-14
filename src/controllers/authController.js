@@ -2,6 +2,7 @@ const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 const { validateRegisterData, formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
+const { sendWelcomeEmail } = require('../services/emailService');
 
 /**
  * Generar JWT token
@@ -146,6 +147,9 @@ const register = async (req, res) => {
     });
 
     await user.save();
+
+    // 📧 Enviar correo de bienvenida (sin bloquear la respuesta)
+    sendWelcomeEmail(user).catch(err => console.error('📧 [EMAIL] Error enviando bienvenida:', err));
 
     // Generar token
     const token = generateToken(user._id);

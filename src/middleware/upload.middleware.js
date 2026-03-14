@@ -60,21 +60,21 @@ const mediaFileFilter = (req, file, cb) => {
 
 // Límites de tamaño
 const limits = {
-  fileSize: 10 * 1024 * 1024, // 10 MB
+  fileSize: 15 * 1024 * 1024, // 15 MB
 };
 
 // Middleware de upload para avatares
 const uploadAvatar = multer({
   storage: avatarStorage,
   fileFilter: imageFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB para avatares
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB para avatares
 }).single('avatar');
 
 // Middleware de upload para banners
 const uploadBanner = multer({
   storage: bannerStorage,
   fileFilter: imageFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB para banners
+  limits: { fileSize: 15 * 1024 * 1024 } // 15 MB para banners
 }).single('banner');
 
 // Middleware de upload para posts (legacy - single file)
@@ -180,7 +180,7 @@ const handleUploadError = (err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
         success: false,
-        message: 'El archivo es demasiado grande. Máximo 10MB'
+        message: 'El archivo es demasiado grande. Máximo 15MB'
       });
     }
     return res.status(400).json({

@@ -29,7 +29,7 @@ const logSecurityAlert = async (req, res) => {
         });
 
         // 2. Enviar Notificación al Founder
-        const founder = await User.findOne({ email: 'founderdegader@degader.org' });
+        const founder = await User.findOne({ email: 'founderdegader@degadersocial.com' });
         if (founder) {
             await Notification.create({
                 receptor: founder._id,
@@ -254,7 +254,7 @@ const updateUserRole = async (req, res) => {
             });
         }
 
-        if (user.email === 'founderdegader@degader.org') {
+        if (user.email === 'founderdegader@degadersocial.com') {
             return res.status(403).json({
                 success: false,
                 message: 'No se puede modificar al Founder'
@@ -358,7 +358,7 @@ const deleteUser = async (req, res) => {
         }
 
         // No permitir eliminar al Founder
-        if (user.email === 'founderdegader@degader.org') {
+        if (user.email === 'founderdegader@degadersocial.com') {
             return res.status(403).json({
                 success: false,
                 message: 'No se puede eliminar al Founder'

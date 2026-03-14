@@ -1,6 +1,6 @@
 /**
  * Middleware para verificar que el usuario sea Founder
- * Solo permite acceso a founderdegader@degader.org o usuarios con rolSistema 'Founder'
+ * Solo permite acceso a founderdegader@degadersocial.com o usuarios con rolSistema 'Founder'
  */
 const isFounder = (req, res, next) => {
     try {
@@ -12,7 +12,7 @@ const isFounder = (req, res, next) => {
         }
 
         // Verificar si es el Founder por email o por rol del sistema
-        const isFounderEmail = req.user.email === 'founderdegader@degader.org';
+        const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com';
         const isFounderRole = req.user.seguridad?.rolSistema === 'Founder';
 
         if (!isFounderEmail && !isFounderRole) {

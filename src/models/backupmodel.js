@@ -16,16 +16,10 @@ const NIVELES_FUNDACION = [
 const AREAS_FUNDACION = [
   // Directivo General
   "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
-  // Nuevas Áreas Directivo General
-  "Director General FHIS&L", "Secretario General FHIS&L",
   // Órganos de Control
-  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos", "Dirección Asuntos Ético",
-  // Nuevas Áreas Órganos de Control
-  "Control Interno", "Seguimiento de Proyectos", "FHISYL", "Nacional",
+  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos",
   // Organismos Internacionales
   "Salvación Mundial", "Misión Internacional de Paz",
-  // Nuevas Áreas Organismos Internacionales
-  "Salvación Latinoamérica", "Embajadores",
   // Áreas Ejecuivas Transversales
   "Despacho del Director", "Despacho del Subdirector",
   // Áreas por nivel nacional/regional/departamental/municipal
@@ -72,37 +66,25 @@ const PROGRAMAS_FUNDACION = [
 ];
 
 const CARGOS_FUNDACION = [
-  // Directivo General (Nuevos)
+  // Directivo General
   "Director Ejecutivo",
   "Secretario Ejecutivo",
   "Miembro de Junta Directiva",
-  "Equipo de Licitación y Adquisiciones",
 
-  // Órganos de Control (Nuevos)
-  "Dirección de Control Interno y Seguimiento",
-  "Dirección Asuntos Ético",
-  
-  // Organismos Internacionales (Nuevos)
-  "Salvación Mundial",
-  "Misión Internacional de Paz",
-
-  // Territoriales (Nuevos)
-  "Director de Áreas",
-  "Secretario/a Director de Áreas",
-  "Director General",
-  "Sub-Director General",
-  "secretario Director General",
-  "secretario Sub-Director General",
-
-  // Direcciones por nivel (Antiguos/Mantenidos por compatibilidad)
-  "Director", 
+  // Direcciones por nivel
+  "Director", // Agregado para compatibilidad con select de nivel nacional
   "Subdirector",
   "Director Nacional",
   "Director Regional",
   "Director Departamental",
+  "Director Departamental",
   "Coordinador Municipal",
   "Coordinador",
+
+  // Director General (Pastor) - Rol territorial
   "Director General (Pastor)",
+
+  // Órganos de Control
   "Auditor",
   "Secretario/a",
   "Miembro Comité Ético",

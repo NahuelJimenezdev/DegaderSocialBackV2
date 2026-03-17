@@ -36,29 +36,46 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
 
     const indexNivelDirector = nivelesOrdenados.indexOf(nivelDirector?.toLowerCase());
     
-    // Si no es Founder ni nivel global, solo ve niveles inferiores
+    // Si no es Founder ni nivel global, puede ver SU MISMO NIVEL y los niveles inferiores
     const nivelesVisibles = esFounder 
       ? nivelesOrdenados 
-      : nivelesOrdenados.slice(0, indexNivelDirector);
+      : indexNivelDirector !== -1 
+        ? nivelesOrdenados.slice(0, indexNivelDirector + 1)
+        : [];
 
     const query = {
       esMiembroFundacion: true,
       'fundacion.estadoAprobacion': 'aprobado'
     };
 
-    // Aplicar restricción de niveles
-    if (!esFounder) {
-      query['fundacion.nivel'] = { $in: nivelesVisibles };
-    }
+    // --- FILTROS OPCIONALES SOLICITADOS DEL FRONTEND ---
+    // (Iniciamos con todos, pero la jerarquía sobreescribirá lo que no tengan permiso de saltarse)
+    if (nivel) query['fundacion.nivel'] = nivel;
+    if (area) query['fundacion.area'] = area;
+    if (pais) query['fundacion.territorio.pais'] = pais;
+    if (region) query['fundacion.territorio.region'] = region;
+    if (departamento) query['fundacion.territorio.departamento'] = departamento;
+    if (municipio) query['fundacion.territorio.municipio'] = municipio;
 
-    // --- RESTRICCIONES TERRITORIALES ---
+    // --- RESTRICCIONES DURAS (INQUEBRANTABLES) ---
     if (!esFounder) {
-      // Regla de oro: Mismo país siempre (a menos que sea nivel global sin territorio)
+      // 1. RESTRICCIÓN DE JERARQUÍA (NIVEL)
+      if (nivel) {
+        // Validar que el nivel que se busca esté en su rango visible
+        if (!nivelesVisibles.includes(nivel.toLowerCase())) {
+          query['fundacion.nivel'] = 'BLOQUEADO'; // Fuerza que la DB regrese vacío
+        }
+      } else {
+        query['fundacion.nivel'] = { $in: nivelesVisibles };
+      }
+
+      // 2. RESTRICCIÓN DE TERRITORIO
+      // El país es inamovible
       if (territorio?.pais) {
         query['fundacion.territorio.pais'] = territorio.pais;
       }
 
-      // Restricción por nivel del director
+      // Escalera jerárquica territorial
       if (nivelDirector === 'regional' && territorio?.region) {
         query['fundacion.territorio.region'] = territorio.region;
       } else if (nivelDirector === 'departamental' && territorio?.departamento) {
@@ -66,15 +83,20 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       } else if (nivelDirector === 'municipal' && territorio?.municipio) {
         query['fundacion.territorio.municipio'] = territorio.municipio;
       }
-    }
 
-    // --- FILTROS OPCIONALES DEL FRONTEND ---
-    if (nivel) query['fundacion.nivel'] = nivel;
-    if (area) query['fundacion.area'] = area;
-    if (pais) query['fundacion.territorio.pais'] = pais;
-    if (region) query['fundacion.territorio.region'] = region;
-    if (departamento) query['fundacion.territorio.departamento'] = departamento;
-    if (municipio) query['fundacion.territorio.municipio'] = municipio;
+      // 3. RESTRICCIÓN DE ÁREA / SECCIÓN
+      // Los Directores Generales y Globales no tienen límite de área. Los demás (incluyendo Secretarios)
+      // solo pueden observar usuarios de SU MISMA área.
+      const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
+      const esGlobal = nivelesGlobales.includes(nivelDirector);
+      
+      const cargoDirector = director.fundacion?.cargo ? director.fundacion.cargo.trim() : '';
+      const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoDirector);
+
+      if (!esGlobal && !esDirectorGeneral && areaDirector) {
+        query['fundacion.area'] = areaDirector;
+      }
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 

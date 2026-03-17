@@ -14,7 +14,9 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       departamento, 
       municipio, 
       area, 
+      cargo,
       nivel,
+      search,
       page = 1,
       limit = 20
     } = req.query;
@@ -53,10 +55,22 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     // (Iniciamos con todos, pero la jerarquía sobreescribirá lo que no tengan permiso de saltarse)
     if (nivel) query['fundacion.nivel'] = nivel;
     if (area) query['fundacion.area'] = area;
+    if (cargo) query['fundacion.cargo'] = cargo;
     if (pais) query['fundacion.territorio.pais'] = pais;
     if (region) query['fundacion.territorio.region'] = region;
     if (departamento) query['fundacion.territorio.departamento'] = departamento;
     if (municipio) query['fundacion.territorio.municipio'] = municipio;
+    
+    // Filtro de búsqueda por nombre/apellido
+    if (search) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { 'nombres.primero': { $regex: searchRegex } },
+        { 'nombres.segundo': { $regex: searchRegex } },
+        { 'apellidos.primero': { $regex: searchRegex } },
+        { 'apellidos.segundo': { $regex: searchRegex } }
+      ];
+    }
 
     // --- RESTRICCIONES DURAS (INQUEBRANTABLES) ---
     if (!esFounder) {

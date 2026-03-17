@@ -64,12 +64,15 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     // Filtro de búsqueda por nombre/apellido
     if (search) {
       const searchRegex = new RegExp(search.trim(), 'i');
-      query.$or = [
-        { 'nombres.primero': { $regex: searchRegex } },
-        { 'nombres.segundo': { $regex: searchRegex } },
-        { 'apellidos.primero': { $regex: searchRegex } },
-        { 'apellidos.segundo': { $regex: searchRegex } }
-      ];
+      if (!query.$and) query.$and = [];
+      query.$and.push({
+        $or: [
+          { 'nombres.primero': { $regex: searchRegex } },
+          { 'nombres.segundo': { $regex: searchRegex } },
+          { 'apellidos.primero': { $regex: searchRegex } },
+          { 'apellidos.segundo': { $regex: searchRegex } }
+        ]
+      });
     }
 
     // --- RESTRICCIONES DURAS (INQUEBRANTABLES) ---
@@ -97,12 +100,15 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
         // Si el Director Regional tiene una región específica, busca esa región o a quienes no tengan ninguna.
         // Si el Director Regional NO tiene región (ej: ""), simplemente abarca a todos en su país.
         if (regionDelDirector) {
-            query['$or'] = [
-              { 'fundacion.territorio.region': regionDelDirector },
-              { 'fundacion.territorio.region': { $exists: false } },
-              { 'fundacion.territorio.region': '' },
-              { 'fundacion.territorio.region': null }
-            ];
+            if (!query.$and) query.$and = [];
+            query.$and.push({
+                $or: [
+                  { 'fundacion.territorio.region': regionDelDirector },
+                  { 'fundacion.territorio.region': { $exists: false } },
+                  { 'fundacion.territorio.region': '' },
+                  { 'fundacion.territorio.region': null }
+                ]
+            });
         }
         // Si `regionDelDirector` está vacío, la base de datos simplemente usará el `territorio.pais` (regla superior) 
         // y le mostrará todos los departamentales/municipales del país entero.

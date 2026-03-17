@@ -54,18 +54,23 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
             }
 
             // Filtros adicionales según el nivel objetivo
-            if (nivelObjetivo === 'regional' && territorioSolicitante.region) {
-                // El solicitante de un nivel inferior podría no tener la región especificada explícitamente.
-                // Permitir escalar al Regional si comparten el país y no hay conflicto de región.
-                if (!query['$and']) query['$and'] = [];
-                query['$and'].push({
-                    $or: [
-                        { 'fundacion.territorio.region': territorioSolicitante.region },
-                        { 'fundacion.territorio.region': { $exists: false } },
-                        { 'fundacion.territorio.region': '' },
-                        { 'fundacion.territorio.region': null }
-                    ]
-                });
+            if (nivelObjetivo === 'regional') {
+                const regionSolicitante = territorioSolicitante.region || '';
+                
+                if (regionSolicitante) {
+                    // El solicitante de un nivel inferior podría no tener la región especificada explícitamente.
+                    // Permitir escalar al Regional si comparten el país y no hay conflicto de región.
+                    if (!query['$and']) query['$and'] = [];
+                    query['$and'].push({
+                        $or: [
+                            { 'fundacion.territorio.region': regionSolicitante },
+                            { 'fundacion.territorio.region': { $exists: false } },
+                            { 'fundacion.territorio.region': '' },
+                            { 'fundacion.territorio.region': null }
+                        ]
+                    });
+                }
+                // Si la región del solicitante es "", que escale a CUALQUIER regional de su país.
             }
             if (nivelObjetivo === 'departamental' && territorioSolicitante.departamento) {
                 query['fundacion.territorio.departamento'] = territorioSolicitante.departamento;

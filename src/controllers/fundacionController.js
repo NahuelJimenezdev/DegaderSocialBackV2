@@ -310,7 +310,14 @@ const listarSolicitudes = async (req, res) => {
 
     // Filtros adicionales (Regional, Departamental, Municipal)
     if (nivelActual === 'regional' && currentUser.fundacion.territorio?.region) {
-      query['fundacion.territorio.region'] = currentUser.fundacion.territorio.region;
+      // Como un supervisor Regional abarca múltiples departamentos, los aplicantes de niveles inferiores
+      // podrían no incluir la palabra "Región" explícitamente en sus peticiones.
+      query['$or'] = [
+        { 'fundacion.territorio.region': currentUser.fundacion.territorio.region },
+        { 'fundacion.territorio.region': { $exists: false } },
+        { 'fundacion.territorio.region': '' },
+        { 'fundacion.territorio.region': null }
+      ];
     }
     if (nivelActual === 'departamental' && currentUser.fundacion.territorio?.departamento) {
       query['fundacion.territorio.departamento'] = currentUser.fundacion.territorio.departamento;

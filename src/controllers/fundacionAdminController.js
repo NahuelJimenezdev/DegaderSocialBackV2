@@ -77,7 +77,14 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
 
       // Escalera jerárquica territorial
       if (nivelDirector === 'regional' && territorio?.region) {
-        query['fundacion.territorio.region'] = territorio.region;
+        // Los niveles inferiores (Departamental, Municipal, etc.) no siempre tienen la propiedad "region" llena.
+        // Un Regional puede ver a cualquiera en su país, SIEMPRE Y CUANDO la víctima NO tenga una región DIFERENTE a la suya.
+        query['$or'] = [
+          { 'fundacion.territorio.region': territorio.region },
+          { 'fundacion.territorio.region': { $exists: false } },
+          { 'fundacion.territorio.region': '' },
+          { 'fundacion.territorio.region': null }
+        ];
       } else if (nivelDirector === 'departamental' && territorio?.departamento) {
         query['fundacion.territorio.departamento'] = territorio.departamento;
       } else if (nivelDirector === 'municipal' && territorio?.municipio) {

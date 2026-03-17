@@ -10,7 +10,7 @@ const { processAndUploadImage } = require('../services/imageOptimizationService'
 /**
  * Helper: Verificar si el usuario puede interactuar con el post de otro usuario
  */
-const canInteractWithPost = async (userId, targetUserId) => {
+const canInteractWithPost = async (userId, targetUserId, post = null, action = 'interact') => {
   // 1. Si es el mismo usuario, permitido
   if (userId.toString() === targetUserId.toString()) return true;
 
@@ -20,7 +20,15 @@ const canInteractWithPost = async (userId, targetUserId) => {
     return true;
   }
 
-  // 3. Verificar amistad aceptada
+  // 3. REGLA ESPECIAL: Permitir LIKE a publicaciones PÚBLICAS del FOUNDER sin ser amigos
+  if (action === 'like' && post && post.privacidad === 'publico') {
+    const targetUser = await UserV2.findById(targetUserId).select('seguridad.rolSistema');
+    if (targetUser && targetUser.seguridad?.rolSistema === 'Founder') {
+      return true;
+    }
+  }
+
+  // 4. Verificar amistad aceptada
   const friendship = await Friendship.findOne({
     $or: [
       { solicitante: userId, receptor: targetUserId },
@@ -145,7 +153,7 @@ const createPost = async (req, res) => {
     console.log('✅ [CREATE POST] Post saved with ID:', post._id);
 
     // Poblar usuario
-    await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username');
+    await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema');
     console.log('✅ [CREATE POST] Post populated');
 
     // Emitir nuevo post en tiempo real
@@ -308,7 +316,7 @@ const getFeed = async (req, res) => {
     };
 
     const posts = await Post.find(query)
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -363,7 +371,7 @@ const getUserPosts = async (req, res) => {
       usuario: userId,
       ...privacyFilter
     })
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
       .populate({
         path: 'comentarios.usuario',
@@ -436,7 +444,7 @@ const getGroupPosts = async (req, res) => {
     };
 
     const posts = await Post.find(query)
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -480,7 +488,7 @@ const getPostById = async (req, res) => {
     }
 
     const post = await Post.findById(id)
-      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username')
+      .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -517,8 +525,8 @@ const toggleLike = async (req, res) => {
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
     }
 
-    // 🆕 RESTRICT: Solo amigos pueden dar like (excepto staff o autor)
-    const canLike = await canInteractWithPost(req.userId, post.usuario);
+    // 🆕 RESTRICT: Solo amigos pueden dar like (excepto staff, autor o post público del Founder)
+    const canLike = await canInteractWithPost(req.userId, post.usuario, post, 'like');
     if (!canLike) {
       return res.status(403).json(formatErrorResponse('Debes ser amigo del autor para reaccionar a esta publicación'));
     }
@@ -558,7 +566,7 @@ const toggleLike = async (req, res) => {
         if (global.emitPostUpdate) {
           // Poblar antes de emitir
           await post.populate([
-            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil seguridad.rolSistema' },
             { path: 'grupo', select: 'nombre tipo' },
             { path: 'postOriginal' },
             { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
@@ -625,7 +633,7 @@ const toggleLike = async (req, res) => {
         if (global.emitPostUpdate) {
           // Poblar antes de emitir
           await post.populate([
-            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil seguridad.rolSistema' },
             { path: 'grupo', select: 'nombre tipo' },
             { path: 'postOriginal' },
             { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
@@ -685,7 +693,7 @@ const addComment = async (req, res) => {
     }
 
     // 🆕 RESTRICT: Solo amigos pueden comentar (excepto staff o autor)
-    const canComment = await canInteractWithPost(req.userId, post.usuario);
+    const canComment = await canInteractWithPost(req.userId, post.usuario, post, 'comment');
     if (!canComment) {
       return res.status(403).json(formatErrorResponse('Debes ser amigo del autor para comentar esta publicación'));
     }
@@ -716,7 +724,7 @@ const addComment = async (req, res) => {
     // Poblar todo el post antes de emitir actualización global
     // Esto asegura que el frontend reciba datos consistentes (usuario poblado, grupo, etc.)
     await post.populate([
-      { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' },
+      { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil seguridad.rolSistema' },
       { path: 'grupo', select: 'nombre tipo' },
       { path: 'postOriginal' },
       { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }

@@ -24,7 +24,8 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permisos de acceso al panel administrativo'));
     }
 
-    const { nivel: nivelDirector, territorio, area: areaDirector, seguridad } = director;
+    const { seguridad } = director;
+    const { nivel: nivelDirector, territorio, area: areaDirector } = director.fundacion || {};
     const esFounder = seguridad?.rolSistema === 'Founder';
 
     // Jerarquía ordenada

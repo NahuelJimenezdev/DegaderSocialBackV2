@@ -70,7 +70,7 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
 
             query.$or = [
                 { 'fundacion.area': { $regex: areaRegex } },
-                { 'fundacion.cargo': 'Director General (Pastor)' },
+                { 'fundacion.cargo': { $in: ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'] } },
                 { 'seguridad.rolSistema': 'Founder' },
                 { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } }
             ];

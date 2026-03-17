@@ -173,8 +173,15 @@ const PerfilFundacionSchema = new Schema({
     type: String,
     enum: AREAS_FUNDACION,
     required: function () {
-      // Área es opcional para Director General (Pastor) - pastores territoriales
-      return this.activo && this.cargo !== 'Director General (Pastor)';
+      // Área es opcional para directores territoriales generales
+      const cargosDirectivosTerritoriales = [
+        'Director General (Pastor)',
+        'Director General',
+        'Sub-Director General',
+        'secretario Director General',
+        'secretario Sub-Director General'
+      ];
+      return this.activo && !cargosDirectivosTerritoriales.includes(this.cargo);
     }
   },
 

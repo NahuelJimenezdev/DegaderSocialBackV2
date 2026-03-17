@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.28.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.27.0...v1.28.0) (2026-03-17)
+
+
+### Features
+
+* **fundacion:** remodelación del organigrama jerárquico y lógica de ubicación dinámica FHISYL vs Nacional ([0b5f136](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0b5f136410f68d015d0c29fc730a32a58e7a3af9))
+
+
+### Bug Fixes
+
+* **fundacion:** aplicar strict filtering en listado adminsitrativo para evitar escalada de visualizacion transversal (areas) y vertical (niveles prohibidos) ([1741b95](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/1741b959bfe8a52d6942822105998d37371b2e6b))
+* **fundacion:** flexibilizar busqueda regional y de notificaciones permitiendo asociar niveles departamentales que omitieron la region literal ([800ab41](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/800ab41db683b219e1da68db9bea6add1e037fe6))
+* **fundacion:** sincronizacion de roles directivos, validaciones de area y alertas jerarquicas ([747d7db](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/747d7db402cdf19fbc208890aeec0c15faa0f990))
+
 ## [1.27.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.26.6...v1.27.0) (2026-03-14)
 
 

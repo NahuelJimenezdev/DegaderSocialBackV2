@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.28.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.28.0...v1.28.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* **fundacion:** manejar correctamente escenarios donde el propio director regional no tiene definida una region string literal en su base de datos ([cd884bc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/cd884bcfb767a770920c3b39051443011896c0d3))
+* **fundacion:** recuperar propiedades nivel, territorio y area desde director.fundacion en el dashboard admin para usuarios no-founder ([64893a5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/64893a50524f3ec6545406b273c832523f2d2321))
+
 ## [1.28.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.27.0...v1.28.0) (2026-03-17)
 
 

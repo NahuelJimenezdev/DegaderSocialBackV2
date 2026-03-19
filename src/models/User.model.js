@@ -559,8 +559,8 @@ const UserV2Schema = new Schema({
 
 }, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toJSON: { virtuals: true, flattenMaps: true },
+  toObject: { virtuals: true, flattenMaps: true }
 });
 
 // ==========================================

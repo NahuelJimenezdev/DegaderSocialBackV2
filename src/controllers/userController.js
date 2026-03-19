@@ -764,7 +764,7 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       user.fundacion.entrevista.respuestas.set(key, value);
     });
 
-    user.markModified('fundacion');
+    user.markModified('fundacion.entrevista.respuestas');
     await user.save();
 
     res.json(formatSuccessResponse('Entrevista guardada exitosamente', {
@@ -806,7 +806,7 @@ const actualizarHojaDeVida = async (req, res) => {
       user.fundacion.hojaDeVida.datos.set(key, value);
     });
 
-    user.markModified('fundacion');
+    user.markModified('fundacion.hojaDeVida.datos');
     await user.save();
 
     res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', {

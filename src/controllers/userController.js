@@ -764,6 +764,37 @@ const actualizarEntrevistaFundacion = async (req, res) => {
   }
 };
 
+/**
+ * Actualizar Hoja de Vida de la Fundación
+ * PUT /api/usuarios/hojaDeVida
+ */
+const actualizarHojaDeVida = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { datos } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+
+    if (!user.fundacion) user.fundacion = { activo: false };
+
+    user.fundacion.hojaDeVida = {
+      completado: true,
+      datos: datos,
+      fechaCompletado: new Date()
+    };
+
+    await user.save();
+
+    res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', {
+      hojaDeVida: user.fundacion.hojaDeVida
+    }));
+  } catch (error) {
+    console.error('Error al actualizar Hoja de Vida:', error);
+    res.status(500).json(formatErrorResponse('Error al guardar Hoja de Vida', [error.message]));
+  }
+};
+
 module.exports = {
   getAllUsers,
   searchUsers,
@@ -778,5 +809,6 @@ module.exports = {
   toggleSavePost,
   getSavedPosts,
   actualizarDocumentacionFHSYL,
-  actualizarEntrevistaFundacion
+  actualizarEntrevistaFundacion,
+  actualizarHojaDeVida
 };

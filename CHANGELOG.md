@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.29.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.28.3...v1.29.0) (2026-03-19)
+
+
+### Features
+
+* endpoint para persistencia de Hoja de Vida ([8b17235](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/8b172355bf1a6b245bbe36f695242366973e6643))
+* proxy de imágenes para evitar CORS en Word ([8e45cb2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/8e45cb2e0e24b383dec7bf7a54f9bfda6ebb03a6))
+
+
+### Bug Fixes
+
+* asegurar persistencia de Map fundacion con markModified ([a0030ec](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a0030ec3a18b8a7e6ad8da01dfe3023080d59c6b))
+* registro de ruta /hojaDeVida en user.routes.js ([c871dc0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c871dc0b326fbc5df19d774532b3351b5c3443fa))
+
 ### [1.28.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.28.2...v1.28.3) (2026-03-17)
 
 ### [1.28.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.28.1...v1.28.2) (2026-03-17)

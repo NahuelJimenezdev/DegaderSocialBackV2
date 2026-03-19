@@ -1,4 +1,5 @@
 const { processAndUploadImage } = require('../services/imageOptimizationService');
+const axios = require('axios');
 
 const uploadOptimizedImage = async (req, res) => {
     try {
@@ -31,6 +32,26 @@ const uploadOptimizedImage = async (req, res) => {
     }
 };
 
+const proxyImage = async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        const contentType = response.headers['content-type'];
+        
+        res.set('Content-Type', contentType);
+        res.set('Access-Control-Allow-Origin', '*');
+        res.send(response.data);
+    } catch (error) {
+        console.error('Error in proxyImage:', error);
+        res.status(500).json({ error: 'Error fetching image', details: error.message });
+    }
+};
+
 module.exports = {
-    uploadOptimizedImage
+    uploadOptimizedImage,
+    proxyImage
 };

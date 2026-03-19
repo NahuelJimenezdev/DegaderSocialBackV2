@@ -721,6 +721,7 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
       ultimaActualizacion: new Date()
     };
 
+    user.markModified('fundacion');
     await user.save();
     
     // Obtener el usuario actualizado sin password para devolver al frontend
@@ -752,7 +753,7 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       respuestas: respuestas,
       fechaCompletado: new Date()
     };
-
+    user.markModified('fundacion');
     await user.save();
 
     res.json(formatSuccessResponse('Entrevista guardada exitosamente', {
@@ -783,7 +784,7 @@ const actualizarHojaDeVida = async (req, res) => {
       datos: datos,
       fechaCompletado: new Date()
     };
-
+    user.markModified('fundacion');
     await user.save();
 
     res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', {

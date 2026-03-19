@@ -748,11 +748,22 @@ const actualizarEntrevistaFundacion = async (req, res) => {
 
     if (!user.fundacion) user.fundacion = { activo: false };
 
-    user.fundacion.entrevista = {
-      completado: true,
-      respuestas: respuestas,
-      fechaCompletado: new Date()
-    };
+    if (!user.fundacion.entrevista) {
+      user.fundacion.entrevista = { completado: true, respuestas: new Map(), fechaCompletado: new Date() };
+    } else {
+      user.fundacion.entrevista.completado = true;
+      user.fundacion.entrevista.fechaCompletado = new Date();
+    }
+
+    // Asegurar que respuestas sea un Map y setear valores uno a uno para mayor robustez
+    if (!(user.fundacion.entrevista.respuestas instanceof Map)) {
+      user.fundacion.entrevista.respuestas = new Map();
+    }
+
+    Object.entries(respuestas).forEach(([key, value]) => {
+      user.fundacion.entrevista.respuestas.set(key, value);
+    });
+
     user.markModified('fundacion');
     await user.save();
 
@@ -779,11 +790,22 @@ const actualizarHojaDeVida = async (req, res) => {
 
     if (!user.fundacion) user.fundacion = { activo: false };
 
-    user.fundacion.hojaDeVida = {
-      completado: true,
-      datos: datos,
-      fechaCompletado: new Date()
-    };
+    if (!user.fundacion.hojaDeVida) {
+      user.fundacion.hojaDeVida = { completado: true, datos: new Map(), fechaCompletado: new Date() };
+    } else {
+      user.fundacion.hojaDeVida.completado = true;
+      user.fundacion.hojaDeVida.fechaCompletado = new Date();
+    }
+
+    // Asegurar que datos sea un Map y setear valores uno a uno
+    if (!(user.fundacion.hojaDeVida.datos instanceof Map)) {
+      user.fundacion.hojaDeVida.datos = new Map();
+    }
+
+    Object.entries(datos).forEach(([key, value]) => {
+      user.fundacion.hojaDeVida.datos.set(key, value);
+    });
+
     user.markModified('fundacion');
     await user.save();
 

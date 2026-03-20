@@ -70,6 +70,15 @@ const folderSchema = new mongoose.Schema({
     fechaCompartido: { type: Date, default: Date.now }
   }],
 
+  // Sistema de visibilidad por nivel jerárquico
+  visibilidadPorNivel: {
+    habilitado: { type: Boolean, default: false },
+    niveles: [{
+      type: String,
+      trim: true
+    }]
+  },
+
   // Sistema de visibilidad por cargo/rol
   visibilidadPorCargo: {
     habilitado: { type: Boolean, default: false },
@@ -83,6 +92,14 @@ const folderSchema = new mongoose.Schema({
   visibilidadPorArea: {
     habilitado: { type: Boolean, default: false },
     areas: [{
+      type: String,
+      trim: true
+    }],
+    subAreas: [{
+      type: String,
+      trim: true
+    }],
+    programas: [{
       type: String,
       trim: true
     }]
@@ -292,20 +309,39 @@ folderSchema.statics.obtenerCarpetasUsuario = async function (userId, tipo = nul
 
   // Si tenemos info del usuario, incluir carpetas con visibilidad automática
   if (user) {
+    // Por nivel
+    if (user.fundacion?.nivel) {
+      orConditions.push({
+        'visibilidadPorNivel.habilitado': true,
+        'visibilidadPorNivel.niveles': user.fundacion.nivel
+      });
+    }
+
     // Por cargo
     if (user.fundacion?.cargo) {
       orConditions.push({
         'visibilidadPorCargo.habilitado': true,
-        'visibilidadPorCargo.cargos': user.fundacion?.cargo
+        'visibilidadPorCargo.cargos': user.fundacion.cargo
       });
     }
 
-    // Por área
-    if (user.fundacion?.area) {
-      orConditions.push({
-        'visibilidadPorArea.habilitado': true,
-        'visibilidadPorArea.areas': user.fundacion?.area
-      });
+    // Por área, subárea o programa
+    if (user.fundacion?.area || user.fundacion?.subArea || user.fundacion?.programa) {
+      const areaConditions = { 'visibilidadPorArea.habilitado': true, $or: [] };
+      
+      if (user.fundacion.area) {
+        areaConditions.$or.push({ 'visibilidadPorArea.areas': user.fundacion.area });
+      }
+      if (user.fundacion.subArea) {
+        areaConditions.$or.push({ 'visibilidadPorArea.subAreas': user.fundacion.subArea });
+      }
+      if (user.fundacion.programa) {
+        areaConditions.$or.push({ 'visibilidadPorArea.programas': user.fundacion.programa });
+      }
+
+      if (areaConditions.$or.length > 0) {
+        orConditions.push(areaConditions);
+      }
     }
 
     // Por ubicación geográfica

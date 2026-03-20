@@ -107,11 +107,17 @@ const obtenerCarpetas = async (req, res) => {
     let carpetas = await Folder.obtenerCarpetasUsuario(userId, tipo);
 
     // Aplicar filtros adicionales en memoria (ya que obtenerCarpetasUsuario devuelve documentos)
-    if (area) {
+    if (area && area !== 'Todas') {
       carpetas = carpetas.filter(c => c.visibilidadPorArea?.areas?.includes(area));
     }
-    if (cargo) {
+    if (cargo && cargo !== 'Todos') {
       carpetas = carpetas.filter(c => c.visibilidadPorCargo?.cargos?.includes(cargo));
+    }
+    if (req.query.subArea && req.query.subArea !== 'Todas') {
+      carpetas = carpetas.filter(c => c.visibilidadPorArea?.subAreas?.includes(req.query.subArea));
+    }
+    if (req.query.programa && req.query.programa !== 'Todos') {
+      carpetas = carpetas.filter(c => c.visibilidadPorArea?.programas?.includes(req.query.programa));
     }
     if (pais) {
       carpetas = carpetas.filter(c => c.visibilidadGeografica?.pais === pais);
@@ -148,7 +154,10 @@ const crearCarpeta = async (req, res) => {
       visibilidadGeografica,
       // Campos para lógica automática
       areaSeleccionada,
+      subAreaSeleccionada,
+      programaSeleccionado,
       nivelInstitucional,
+      cargoInstitucional,
       pais,
       provincia,
       ciudad,
@@ -187,16 +196,19 @@ const crearCarpeta = async (req, res) => {
       compartidaCon: []
     });
 
-    // 1. Lógica de Jerarquía Automática
+    // 1. Lógica de Jerarquía Automática (Para tipo Institucional)
     let usuariosObjetivo = [];
 
-    if (areaSeleccionada && nivelInstitucional) {
-      console.log(`🏢 Resolviendo jerarquía: Área ${areaSeleccionada}, Nivel ${nivelInstitucional}`);
+    if (tipo === 'institucional' && (areaSeleccionada || nivelInstitucional || cargoInstitucional)) {
+      console.log(`🏢 Resolviendo jerarquía: Nivel ${nivelInstitucional}, Cargo ${cargoInstitucional}, Área ${areaSeleccionada}`);
 
       // Resolver usuarios que coinciden con la jerarquía
       usuariosObjetivo = await resolverUsuariosPorJerarquia({
-        area: areaSeleccionada,
         nivel: nivelInstitucional,
+        cargo: cargoInstitucional,
+        area: areaSeleccionada,
+        subArea: subAreaSeleccionada,
+        programa: programaSeleccionado,
         pais,
         provincia,
         ciudad
@@ -217,12 +229,23 @@ const crearCarpeta = async (req, res) => {
         nuevaCarpeta.compartidaCon.push(...usuariosParaCompartir);
       }
 
-      // Configurar visibilidad automática en el modelo (para futuros usuarios que cumplan la regla)
-      // Esto permite que si alguien nuevo entra al cargo, vea la carpeta automáticamente
-      nuevaCarpeta.visibilidadPorArea = {
-        habilitado: true,
-        areas: [areaSeleccionada]
-      };
+      // Configurar visibilidad automática en el modelo (Persistencia de regla)
+      if (nivelInstitucional && nivelInstitucional !== 'Todas') {
+        nuevaCarpeta.visibilidadPorNivel = { habilitado: true, niveles: [nivelInstitucional] };
+      }
+
+      if (cargoInstitucional && cargoInstitucional !== 'Todos') {
+        nuevaCarpeta.visibilidadPorCargo = { habilitado: true, cargos: [cargoInstitucional] };
+      }
+
+      if (areaSeleccionada && areaSeleccionada !== 'Todas') {
+        nuevaCarpeta.visibilidadPorArea = { 
+          habilitado: true, 
+          areas: [areaSeleccionada],
+          subAreas: (subAreaSeleccionada && subAreaSeleccionada !== 'Todas') ? [subAreaSeleccionada] : [],
+          programas: (programaSeleccionado && programaSeleccionado !== 'Todos') ? [programaSeleccionado] : []
+        };
+      }
 
       // Configurar visibilidad geográfica si aplica
       if (pais || provincia || ciudad) {
@@ -233,9 +256,6 @@ const crearCarpeta = async (req, res) => {
           ciudad: ciudad
         };
       }
-
-      // Configurar cargos implícitos (opcional, si queremos ser estrictos)
-      // Por ahora lo dejamos abierto al área/nivel resuelto
     }
 
     // 2. Configuración manual de visibilidad (si viene del frontend explícitamente)
@@ -354,6 +374,46 @@ const actualizarCarpeta = async (req, res) => {
     if (descripcion) carpeta.descripcion = descripcion.trim();
     if (color) carpeta.color = color;
     if (icono) carpeta.icono = icono;
+
+    // Actualizar Visibilidad Jerárquica si se proporciona
+    if (req.body.tipo === 'institucional') {
+      const { 
+        nivelInstitucional, cargoInstitucional, areaSeleccionada, 
+        subAreaSeleccionada, programaSeleccionado, pais, provincia, ciudad 
+      } = req.body;
+
+      if (nivelInstitucional) {
+        carpeta.visibilidadPorNivel = { 
+          habilitado: nivelInstitucional !== 'Todas', 
+          niveles: nivelInstitucional !== 'Todas' ? [nivelInstitucional] : [] 
+        };
+      }
+
+      if (cargoInstitucional) {
+        carpeta.visibilidadPorCargo = { 
+          habilitado: cargoInstitucional !== 'Todos', 
+          cargos: cargoInstitucional !== 'Todos' ? [cargoInstitucional] : [] 
+        };
+      }
+
+      if (areaSeleccionada) {
+        carpeta.visibilidadPorArea = { 
+          habilitado: areaSeleccionada !== 'Todas', 
+          areas: areaSeleccionada !== 'Todas' ? [areaSeleccionada] : [],
+          subAreas: (subAreaSeleccionada && subAreaSeleccionada !== 'Todas') ? [subAreaSeleccionada] : [],
+          programas: (programaSeleccionado && programaSeleccionado !== 'Todos') ? [programaSeleccionado] : []
+        };
+      }
+
+      if (pais || provincia || ciudad) {
+        carpeta.visibilidadGeografica = {
+          habilitado: true,
+          pais,
+          subdivision: provincia,
+          ciudad
+        };
+      }
+    }
 
     await carpeta.save();
 

@@ -8,147 +8,105 @@ const UserV2 = require('../models/User.model');
 /*      DATOS OFICIALES EXACTOS SEGÚN LA MEMORIA DEL PROYECTO FHS&L          */
 /* -------------------------------------------------------------------------- */
 
-// Áreas institucionales oficiales
+// Áreas institucionales oficiales (Sincronizado con User.model.js)
 const AREAS = [
-  "Dirección Ejecutiva",
-  "Secretaría Ejecutiva",
-  "Junta Directiva",
-  "Equipo de Licitación y Adquisiciones",
+  "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
+  "Director General FHIS&L", "Secretario General FHIS&L",
+  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos", "Dirección Asuntos Ético",
+  "Control Interno", "Seguimiento de Proyectos", "FHISYL", "Nacional",
+  "Salvación Mundial", "Misión Internacional de Paz",
+  "Salvación Latinoamérica", "Embajadores",
+  "Despacho del Director", "Despacho del Subdirector",
+  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
+  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad"
+];
 
-  "Dirección de Control Interno y Seguimiento",
-  "Dirección de Asuntos Éticos",
+// Subáreas
+const SUBAREAS = [
+  "Dirección Psicosocial", "Dirección de Protección Animal", "Gerencia Clínica", "Gerencia Clínica Veterinaria", "Interventoría Interna", "Interventoría Externo"
+];
 
-  "Salvación Mundial",
-  "Misión Internacional de Paz",
-
-  "Dirección de Planeación Estratégica y Proyectos",
-  "Dirección de Asuntos Étnicos", // Agregado "Dirección de"
-  "Dirección de Infraestructura", // Agregado "Dirección de"
-  "Dirección de Sostenibilidad Ambiental", // Agregado "Dirección de"
-  "Dirección de Recursos Humanos y Seguridad Laboral", // Agregado "Dirección de"
-  "Dirección Jurídica", // Agregado "Dirección" (ya estaba, verificar)
-  "Dirección de Salud", // Agregado "Dirección de"
-  "Dirección de Educación", // Agregado "Dirección de"
-  "Dirección Financiera", // Agregado "Dirección"
-  "Dirección de Imagen Corporativa y Comunicación", // Agregado "Dirección de"
-  "Dirección de Seguridad" // Agregado "Dirección de"
+// Programas
+const PROGRAMAS = [
+  "Banco de Proyectos", "Programa de Conexión y Desarrollo Informático", "Programa de Estrategias Comerciales de Desarrollo Productivo",
+  "Programas de Asuntos y Competencia Laboral", "Programas de Bienestar y Seguridad Laboral", "Programa de Gestión Documental y Almacén",
+  "Contratación", "Banco de Oferentes", "Programa de Jueces de Paz",
+  "Programas de Salud", "Programas de Salud Mental", "Programas de Salud Sexual y Reproductiva", "Programas de Acompañamiento Productivo",
+  "Programas de Promoción y Prevención en la Salud Animal",
+  "Programas de Educación", "Programas de Cultura y Turismo", "Gerencias Universitarias",
+  "Programas de Tesorería", "Programas de Contabilidad",
+  "Comunicaciones de Prensa", "Programas de Radio y Televisión"
 ];
 
 // Cargos institucionales oficiales
 const CARGOS = [
-  'Director Ejecutivo',
-  'Directivo Nacional',
-  'Secretaría Ejecutiva',
-  'Equipo de Licitación y Adquisiciones',
-
-  'Auditor de Control Interno',
-  'Miembro Comité Ético',
-
-  'Delegado Salvación Mundial',
-  'Delegado Misión Internacional de Paz',
-
-  'Director Nacional',
-  'Director Regional',
-  'Director Departamental',
-  'Coordinador Municipal',
-
-  'Secretario/a',
-  'Profesional',
-  'Encargado',
-  'Asistente',
-  'Voluntario'
+  "Director Ejecutivo", "Secretario Ejecutivo", "Miembro de Junta Directiva", "Equipo de Licitación y Adquisiciones",
+  "Dirección de Control Interno y Seguimiento", "Dirección Asuntos Ético",
+  "Salvación Mundial", "Misión Internacional de Paz",
+  "Director de Áreas", "Secretario/a Director de Áreas", "Director General", "Sub-Director General", "secretario Director General", "secretario Sub-Director General",
+  "Director", "Subdirector", "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal", "Coordinador", "Director General (Pastor)", "Auditor", "Secretario/a", "Miembro Comité Ético", "Delegado Internacional"
 ];
 
 // Niveles institucionales oficiales
 const NIVELES = [
-  'directivo_general',
-  'organo_control',
-  'organismo_internacional',
-  'nacional',
-  'regional',
-  'departamental',
-  'municipal'
+  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial"
 ];
 
 /* -------------------------------------------------------------------------- */
 /*                        RESOLVER DE USUARIOS POR JERARQUÍA                  */
 /* -------------------------------------------------------------------------- */
 
-const resolverUsuariosPorJerarquia = async ({ area, nivel, pais, provincia, ciudad }) => {
+const resolverUsuariosPorJerarquia = async ({ nivel, cargo, area, subArea, programa, pais, provincia, ciudad }) => {
   try {
-
     const query = {
-      'fundacion.area': area,
-      'fundacion.estado': 'active'
+      esMiembroFundacion: true,
+      'fundacion.estadoAprobacion': 'aprobado'
     };
 
-    // Filtros geográficos según nivel
-    if (nivel === 'nacional') {
-      if (pais) query['ubicacion.pais'] = pais;
+    // 1. Filtro de Nivel (si no es "Todas")
+    if (nivel && nivel !== 'Todas') {
+      query['fundacion.nivel'] = nivel;
     }
 
-    if (nivel === 'regional') {
-      if (pais) query['ubicacion.pais'] = pais;
+    // 2. Filtro de Cargo (si no es "Todos")
+    if (cargo && cargo !== 'Todos') {
+      query['fundacion.cargo'] = cargo;
     }
 
-    if (nivel === 'departamental') {
-      if (pais) query['ubicacion.pais'] = pais;
-      if (provincia) query['ubicacion.subdivision'] = provincia;
+    // 3. Filtro de Área (si no es "Todas")
+    if (area && area !== 'Todas') {
+      query['fundacion.area'] = area;
     }
 
-    if (nivel === 'municipal') {
-      if (pais) query['ubicacion.pais'] = pais;
-      if (provincia) query['ubicacion.subdivision'] = provincia;
-      if (ciudad) query['ubicacion.ciudad'] = ciudad;
+    // 4. Filtro de SubÁrea (si no es "Todas")
+    if (subArea && subArea !== 'Todas') {
+      query['fundacion.subArea'] = subArea;
     }
 
-    // Cargos por nivel basados en estructura real FHS&L
-    let cargosObjetivo = [];
-
-    switch (nivel) {
-      case 'directivo_general':
-        cargosObjetivo = ['Director Ejecutivo', 'Directivo Nacional'];
-        break;
-
-      case 'organo_control':
-        cargosObjetivo = ['Auditor de Control Interno', 'Miembro Comité Ético'];
-        break;
-
-      case 'organismo_internacional':
-        cargosObjetivo = ['Delegado Salvación Mundial', 'Delegado Misión Internacional de Paz'];
-        break;
-
-      case 'nacional':
-        cargosObjetivo = ['Director Nacional'];
-        break;
-
-      case 'regional':
-        cargosObjetivo = ['Director Regional'];
-        break;
-
-      case 'departamental':
-        cargosObjetivo = ['Director Departamental'];
-        break;
-
-      case 'municipal':
-        cargosObjetivo = ['Coordinador Municipal', 'Profesional', 'Encargado', 'Voluntario'];
-        break;
-
-      default:
-        cargosObjetivo = CARGOS;
-        break;
+    // 5. Filtro de Programa (si no es "Todos")
+    if (programa && programa !== 'Todos') {
+      query['fundacion.programa'] = programa;
     }
 
-    // Agregar filtro de cargos
-    query['fundacion.cargo'] = { $in: cargosObjetivo };
+    // 6. Filtros geográficos según nivel
+    if (pais) query['fundacion.territorio.pais'] = pais;
+    
+    // Solo aplicar subdivisiones si el nivel lo requiere (o si se proporcionan explícitamente)
+    if (provincia && ['regional', 'departamental', 'municipal', 'local', 'barrial'].includes(nivel)) {
+      query['fundacion.territorio.departamento'] = provincia;
+    }
 
-    console.log('🔍 [JerarquiaResolver] Query:', JSON.stringify(query));
+    if (ciudad && ['municipal', 'local', 'barrial'].includes(nivel)) {
+      query['fundacion.territorio.municipio'] = ciudad;
+    }
+
+    console.log('🔍 [JerarquiaResolver] Query Dinámica:', JSON.stringify(query));
 
     const usuarios = await UserV2.find(query).select(
-      '_id email nombreUsuario apellidoUsuario fundacion ubicacion'
+      '_id email nombres apellidos fundacion'
     );
 
-    console.log(`✅ [JerarquiaResolver] Encontrados ${usuarios.length} usuarios en ${area} - ${nivel}`);
+    console.log(`✅ [JerarquiaResolver] Encontrados ${usuarios.length} usuarios que coinciden con los criterios`);
 
     return usuarios;
 
@@ -165,6 +123,8 @@ const resolverUsuariosPorJerarquia = async ({ area, nivel, pais, provincia, ciud
 const obtenerEstructuraJerarquia = () => {
   return {
     areas: AREAS,
+    subAreas: SUBAREAS,
+    programas: PROGRAMAS,
     cargos: CARGOS,
     niveles: NIVELES
   };
@@ -172,8 +132,5 @@ const obtenerEstructuraJerarquia = () => {
 
 module.exports = {
   resolverUsuariosPorJerarquia,
-  obtenerEstructuraJerarquia,
-  AREAS,
-  CARGOS,
-  NIVELES
+  obtenerEstructuraJerarquia
 };

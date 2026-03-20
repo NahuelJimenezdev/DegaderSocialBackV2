@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.29.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.29.0...v1.29.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* persistencia robusta de mapas Mongoose con .set() y markModified ([cfa361d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/cfa361d2395f872850e9bbeb2aeee1d472b1c204))
+* serialización de mapas con flattenMaps y markModified granular ([4ec767e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/4ec767e69d948383088b6c1c01ea1668fa8c7c6d))
+
 ## [1.29.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.28.3...v1.29.0) (2026-03-19)
 
 

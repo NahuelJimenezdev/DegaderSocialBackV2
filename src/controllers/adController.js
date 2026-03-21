@@ -1,8 +1,8 @@
-const Ad = require('../models/Ad');
-const AdCredit = require('../models/AdCredit');
-const CreditTransaction = require('../models/CreditTransaction');
-const AdImpression = require('../models/AdImpression');
-const Notification = require('../models/Notification');
+const Ad = require('../models/Ad.model');
+const AdCredit = require('../models/AdCredit.model');
+const CreditTransaction = require('../models/CreditTransaction.model');
+const AdImpression = require('../models/AdImpression.model');
+const Notification = require('../models/Notification.model');
 const mongoose = require('mongoose');
 const UserV2 = require('../models/User.model');
 

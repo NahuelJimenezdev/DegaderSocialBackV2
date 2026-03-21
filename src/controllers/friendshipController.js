@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Friendship = require('../models/Friendship');
+const Friendship = require('../models/Friendship.model');
 const User = require('../models/User.model');
 const notificationService = require('../services/notification.service'); // Nuevo Servicio V1 PRO
 const logger = require('../config/logger');

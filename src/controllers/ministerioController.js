@@ -1,6 +1,6 @@
 const UserV2 = require('../models/User.model');
-const Iglesia = require('../models/Iglesia');
-const Notification = require('../models/Notification');
+const Iglesia = require('../models/Iglesia.model');
+const Notification = require('../models/Notification.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
 /**

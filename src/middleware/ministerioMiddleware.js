@@ -1,5 +1,5 @@
 const UserV2 = require('../models/User.model');
-const Iglesia = require('../models/Iglesia');
+const Iglesia = require('../models/Iglesia.model');
 const { formatErrorResponse } = require('../utils/validators');
 
 /**

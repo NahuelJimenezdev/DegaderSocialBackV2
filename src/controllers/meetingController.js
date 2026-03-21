@@ -1,8 +1,8 @@
-const Meeting = require('../models/Meeting.js');
+const Meeting = require('../models/Meeting.model');
 const User = require('../models/User.model.js');
-const Group = require('../models/Group.js');
+const Group = require('../models/Group.model');
 const notificationService = require('../services/notification.service');
-const Friendship = require('../models/Friendship.js');
+const Friendship = require('../models/Friendship.model');
 
 // ─────────────────────────────────────────────
 // Helper: Crear notificación de reunión

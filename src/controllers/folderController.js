@@ -1,4 +1,4 @@
-const Folder = require('../models/Folder');
+const Folder = require('../models/Folder.model');
 const UserV2 = require('../models/User.model');
 const multer = require('multer');
 const path = require('path');

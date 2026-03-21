@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Friendship = require('../models/Friendship');
+const Friendship = require('../models/Friendship.model');
 const notificationService = require('../services/notification.service');
 const User = require('../models/User.model');
 const friendshipController = require('../controllers/friendshipController');

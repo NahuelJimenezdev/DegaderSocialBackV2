@@ -1,4 +1,4 @@
-const Iglesia = require('../models/Iglesia');
+const Iglesia = require('../models/Iglesia.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
 /**

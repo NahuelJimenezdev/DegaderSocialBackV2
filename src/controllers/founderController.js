@@ -1,6 +1,6 @@
 const User = require('../models/User.model');
-const AuditLog = require('../models/AuditLog');
-const Notification = require('../models/Notification');
+const AuditLog = require('../models/AuditLog.model');
+const Notification = require('../models/Notification.model');
 
 /**
  * @desc    Registrar alerta de seguridad (acceso denegado)

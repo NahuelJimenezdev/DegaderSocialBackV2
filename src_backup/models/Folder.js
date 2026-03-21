@@ -1,0 +1,384 @@
+const mongoose = require('mongoose');
+
+// Subesquema para archivos
+const fileSchema = new mongoose.Schema({
+  filename: { type: String, required: true },
+  originalName: { type: String, required: true },
+  size: { type: Number, required: true },
+  mimetype: { type: String, required: true },
+  tipo: {
+    type: String,
+    required: true,
+    enum: ['image', 'video', 'audio', 'pdf', 'document', 'spreadsheet', 'presentation', 'text', 'archive', 'file']
+  },
+  url: { type: String, required: true },
+  uploadedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserV2'
+  },
+  uploadedAt: { type: Date, default: Date.now }
+}, { _id: true });
+
+// Esquema principal de carpetas
+const folderSchema = new mongoose.Schema({
+  nombre: {
+    type: String,
+    required: [true, 'El nombre es obligatorio'],
+    trim: true,
+    maxlength: 100
+  },
+  descripcion: {
+    type: String,
+    required: [true, 'La descripción es obligatoria'],
+    trim: true,
+    maxlength: 500
+  },
+  propietario: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserV2',
+    required: true,
+    index: true
+  },
+  tipo: {
+    type: String,
+    enum: ['personal', 'grupal', 'institucional'],
+    default: 'personal',
+    index: true
+  },
+  // Referencia a Grupo (para carpetas tipo "grupal")
+  grupo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    default: null,
+    index: true
+  },
+
+  // Archivos contenidos
+  archivos: [fileSchema],
+
+  // Compartir con usuarios específicos
+  compartidaCon: [{
+    usuario: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserV2'
+    },
+    permisos: {
+      type: String,
+      enum: ['lectura', 'escritura', 'admin'],
+      default: 'lectura'
+    },
+    fechaCompartido: { type: Date, default: Date.now }
+  }],
+
+  // Sistema de visibilidad por nivel jerárquico
+  visibilidadPorNivel: {
+    habilitado: { type: Boolean, default: false },
+    niveles: [{
+      type: String,
+      trim: true
+    }]
+  },
+
+  // Sistema de visibilidad por cargo/rol
+  visibilidadPorCargo: {
+    habilitado: { type: Boolean, default: false },
+    cargos: [{
+      type: String,
+      trim: true
+    }]
+  },
+
+  // Visibilidad por área
+  visibilidadPorArea: {
+    habilitado: { type: Boolean, default: false },
+    areas: [{
+      type: String,
+      trim: true
+    }],
+    subAreas: [{
+      type: String,
+      trim: true
+    }],
+    programas: [{
+      type: String,
+      trim: true
+    }]
+  },
+
+  // Visibilidad geográfica
+  visibilidadGeografica: {
+    habilitado: { type: Boolean, default: false },
+    pais: { type: String, trim: true },
+    ciudad: { type: String, trim: true },
+    subdivision: { type: String, trim: true } // Estado/Provincia
+  },
+
+  // Metadatos
+  color: {
+    type: String,
+    default: '#3B82F6' // Azul por defecto
+  },
+  icono: {
+    type: String,
+    default: 'folder'
+  },
+  tamaño: {
+    type: Number,
+    default: 0
+  }, // en bytes
+  cantidadArchivos: {
+    type: Number,
+    default: 0
+  },
+  ultimaActividad: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
+  activa: {
+    type: Boolean,
+    default: true,
+    index: true
+  }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Índices para optimización
+folderSchema.index({ propietario: 1, tipo: 1, activa: 1 });
+folderSchema.index({ nombre: 'text', descripcion: 'text' });
+folderSchema.index({ 'compartidaCon.usuario': 1 });
+
+// Virtual para formatear fecha
+folderSchema.virtual('fechaCreacionFormateada').get(function () {
+  return this.createdAt.toLocaleDateString('es-ES');
+});
+
+// Middleware para actualizar ultimaActividad y cantidadArchivos
+folderSchema.pre('save', function (next) {
+  if (this.isModified('archivos')) {
+    this.cantidadArchivos = this.archivos.length;
+    this.tamaño = this.archivos.reduce((total, file) => total + file.size, 0);
+  }
+
+  if (this.isModified() && !this.isModified('ultimaActividad')) {
+    this.ultimaActividad = new Date();
+  }
+
+  next();
+});
+
+// Método para verificar permisos
+folderSchema.methods.tienePermiso = async function (userId, accion = 'lectura') {
+  const UserV2 = mongoose.model('UserV2');
+
+  // Obtener el ID del propietario
+  const propietarioId = this.propietario._id ? this.propietario._id.toString() : this.propietario.toString();
+
+  // El propietario siempre tiene todos los permisos
+  if (propietarioId === userId.toString()) {
+    return true;
+  }
+
+  // Verificar si está en compartidaCon
+  const compartido = this.compartidaCon.find(item => {
+    const usuarioId = item.usuario._id ? item.usuario._id.toString() : item.usuario.toString();
+    return usuarioId === userId.toString();
+  });
+
+  if (compartido) {
+    // Verificar permisos específicos
+    switch (accion) {
+      case 'lectura':
+        return ['lectura', 'escritura', 'admin'].includes(compartido.permisos);
+      case 'escritura':
+        return ['escritura', 'admin'].includes(compartido.permisos);
+      case 'admin':
+        return compartido.permisos === 'admin';
+      default:
+        return false;
+    }
+  }
+
+  // Verificar pertenencia al grupo (si es una carpeta grupal)
+  if (this.grupo) {
+    try {
+      const Group = mongoose.model('Group');
+      const isMember = await Group.findOne({ 
+        _id: this.grupo, 
+        'miembros.usuario': userId 
+      });
+      
+      if (isMember) {
+        // En carpetas grupales, asumiremos que los miembros pueden al menos leer.
+        // Si quieres, puedes refinar la lógica de escritura según el rol en el grupo (admin/miembro).
+        // Por ahora daremos lectura/escritura a todos los miembros validos del grupo para simplificar
+        if (accion === 'lectura' || accion === 'escritura') {
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando pertenencia a grupo en tienePermiso:', error);
+    }
+  }
+
+  // Si no está compartida explícitamente, verificar visibilidad automática (solo lectura)
+  if (accion === 'lectura') {
+    try {
+      const user = await UserV2.findById(userId);
+      if (!user) return false;
+
+      // 1. Verificar visibilidad por cargo
+      if (this.visibilidadPorCargo?.habilitado && this.visibilidadPorCargo?.cargos?.length > 0) {
+        if (user.fundacion?.cargo && this.visibilidadPorCargo.cargos.includes(user.fundacion?.cargo)) {
+          return true;
+        }
+      }
+
+      // 2. Verificar visibilidad por área
+      if (this.visibilidadPorArea?.habilitado && this.visibilidadPorArea?.areas?.length > 0) {
+        if (user.fundacion?.area && this.visibilidadPorArea.areas.includes(user.fundacion?.area)) {
+          return true;
+        }
+      }
+
+      // 3. Verificar visibilidad geográfica
+      if (this.visibilidadGeografica?.habilitado) {
+        const userGeo = user.ubicacion;
+        const carpetaGeo = this.visibilidadGeografica;
+
+        let coincidencias = 0;
+        let criterios = 0;
+
+        if (carpetaGeo.pais) {
+          criterios++;
+          if (userGeo?.pais === carpetaGeo.pais) coincidencias++;
+        }
+        if (carpetaGeo.ciudad) {
+          criterios++;
+          if (userGeo?.ciudad === carpetaGeo.ciudad) coincidencias++;
+        }
+        if (carpetaGeo.subdivision) {
+          criterios++;
+          if (userGeo?.subdivision === carpetaGeo.subdivision) coincidencias++;
+        }
+
+        // Si coinciden todos los criterios definidos
+        if (criterios > 0 && coincidencias === criterios) {
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando permisos:', error);
+    }
+  }
+
+  return false;
+};
+
+// Método estático para obtener carpetas del usuario
+folderSchema.statics.obtenerCarpetasUsuario = async function (userId, tipo = null) {
+  const UserV2 = mongoose.model('UserV2');
+
+  // Obtener información del usuario
+  let user = null;
+  try {
+    user = await UserV2.findById(userId);
+  } catch (error) {
+    console.error('Error obteniendo usuario:', error);
+  }
+
+  const orConditions = [
+    { propietario: userId },
+    { 'compartidaCon.usuario': userId }
+  ];
+
+  try {
+    const Group = mongoose.model('Group');
+    const userGroups = await Group.find({ 'miembros.usuario': userId }).select('_id');
+    if (userGroups && userGroups.length > 0) {
+      orConditions.push({
+        grupo: { $in: userGroups.map(g => g._id) }
+      });
+    }
+  } catch (error) {
+    console.error('Error obteniendo grupos del usuario para carpetas:', error);
+  }
+
+  // Si tenemos info del usuario, incluir carpetas con visibilidad automática
+  if (user) {
+    // Por nivel
+    if (user.fundacion?.nivel) {
+      orConditions.push({
+        'visibilidadPorNivel.habilitado': true,
+        'visibilidadPorNivel.niveles': user.fundacion.nivel
+      });
+    }
+
+    // Por cargo
+    if (user.fundacion?.cargo) {
+      orConditions.push({
+        'visibilidadPorCargo.habilitado': true,
+        'visibilidadPorCargo.cargos': user.fundacion.cargo
+      });
+    }
+
+    // Por área, subárea o programa
+    if (user.fundacion?.area || user.fundacion?.subArea || user.fundacion?.programa) {
+      const areaConditions = { 'visibilidadPorArea.habilitado': true, $or: [] };
+      
+      if (user.fundacion.area) {
+        areaConditions.$or.push({ 'visibilidadPorArea.areas': user.fundacion.area });
+      }
+      if (user.fundacion.subArea) {
+        areaConditions.$or.push({ 'visibilidadPorArea.subAreas': user.fundacion.subArea });
+      }
+      if (user.fundacion.programa) {
+        areaConditions.$or.push({ 'visibilidadPorArea.programas': user.fundacion.programa });
+      }
+
+      if (areaConditions.$or.length > 0) {
+        orConditions.push(areaConditions);
+      }
+    }
+
+    // Por ubicación geográfica
+    if (user.ubicacion) {
+      const geoConditions = { 'visibilidadGeografica.habilitado': true };
+
+      if (user.ubicacion.pais) {
+        geoConditions['visibilidadGeografica.pais'] = user.ubicacion.pais;
+      }
+      if (user.ubicacion.ciudad) {
+        geoConditions['visibilidadGeografica.ciudad'] = user.ubicacion.ciudad;
+      }
+      if (user.ubicacion.subdivision) {
+        geoConditions['visibilidadGeografica.subdivision'] = user.ubicacion.subdivision;
+      }
+
+      if (Object.keys(geoConditions).length > 1) {
+        orConditions.push(geoConditions);
+      }
+    }
+  }
+
+  const query = {
+    $or: orConditions,
+    activa: true
+  };
+
+  if (tipo) {
+    query.tipo = tipo;
+  }
+
+  return this.find(query)
+    .populate('propietario', 'nombres.primero apellidos.primero email social.fotoPerfil fundacion.cargo fundacion.area')
+    .populate('compartidaCon.usuario', 'nombres.primero apellidos.primero email social.fotoPerfil')
+    .populate('grupo', 'nombre imagen')
+    .sort({ ultimaActividad: -1 });
+};
+
+module.exports = mongoose.model('Folder', folderSchema);
+

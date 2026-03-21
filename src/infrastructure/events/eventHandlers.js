@@ -1,6 +1,6 @@
 const eventBus = require('./eventBus');
 const { rankingQueue } = require('../../workers/ranking.worker');
-const auditLog = require('../../models/arenaAuditLog.model');
+const auditLog = require('../../models/ArenaAuditLog.model');
 
 /**
  * Inicializa los escuchadores del EventBus

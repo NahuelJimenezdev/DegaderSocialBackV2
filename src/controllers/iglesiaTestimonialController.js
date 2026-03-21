@@ -1,5 +1,5 @@
-const IglesiaTestimonial = require('../models/IglesiaTestimonial');
-const Iglesia = require('../models/Iglesia');
+const IglesiaTestimonial = require('../models/IglesiaTestimonial.model');
+const Iglesia = require('../models/Iglesia.model');
 const UserV2 = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 

@@ -1,6 +1,6 @@
-const Iglesia = require('../models/Iglesia');
-const IglesiaMessage = require('../models/IglesiaMessage');
-const Meeting = require('../models/Meeting'); // Importar Meeting para conteo global
+const Iglesia = require('../models/Iglesia.model');
+const IglesiaMessage = require('../models/IglesiaMessage.model');
+const Meeting = require('../models/Meeting.model'); // Importar Meeting para conteo global
 const UserV2 = require('../models/User.model');
 const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
@@ -581,7 +581,7 @@ const gestionarSolicitud = async (req, res) => {
 
     // 🧹 Limpieza: Eliminar la notificación original de solicitud para que no vuelva a aparecer
     try {
-      const Notification = require('../models/Notification');
+      const Notification = require('../models/Notification.model');
       await Notification.deleteMany({
         receptor: req.userId,
         emisor: userId,

@@ -1,5 +1,5 @@
 const User = require('../../../models/User.model');
-const Season = require('../../../models/season.model');
+const Season = require('../../../models/Season.model');
 const metrics = require('../../../infrastructure/metrics/metrics.service');
 
 /**

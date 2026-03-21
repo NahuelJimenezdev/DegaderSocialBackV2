@@ -47,7 +47,7 @@ const solicitarUnirse = async (req, res) => {
     // 🔔 CREAR NOTIFICACIONES PARA SUPERIORES JERÁRQUICOS
     // ========================================
     try {
-      const Notification = require('../models/Notification');
+      const Notification = require('../models/Notification.model');
 
       // 1. Jerarquía Ordenada (de abajo hacia arriba)
       const nivelesOrdenados = [

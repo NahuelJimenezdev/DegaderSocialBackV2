@@ -1,5 +1,5 @@
-const ChurchEvent = require('../models/ChurchEvent');
-const Iglesia = require('../models/Iglesia');
+const ChurchEvent = require('../models/ChurchEvent.model');
+const Iglesia = require('../models/Iglesia.model');
 const UserV2 = require('../models/User.model');
 
 // Crear un evento

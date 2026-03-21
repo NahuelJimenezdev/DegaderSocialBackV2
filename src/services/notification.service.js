@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
-const Notification = require('../models/Notification');
-const DeviceToken = require('../models/DeviceToken');
+const Notification = require('../models/Notification.model');
+const DeviceToken = require('../models/DeviceToken.model');
 const logger = require('../config/logger');
 
 // Inicialización de Firebase (Configurable vía .env o archivo json)

@@ -1,9 +1,9 @@
-const Post = require('../models/Post');
+const Post = require('../models/Post.model');
 const PostComment = require('../models/PostComment.model'); // 🆕 Nuevo modelo desacoplado
 const PostLike = require('../models/PostLike.model'); // 🆕 Nuevo modelo desacoplado
 const notificationService = require('../services/notification.service');
-const Group = require('../models/Group');
-const Friendship = require('../models/Friendship'); // 🆕 Importar modelo de amistad
+const Group = require('../models/Group.model');
+const Friendship = require('../models/Friendship.model'); // 🆕 Importar modelo de amistad
 const UserV2 = require('../models/User.model'); // 🆕 Importar modelo de usuario para verificar roles
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
@@ -248,7 +248,7 @@ const getFeed = async (req, res) => {
     let cachedPostIds = await feedService.getFeedFromCache(req.userId, safeLimit, lastScore);
     
     // 2. Obtener IDs de Amigos (Reutilizable)
-    const Friendship = require('../models/Friendship');
+    const Friendship = require('../models/Friendship.model');
     const friendships = await Friendship.find({
       $or: [{ solicitante: req.userId, estado: 'aceptada' }, { receptor: req.userId, estado: 'aceptada' }]
     }).lean();

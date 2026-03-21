@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const UserV2 = require('../models/User.model');
-const Friendship = require('../models/Friendship');
+const Friendship = require('../models/Friendship.model');
 const arenaSocketService = require('./arenaSocketService');
 
 class SocketService {
@@ -210,7 +210,7 @@ class SocketService {
   async handleMessageRead(socket, { conversationId, messageId, readerId }) {
     console.log(`👁️ [SOCKET] Message Read: User ${readerId} (Socket User: ${socket.userId}) in Conv ${conversationId}`);
     try {
-      const Conversation = require('../models/Conversation');
+      const Conversation = require('../models/Conversation.model');
       // Buscar conversación
       const conversation = await Conversation.findById(conversationId);
       if (!conversation) return;

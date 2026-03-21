@@ -1,5 +1,5 @@
-﻿const Conversation = require('../models/Conversation');
-const Friendship = require('../models/Friendship');
+﻿const Conversation = require('../models/Conversation.model');
+const Friendship = require('../models/Friendship.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 const { processAndUploadImage } = require('../services/imageOptimizationService');

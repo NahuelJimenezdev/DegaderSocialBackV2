@@ -1,7 +1,7 @@
 const redisService = require('./redis.service');
-const Post = require('../models/Post');
-const Friendship = require('../models/Friendship');
-const Group = require('../models/Group');
+const Post = require('../models/Post.model');
+const Friendship = require('../models/Friendship.model');
+const Group = require('../models/Group.model');
 const logger = require('../config/logger');
 
 class FeedService {

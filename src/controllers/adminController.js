@@ -1,7 +1,7 @@
 const User = require('../models/User.model');
-const Ticket = require('../models/Ticket');
-const Report = require('../models/Report');
-const AuditLog = require('../models/AuditLog');
+const Ticket = require('../models/Ticket.model');
+const Report = require('../models/Report.model');
+const AuditLog = require('../models/AuditLog.model');
 
 /**
  * Obtener lista de usuarios suspendidos

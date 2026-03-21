@@ -1,6 +1,6 @@
-const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report');
+const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report.model');
 const User = require('../models/User.model');
-const Post = require('../models/Post');
+const Post = require('../models/Post.model');
 const notificationService = require('../services/notification.service');
 
 // ==========================================

@@ -1,5 +1,5 @@
 const User = require('../models/User.model');
-const Notification = require('../models/Notification');
+const Notification = require('../models/Notification.model');
 
 /**
  * Envía notificaciones jerárquicas para solicitudes de fundación

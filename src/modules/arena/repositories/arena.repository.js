@@ -1,6 +1,6 @@
 const User = require('../../../models/User.model');
-const Challenge = require('../../../models/challenge.model');
-const ArenaSession = require('../../../models/arenaSession.model');
+const Challenge = require('../../../models/Challenge.model');
+const ArenaSession = require('../../../models/ArenaSession.model');
 
 class ArenaRepository {
     async findUserById(userId) {

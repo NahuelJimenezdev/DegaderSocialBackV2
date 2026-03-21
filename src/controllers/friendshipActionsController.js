@@ -1,4 +1,4 @@
-const Friendship = require('../models/Friendship');
+const Friendship = require('../models/Friendship.model');
 
 // Toggle favorito
 exports.toggleFavorite = async (req, res) => {

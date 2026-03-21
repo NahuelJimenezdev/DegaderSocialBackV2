@@ -1,7 +1,7 @@
 const { Worker, Queue } = require('bullmq');
 const redis = require('../services/redis.service');
 const User = require('../models/User.model');
-const ArenaSession = require('../models/arenaSession.model');
+const ArenaSession = require('../models/ArenaSession.model');
 const rankingService = require('../modules/arena/services/ranking.service');
 const economyService = require('../modules/economy/economy.service');
 const achievementsService = require('../modules/arena/services/achievements.service');

@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const Meeting = require('../models/Meeting');
+const Meeting = require('../models/Meeting.model');
 const notificationService = require('../services/notification.service');
 const logger = require('../config/logger');
 
@@ -90,7 +90,7 @@ const startMeetingCron = () => {
  */
 async function triggerMassNotification(meeting, type, content) {
   try {
-    const Notification = require('../models/Notification');
+    const Notification = require('../models/Notification.model');
     const existing = await Notification.findOne({
       'metadata.meetingId': meeting._id,
       'metadata.eventType': type

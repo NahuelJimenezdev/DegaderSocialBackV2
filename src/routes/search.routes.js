@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
 const Usuario = require('../models/User.model');
-const Friendship = require('../models/Friendship'); // Importar modelo Friendship
+const Friendship = require('../models/Friendship.model'); // Importar modelo Friendship
 
 /**
  * GET /api/buscar?q={query}

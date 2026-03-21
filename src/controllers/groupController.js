@@ -1,5 +1,5 @@
-const Group = require('../models/Group');
-const GroupMessage = require('../models/GroupMessage');
+const Group = require('../models/Group.model');
+const GroupMessage = require('../models/GroupMessage.model');
 const notificationService = require('../services/notification.service');
 const User = require('../models/User.model');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
@@ -155,7 +155,7 @@ const getGroupById = async (req, res) => {
     }));
 
     // Calcular nivel de actividad en tiempo real (mensajes en los últimos 7 días)
-    const GroupMessage = require('../models/GroupMessage');
+    const GroupMessage = require('../models/GroupMessage.model');
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 

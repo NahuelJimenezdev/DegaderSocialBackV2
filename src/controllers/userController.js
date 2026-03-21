@@ -1,5 +1,5 @@
 const User = require('../models/User.model');
-const Friendship = require('../models/Friendship'); // Importar Friendship
+const Friendship = require('../models/Friendship.model'); // Importar Friendship
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { enviarNotificacionesJerarquicas } = require('../utils/fundacionNotifications');
 const path = require('path');
@@ -545,8 +545,8 @@ const getUserStats = async (req, res) => {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    const Post = require('../models/Post');
-    const Friendship = require('../models/Friendship');
+    const Post = require('../models/Post.model');
+    const Friendship = require('../models/Friendship.model');
 
     const [totalPosts, totalAmigos] = await Promise.all([
       Post.countDocuments({ usuario: id }),
@@ -590,7 +590,7 @@ const toggleSavePost = async (req, res) => {
       return res.status(400).json(formatErrorResponse('ID de publicación inválido'));
     }
 
-    const Post = require('../models/Post');
+    const Post = require('../models/Post.model');
 
     // Verificar que el post existe
     const post = await Post.findById(postId);

@@ -13,6 +13,7 @@ router.get('/unread-count', notificationController.getUnreadCount);
 router.get('/:id', notificationController.getNotificationById);
 
 router.put('/:id/read', notificationController.markAsRead);
+router.put('/:id/delivered', notificationController.markAsDelivered);
 router.put('/mark-all-read', notificationController.markAllAsRead);
 
 router.delete('/:id', notificationController.deleteNotification);

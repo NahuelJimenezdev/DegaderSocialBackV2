@@ -1,5 +1,5 @@
 const Post = require('../models/Post');
-const Notification = require('../models/Notification');
+const notificationService = require('../services/notification.service');
 const Group = require('../models/Group');
 const Friendship = require('../models/Friendship'); // 🆕 Importar modelo de amistad
 const UserV2 = require('../models/User.model'); // 🆕 Importar modelo de usuario para verificar roles
@@ -199,36 +199,14 @@ const createPost = async (req, res) => {
         }
 
         for (const user of mentionedUsers) {
-          console.log('🔔 [CREATE POST] Creating notification for:', user._id);
-          const notification = new Notification({
-            receptor: user._id,
-            emisor: req.userId,
+          notificationService.notify({
+            receptorId: user._id,
+            emisorId: req.userId,
             tipo: 'mencion',
             contenido: 'te mencionó en una publicación',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            }
-          });
-          await notification.save();
-          console.log('🔔 [CREATE POST] Notification saved:', notification._id);
-
-          // Poblar y emitir
-          const notificationPopulated = await Notification.findById(notification._id)
-            .populate({
-              path: 'emisor',
-              select: 'nombres apellidos social.fotoPerfil username'
-            });
-
-          if (global.emitNotification) {
-            console.log('🔔 [CREATE POST] Emitting socket to:', user._id.toString());
-            global.emitNotification(user._id.toString(), notificationPopulated);
-          } else {
-            console.warn('⚠️ [CREATE POST] global.emitNotification is not defined');
-          }
+            referencia: { tipo: 'Post', id: post._id }
+          }).catch(err => logger.error(`⚠️ [MENTION] Post mention error: ${err.message}`));
         }
-      } else {
-        console.log('🔔 [CREATE POST] No mentions found in regex match');
       }
     } catch (notifError) {
       console.error('⚠️ [CREATE POST] Notification error:', notifError);
@@ -253,8 +231,8 @@ const getFeed = async (req, res) => {
     // Deshabilitar caché para asegurar que se muestren los datos más recientes (posts eliminados desaparecen)
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-    const { page = 1, limit = 10 } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 10, lastDate, lastId } = req.query;
+    const safeLimit = Math.min(parseInt(limit) || 10, 50);
 
     const Friendship = require('../models/Friendship');
 
@@ -315,6 +293,33 @@ const getFeed = async (req, res) => {
       ]
     };
 
+    // 🆕 MEJORA: Cursor Pagination con Feature Flag (Nivel FAANG: Tie-breaker con _id)
+    const isCursorMode = process.env.USE_CURSOR_PAGINATION === 'true';
+
+    if (isCursorMode && lastDate) {
+      const originalOr = query.$or;
+      delete query.$or;
+
+      // El desempate por _id evita saltarse posts con el mismo milisegundo de creación
+      const cursorQuery = {
+        $or: [
+          { createdAt: { $lt: new Date(lastDate) } },
+          {
+            createdAt: new Date(lastDate),
+            _id: { $lt: lastId }
+          }
+        ]
+      };
+
+      query.$and = [
+        { $or: originalOr },
+        cursorQuery
+      ];
+    }
+
+    const sort = isCursorMode ? { createdAt: -1, _id: -1 } : { createdAt: -1 };
+    const skipValue = isCursorMode ? 0 : (parseInt(page) - 1) * safeLimit;
+
     const posts = await Post.find(query)
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
@@ -323,21 +328,41 @@ const getFeed = async (req, res) => {
         path: 'comentarios.usuario',
         select: 'nombres.primero apellidos.primero social.fotoPerfil'
       })
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip);
+      .sort(sort)
+      .limit(isCursorMode ? safeLimit + 1 : safeLimit) // 🆕 Traer 1 extra en modo cursor para hasMore real
+      .skip(skipValue);
 
-    const total = await Post.countDocuments(query);
+    // 🆕 OPTIMIZACIÓN: A escala masiva, countDocuments es muy lento.
+    // Solo lo ejecutamos en modo legacy (page-based) para no romper el front actual.
+    let total = 0;
+    if (!isCursorMode) {
+      total = await Post.countDocuments(query);
+    }
+
+    // 🆕 Lógica hasMore Nivel PRO: Validar contra el post extra
+    const hasMore = isCursorMode ? posts.length > safeLimit : (posts.length === safeLimit);
+    const finalPosts = isCursorMode ? posts.slice(0, safeLimit) : posts;
+
+    // 🆕 MEJORA: Cursor de salida enriquecido sobre el set final de posts
+    const lastPost = finalPosts.length > 0 ? finalPosts[finalPosts.length - 1] : null;
+    const nextCursor = lastPost ? {
+      createdAt: lastPost.createdAt,
+      id: lastPost._id
+    } : null;
 
     res.json({
       success: true,
       data: {
-        posts,
-        pagination: {
+        posts: finalPosts,
+        nextCursor,
+        pagination: isCursorMode ? {
+          limit: safeLimit,
+          hasMore
+        } : {
           total,
           page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
+          limit: safeLimit,
+          pages: Math.ceil(total / safeLimit)
         }
       }
     });
@@ -538,27 +563,16 @@ const toggleLike = async (req, res) => {
       post.likes.splice(likeIndex, 1);
       await post.save();
 
-      // 🆕 ELIMINAR NOTIFICACIÓN EXISTENTE (si existe)
+      // 🆕 ELIMINAR NOTIFICACIÓN EXISTENTE (si existe) V1 PRO
       try {
-        const deletedNotification = await Notification.findOneAndDelete({
+        await notificationService.deleteNotification({
           emisor: req.userId,
           receptor: post.usuario,
           tipo: 'like_post',
           'referencia.id': post._id
         });
-
-        if (deletedNotification) {
-          console.log('🗑️ [UNLIKE] Notificación eliminada:', deletedNotification._id);
-          // Emitir evento de eliminación de notificación
-          if (global.emitNotification) {
-            global.emitNotification(post.usuario.toString(), {
-              tipo: 'notificacion_eliminada',
-              notificacionId: deletedNotification._id
-            });
-          }
-        }
       } catch (notifError) {
-        console.error('⚠️ [UNLIKE] Error eliminando notificación:', notifError);
+        console.error('⚠️ [UNLIKE] Error eliminando notificación:', notifError.message);
       }
 
       // Emitir actualización del post en tiempo real
@@ -583,49 +597,15 @@ const toggleLike = async (req, res) => {
       post.likes.push(req.userId);
       await post.save();
 
-      // 🆕 CREAR O ACTUALIZAR NOTIFICACIÓN (evitar duplicados)
+      // 🏆 Notificación V1 PRO centralizada (evita duplicados si el servicio lo soporta o vía lógica simple)
       if (!post.usuario.equals(req.userId)) {
-        // Buscar si ya existe una notificación de este usuario para este post
-        let notification = await Notification.findOne({
-          emisor: req.userId,
-          receptor: post.usuario,
+        notificationService.notify({
+          receptorId: post.usuario,
+          emisorId: req.userId,
           tipo: 'like_post',
-          'referencia.id': post._id
-        });
-
-        if (notification) {
-          // Ya existe, solo actualizar timestamp
-          notification.updatedAt = new Date();
-          notification.leido = false; // Marcar como no leída de nuevo
-          await notification.save();
-          console.log('♻️ [LIKE] Notificación actualizada (re-like):', notification._id);
-        } else {
-          // No existe, crear nueva
-          notification = new Notification({
-            receptor: post.usuario,
-            emisor: req.userId,
-            tipo: 'like_post',
-            contenido: 'le dio like a tu publicación',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            }
-          });
-          await notification.save();
-          console.log('✅ [LIKE] Nueva notificación creada:', notification._id);
-        }
-
-        // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
-        const notificationPopulated = await Notification.findById(notification._id)
-          .populate({
-            path: 'emisor',
-            select: 'nombres apellidos social.fotoPerfil username'
-          });
-
-        // Emitir notificación en tiempo real
-        if (global.emitNotification) {
-          global.emitNotification(post.usuario.toString(), notificationPopulated);
-        }
+          contenido: 'le dio like a tu publicación',
+          referencia: { tipo: 'Post', id: post._id }
+        }).catch(err => logger.error(`⚠️ [LIKE] Error en notificación: ${err.message}`));
       }
 
       // Emitir actualización del post en tiempo real
@@ -782,121 +762,50 @@ const addComment = async (req, res) => {
           console.log(`⚠️ [ADD COMMENT] Menciones NO encontradas en DB:`, notFoundMentions);
         }
 
+        // 1. Notificar Menciones
         for (const mentionedUser of mentionedUsers) {
-          console.log(`📤 [ADD COMMENT] Creando notificación para @${mentionedUser.username}...`);
-
-          const notification = new Notification({
-            receptor: mentionedUser._id,
-            emisor: req.userId,
+          notificationService.notify({
+            receptorId: mentionedUser._id,
+            emisorId: req.userId,
             tipo: 'mencion',
             contenido: 'te mencionó en un comentario',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            },
-            metadata: {
-              commentId: newComment._id
-            }
-          });
-          await notification.save();
-          console.log(`✅ [ADD COMMENT] Notificación creada: ${notification._id}`);
-
-          const notificationPopulated = await Notification.findById(notification._id)
-            .populate({
-              path: 'emisor',
-              select: 'nombres apellidos social.fotoPerfil username'
-            });
-
-          if (global.emitNotification) {
-            global.emitNotification(mentionedUser._id.toString(), notificationPopulated);
-            console.log(`🔔 [ADD COMMENT] Notificación emitida por socket a @${mentionedUser.username} (ID: ${mentionedUser._id})`);
-          } else {
-            console.log(`⚠️ [ADD COMMENT] global.emitNotification NO está disponible`);
-          }
-
-          // Agregar a la lista de notificados
+            referencia: { tipo: 'Post', id: post._id },
+            metadata: { commentId: newComment._id }
+          }).catch(err => logger.error(`⚠️ [COMMENT MENTION] Error: ${err.message}`));
           notifiedUserIds.add(mentionedUser._id.toString());
         }
       }
-      // 3. Si es una respuesta a comentario, notificar al autor del comentario padre
-      // (SOLO si no fue mencionado explícitamente)
+
+      // 2. Notificar Respuesta
       if (parentCommentId) {
-        console.log('🔍 [ADD COMMENT] Es respuesta a comentario, verificando autor del comentario padre...');
-        // Notificar al autor del comentario padre
         const parentComment = post.comentarios.id(parentCommentId);
         if (parentComment && parentComment.usuario) {
           const parentAuthorId = parentComment.usuario._id || parentComment.usuario;
-          const parentAuthorIdStr = parentAuthorId.toString();
-
-          // Solo notificar si:
-          // 1. No es el mismo autor del comentario
-          // 2. No fue mencionado explícitamente
-          if (!parentAuthorId.equals(req.userId) && !notifiedUserIds.has(parentAuthorIdStr)) {
-            console.log(`📤 [ADD COMMENT] Creando notificación de respuesta para autor del comentario padre (ID: ${parentAuthorIdStr})...`);
-
-            const notification = new Notification({
-              receptor: parentAuthorId,
-              emisor: req.userId,
+          if (!parentAuthorId.equals(req.userId) && !notifiedUserIds.has(parentAuthorId.toString())) {
+            notificationService.notify({
+              receptorId: parentAuthorId,
+              emisorId: req.userId,
               tipo: 'reply_comment',
               contenido: 'respondió a tu comentario',
-              referencia: {
-                tipo: 'Post',
-                id: post._id
-              },
-              metadata: {
-                commentId: newComment._id
-              }
-            });
-            await notification.save();
-            console.log(`✅ [ADD COMMENT] Notificación de respuesta creada: ${notification._id}`);
-
-            const notificationPopulated = await Notification.findById(notification._id)
-              .populate({
-                path: 'emisor',
-                select: 'nombres apellidos social.fotoPerfil username'
-              });
-
-            if (global.emitNotification) {
-              global.emitNotification(parentAuthorId.toString(), notificationPopulated);
-              console.log(`🔔 [ADD COMMENT] Notificación de respuesta emitida por socket (ID: ${parentAuthorIdStr})`);
-            }
-          } else if (notifiedUserIds.has(parentAuthorIdStr)) {
-            console.log(`ℹ️ [ADD COMMENT] Autor del comentario padre ya fue notificado por mención, omitiendo notificación de respuesta`);
+              referencia: { tipo: 'Post', id: post._id },
+              metadata: { commentId: newComment._id }
+            }).catch(err => logger.error(`⚠️ [REPLY] Error: ${err.message}`));
+            notifiedUserIds.add(parentAuthorId.toString());
           }
         }
       }
-      // 4. Si NO es respuesta y NO hay menciones, notificar al autor del post
-      else if (uniqueMentions.length === 0) {
-        // Notificar al autor del post (comentario directo, no respuesta)
-        // Manejar tanto post.usuario poblado como ObjectId simple
-        const postAuthorId = post.usuario._id || post.usuario;
 
-        if (postAuthorId && !postAuthorId.equals(req.userId)) {
-          const notification = new Notification({
-            receptor: postAuthorId,
-            emisor: req.userId,
-            tipo: 'comentario_post',
-            contenido: 'comentó tu publicación',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            },
-            metadata: {
-              commentId: newComment._id
-            }
-          });
-          await notification.save();
-
-          const notificationPopulated = await Notification.findById(notification._id)
-            .populate({
-              path: 'emisor',
-              select: 'nombres apellidos social.fotoPerfil username'
-            });
-
-          if (global.emitNotification) {
-            global.emitNotification(postAuthorId.toString(), notificationPopulated);
-          }
-        }
+      // 3. Notificar al autor del post (si no fue notificado antes)
+      const postAuthorId = post.usuario._id || post.usuario;
+      if (postAuthorId && !postAuthorId.equals(req.userId) && !notifiedUserIds.has(postAuthorId.toString())) {
+        notificationService.notify({
+          receptorId: postAuthorId,
+          emisorId: req.userId,
+          tipo: 'comentario_post',
+          contenido: 'comentó tu publicación',
+          referencia: { tipo: 'Post', id: post._id },
+          metadata: { commentId: newComment._id }
+        }).catch(err => logger.error(`⚠️ [COMMENT POST] Error: ${err.message}`));
       }
     } catch (notifError) {
       console.error('⚠️ [COMMENT] Notification error:', notifError);
@@ -973,31 +882,15 @@ const sharePost = async (req, res) => {
       }
     ]);
 
-    // Crear notificación
+    // Notificación centralizada
     if (!originalPost.usuario.equals(req.userId)) {
-      const notification = new Notification({
-        receptor: originalPost.usuario,
-        emisor: req.userId,
+      notificationService.notify({
+        receptorId: originalPost.usuario,
+        emisorId: req.userId,
         tipo: 'compartir_post',
         contenido: 'compartió tu publicación',
-        referencia: {
-          tipo: 'Post',
-          id: originalPost._id
-        }
-      });
-      await notification.save();
-
-      // IMPORTANTE: Popula emisor antes de emitir por Socket.IO
-      const notificationPopulated = await Notification.findById(notification._id)
-        .populate({
-          path: 'emisor',
-          select: 'nombres apellidos social.fotoPerfil username'
-        });
-
-      // Emitir notificación en tiempo real
-      if (global.emitNotification) {
-        global.emitNotification(originalPost.usuario.toString(), notificationPopulated);
-      }
+        referencia: { tipo: 'Post', id: originalPost._id }
+      }).catch(err => logger.error(`⚠️ [SHARE] Notification error: ${err.message}`));
     }
 
     // Emitir actualización del post original en tiempo real (para actualizar contador de compartidos)
@@ -1143,51 +1036,16 @@ const toggleCommentLike = async (req, res) => {
       comment.likes.push(req.userId);
       await post.save();
 
-      // 🆕 CREAR O ACTUALIZAR NOTIFICACIÓN (evitar duplicados)
-      // Asegurarse de que el usuario del comentario existe (poblado o no)
+      // 🏆 Notificación V1 PRO
       const commentUserId = comment.usuario._id || comment.usuario;
       if (commentUserId && !commentUserId.equals(req.userId)) {
-        // Buscar si ya existe una notificación de este usuario para este comentario
-        let notification = await Notification.findOne({
-          emisor: req.userId,
-          receptor: commentUserId,
+        notificationService.notify({
+          receptorId: commentUserId,
+          emisorId: req.userId,
           tipo: 'like_comentario',
-          'referencia.id': post._id
-        });
-
-        if (notification) {
-          // Ya existe, solo actualizar timestamp
-          notification.updatedAt = new Date();
-          notification.leido = false; // Marcar como no leída de nuevo
-          await notification.save();
-          console.log('♻️ [LIKE COMMENT] Notificación actualizada (re-like):', notification._id);
-        } else {
-          // No existe, crear nueva
-          notification = new Notification({
-            receptor: commentUserId,
-            emisor: req.userId,
-            tipo: 'like_comentario',
-            contenido: 'le dio like a tu comentario',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            }
-          });
-          await notification.save();
-          console.log('✅ [LIKE COMMENT] Nueva notificación creada:', notification._id);
-        }
-
-        // Popula emisor
-        const notificationPopulated = await Notification.findById(notification._id)
-          .populate({
-            path: 'emisor',
-            select: 'nombres apellidos social.fotoPerfil username'
-          });
-
-        // Emitir notificación en tiempo real
-        if (global.emitNotification) {
-          global.emitNotification(commentUserId.toString(), notificationPopulated);
-        }
+          contenido: 'le dio like a tu comentario',
+          referencia: { tipo: 'Post', id: post._id }
+        }).catch(err => logger.error(`⚠️ [LIKE COMMENT] Error: ${err.message}`));
       }
     }
 
@@ -1284,27 +1142,13 @@ const updatePost = async (req, res) => {
         }).select('_id username social.username');
 
         for (const user of mentionedUsers) {
-          console.log('🔔 [UPDATE POST] Creating edit notification for:', user._id);
-
-          const notification = new Notification({
-            receptor: user._id,
-            emisor: req.userId,
+          notificationService.notify({
+            receptorId: user._id,
+            emisorId: req.userId,
             tipo: 'post_editado',
             contenido: 'editó la publicación',
-            referencia: {
-              tipo: 'Post',
-              id: post._id
-            }
-          });
-          await notification.save();
-
-          // Poblar y emitir
-          const notificationPopulated = await Notification.findById(notification._id)
-            .populate('emisor', 'nombres apellidos social.fotoPerfil username');
-
-          if (global.emitNotification) {
-            global.emitNotification(user._id.toString(), notificationPopulated);
-          }
+            referencia: { tipo: 'Post', id: post._id }
+          }).catch(err => logger.error(`⚠️ [EDIT MENTION] Error: ${err.message}`));
         }
       }
     } catch (notifError) {

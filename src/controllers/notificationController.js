@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
 /**
@@ -377,11 +378,41 @@ const clearReadNotifications = async (req, res) => {
       receptor: req.userId,
       leida: true
     });
-
     res.json(formatSuccessResponse('Notificaciones leídas eliminadas exitosamente'));
   } catch (error) {
     console.error('Error al limpiar notificaciones:', error);
     res.status(500).json(formatErrorResponse('Error al limpiar notificaciones', [error.message]));
+  }
+};
+
+/**
+ * Marcar notificación como entregada (ACK)
+ * PUT /api/notificaciones/:id/delivered
+ */
+const markAsDelivered = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const notification = await Notification.findById(id);
+
+    if (!notification) {
+      return res.status(404).json(formatErrorResponse('Notificación no encontrada'));
+    }
+
+    // Verificar pertenencia
+    if (!notification.receptor.equals(req.userId)) {
+      return res.status(403).json(formatErrorResponse('No tienes permiso para modificar esta notificación'));
+    }
+
+    await notificationService.markAsDelivered(id);
+    res.json(formatSuccessResponse('Notificación marcada como entregada'));
+  } catch (error) {
+    console.error('Error al marcar entrega:', error);
+    res.status(500).json(formatErrorResponse('Error al marcar entrega', [error.message]));
   }
 };
 
@@ -393,5 +424,6 @@ module.exports = {
   markAsRead,
   markAllAsRead,
   deleteNotification,
-  clearReadNotifications
+  clearReadNotifications,
+  markAsDelivered
 };

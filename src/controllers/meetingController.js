@@ -1,7 +1,7 @@
 const Meeting = require('../models/Meeting.js');
 const User = require('../models/User.model.js');
 const Group = require('../models/Group.js');
-const Notification = require('../models/Notification.js');
+const notificationService = require('../services/notification.service');
 const Friendship = require('../models/Friendship.js');
 
 // ─────────────────────────────────────────────
@@ -9,23 +9,17 @@ const Friendship = require('../models/Friendship.js');
 // ─────────────────────────────────────────────
 const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, meetingId) => {
   try {
-    const notification = new Notification({
-      receptor: receptorId,
-      emisor: emisorId,
+    // 🏆 Notificación V1 PRO
+    return await notificationService.notify({
+      receptorId,
+      emisorId,
       tipo: 'evento',
-      contenido: contenido,
+      contenido,
       referencia: { tipo: 'Meeting', id: meetingId },
-      metadata: { meetingId: meetingId, eventType: tipo }
+      metadata: { meetingId, eventType: tipo }
     });
-    await notification.save();
-    await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil');
-    await notification.populate('receptor', 'nombres.primero apellidos.primero');
-    if (global.emitNotification) {
-      global.emitNotification(receptorId.toString(), notification);
-    }
-    return notification;
   } catch (error) {
-    console.error('Error al crear notificación de reunión:', error);
+    console.error('Error al crear notificación de reunión:', error.message);
   }
 };
 

@@ -1,41 +1,7 @@
 const cron = require('node-cron');
 const Meeting = require('../models/Meeting');
-const Notification = require('../models/Notification');
-
-// Helper: Crear notificación de reunión
-const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, meetingId) => {
-  try {
-    const notification = new Notification({
-      receptor: receptorId,
-      emisor: emisorId,
-      tipo: 'evento',
-      contenido: contenido,
-      referencia: {
-        tipo: 'Meeting',
-        id: meetingId
-      },
-      metadata: {
-        meetingId: meetingId,
-        eventType: tipo
-      }
-    });
-
-    await notification.save();
-
-    // Poblar datos del emisor antes de emitir
-    await notification.populate('emisor', 'nombre apellido avatar');
-    await notification.populate('receptor', 'nombre apellido');
-
-    // Emitir notificación via Socket.IO
-    if (global.emitNotification) {
-      global.emitNotification(receptorId.toString(), notification);
-    }
-
-    return notification;
-  } catch (error) {
-    console.error('Error al crear notificación de reunión:', error);
-  }
-};
+const notificationService = require('../services/notification.service');
+const logger = require('../config/logger');
 
 /**
  * Tarea cron que se ejecuta cada minuto para:
@@ -43,46 +9,38 @@ const createMeetingNotification = async (receptorId, emisorId, tipo, contenido, 
  * 2. Enviar recordatorios 5 minutos antes
  */
 const startMeetingCron = () => {
-  // Ejecutar cada minuto
   cron.schedule('* * * * *', async () => {
     try {
       const now = new Date();
-      const fiveMinutesLater = new Date(now.getTime() + 5 * 60000);
-
-      // Buscar todas las reuniones activas (no canceladas)
       const meetings = await Meeting.find({
         status: { $ne: 'cancelled' }
       }).populate('creator', 'nombre apellido')
         .populate('attendees', 'nombre apellido');
 
       for (const meeting of meetings) {
-        // 🕒 Calcular inicio de reunión usando startsAt (UTC real) como fuente primaria
+        // 🕒 Calcular tiempos
         let meetingDateTime;
         if (meeting.startsAt) {
           meetingDateTime = new Date(meeting.startsAt);
         } else {
-          // Fallback legacy para reuniones antiguas sin startsAt
           meetingDateTime = new Date(meeting.date);
           const [h, m] = (meeting.time || '00:00').split(':');
           meetingDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
         }
 
-        // Calcular duración en minutos
         let durationMinutes = 60;
         if (meeting.duration) {
           if (meeting.duration.includes('minutos')) {
             durationMinutes = parseInt(meeting.duration);
           } else if (meeting.duration.includes('hora')) {
-            const hours = parseFloat(meeting.duration);
-            durationMinutes = hours * 60;
+            durationMinutes = parseFloat(meeting.duration) * 60;
           }
         }
 
         const meetingEndTime = new Date(meetingDateTime.getTime() + durationMinutes * 60000);
 
-        // 1️⃣ ACTUALIZAR ESTADOS AUTOMÁTICAMENTE
+        // 1️⃣ ACTUALIZAR ESTADOS
         let newStatus = meeting.status;
-
         if (now < meetingDateTime) {
           newStatus = 'upcoming';
         } else if (now >= meetingDateTime && now < meetingEndTime) {
@@ -91,77 +49,73 @@ const startMeetingCron = () => {
           newStatus = 'completed';
         }
 
-        // Si cambió el estado, actualizar y emitir
         if (newStatus !== meeting.status) {
           const oldStatus = meeting.status;
           meeting.status = newStatus;
           await meeting.save();
 
-          // Emitir cambio de estado vía WebSocket
           if (global.emitMeetingUpdate) {
             const attendeeIds = meeting.attendees.map(a => a._id.toString());
             global.emitMeetingUpdate(attendeeIds, meeting, 'statusChange');
           }
 
-          // Notificar cuando comienza — con protección contra duplicados
+          // Notificación de Inicio (CONCURRENTE - V1 PRO)
           if (oldStatus === 'upcoming' && newStatus === 'in-progress') {
-            const existingStartNotification = await Notification.findOne({
-              'metadata.meetingId': meeting._id,
-              'metadata.eventType': 'meeting_starting'
-            });
-
-            if (!existingStartNotification) {
-              for (const attendee of meeting.attendees) {
-                await createMeetingNotification(
-                  attendee._id,
-                  meeting.creator._id,
-                  'meeting_starting',
-                  `La reunión "${meeting.title}" ha comenzado`,
-                  meeting._id
-                );
-              }
-            }
+            await triggerMassNotification(meeting, 'meeting_starting', `La reunión "${meeting.title}" ha comenzado`);
           }
 
-          console.log(`📅 [CRON] Reunión "${meeting.title}" cambió de ${oldStatus} a ${newStatus}`);
+          logger.info(`📅 [CRON] Reunión "${meeting.title}" -> ${newStatus}`);
         }
 
-        // 2️⃣ ENVIAR RECORDATORIO 5 MINUTOS ANTES
+        // 2️⃣ RECORDATORIOS
         if (meeting.status === 'upcoming') {
           const timeDiff = meetingDateTime.getTime() - now.getTime();
           const minutesUntilStart = Math.floor(timeDiff / 60000);
 
-          // Si faltan exactamente 5 minutos (con margen de 1 minuto por el cron)
           if (minutesUntilStart >= 4 && minutesUntilStart <= 6) {
-            // Verificar que no se haya enviado ya un recordatorio
-            const existingReminder = await Notification.findOne({
-              'metadata.meetingId': meeting._id,
-              'metadata.eventType': 'meeting_reminder'
-            });
-
-            if (!existingReminder) {
-              // Enviar recordatorio a todos los asistentes
-              for (const attendee of meeting.attendees) {
-                await createMeetingNotification(
-                  attendee._id,
-                  meeting.creator._id,
-                  'meeting_reminder',
-                  `La reunión "${meeting.title}" comienza en ${minutesUntilStart} minutos`,
-                  meeting._id
-                );
-              }
-
-              console.log(`⏰ [CRON] Recordatorio enviado para reunión "${meeting.title}"`);
-            }
+            await triggerMassNotification(meeting, 'meeting_reminder', `La reunión "${meeting.title}" comienza en ${minutesUntilStart} minutos`);
           }
         }
       }
     } catch (error) {
-      console.error('❌ [CRON] Error en tarea de reuniones:', error);
+      logger.error('❌ [CRON] Error en tarea de reuniones:', error);
     }
   });
 
-  console.log('✅ [CRON] Tarea de reuniones iniciada - Se ejecuta cada minuto');
+  logger.info('✅ [CRON] Tarea de reuniones iniciada.');
 };
+
+/**
+ * Disparador de notificaciones masivas optimizado
+ */
+async function triggerMassNotification(meeting, type, content) {
+  try {
+    const Notification = require('../models/Notification');
+    const existing = await Notification.findOne({
+      'metadata.meetingId': meeting._id,
+      'metadata.eventType': type
+    });
+
+    if (existing) return;
+
+    // 🚀 Promise.allSettled para evitar el "Loop Mortal"
+    // Esto aprovecha la concurrencia de Node sin bloquear el cron
+    const notificationPromises = meeting.attendees.map(attendee => 
+      notificationService.notify({
+        receptorId: attendee._id,
+        emisorId: meeting.creator._id,
+        tipo: 'evento',
+        contenido: content,
+        referencia: { tipo: 'Meeting', id: meeting._id },
+        metadata: { meetingId: meeting._id, eventType: type }
+      })
+    );
+
+    await Promise.allSettled(notificationPromises);
+    logger.info(`⏰ [CRON] Notificación "${type}" enviada a ${meeting.attendees.length} asistentes.`);
+  } catch (err) {
+    logger.error(`Error en notificación masiva: ${err.message}`);
+  }
+}
 
 module.exports = { startMeetingCron };

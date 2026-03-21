@@ -10,33 +10,36 @@ class FeedService {
      * @param {Object} post 
      * @returns {Promise<Number>}
      */
-    async calculatePostScore(post) {
-        // 1. Engagement Weight
+    async calculatePostScore(post, viewerId = null) {
+        // 1. Engagement Weight (Ajustado según modelo Phase 3)
         const engagementWeight = 
             (post.likesCount || 0) * 3 +
             (post.commentsCount || 0) * 5 +
-            (post.sharesCount || 0) * 8;
+            (post.sharesCount || 0) * 7;
 
-        // 2. Freshness & Decay
-        const hoursSinceCreation = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60);
+        // 2. Freshness & Time Decay
+        const hoursSinceCreation = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
         
-        // Boost de frescura (gradual en las primeras 24h)
-        const freshnessBoost = Math.max(0, 100 - (hoursSinceCreation * 4)); 
+        // Recency Boost (Boost inicial muy fuerte en las primeras 2 horas)
+        let recencyBoost = 0;
+        if (hoursSinceCreation <= 2) {
+            recencyBoost = 150 - (hoursSinceCreation * 25); // Ej: 0h=150, 1h=125, 2h=100
+        } else if (hoursSinceCreation <= 24) {
+            recencyBoost = Math.max(0, 100 - (hoursSinceCreation * 4)); 
+        }
         
-        // Decay (penalización por tiempo)
-        const timeDecay = hoursSinceCreation * 2;
+        // Decay (penalización progresiva crítica por tiempo)
+        const decayFactor = 3;
+        const timeDecay = hoursSinceCreation * decayFactor;
 
-        // 3. Priority Boost (Staff/Admin)
+        // 3. Official / Priority Boost
         let priorityBoost = 0;
         try {
             let authorRole = null;
-            
-            // Optimización: Usar datos populados si existen
             if (post.usuario && post.usuario.seguridad && post.usuario.seguridad.rolSistema) {
                 authorRole = post.usuario.seguridad.rolSistema;
             } else if (post.usuario) {
                 const User = require('../models/User.model');
-                // Si post.usuario es un ObjectId, hacer query; si es un objeto populado sin rol, usar _id
                 const authorId = post.usuario._id || post.usuario;
                 const author = await User.findById(authorId).select('seguridad.rolSistema').lean();
                 if (author && author.seguridad) {
@@ -45,17 +48,35 @@ class FeedService {
             }
 
             if (authorRole && ['Founder', 'admin', 'moderador'].includes(authorRole)) {
-                priorityBoost = 500; // Boost fijo alto para contenido oficial
+                priorityBoost = 500;
             }
         } catch (e) {
             logger.warn('⚠️ [FEED_SERVICE] Error al obtener rol para priority boost:', e.message);
         }
 
-        const finalScore = engagementWeight + freshnessBoost + priorityBoost - timeDecay;
+        // 4. User Affinity (Base)
+        let userAffinity = 0;
+        if (viewerId) {
+            const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
+            
+            if (authorId === viewerId.toString()) {
+                userAffinity += 30; // Boost extra al propio contenido
+            } else {
+                // Logica base: si lo está evaluando para este usuario es porque hay conexión (amigo/grupo)
+                userAffinity += 10;
+                
+                // Si en el futuro post.likes viene populado con IDs
+                if (post.likes && Array.isArray(post.likes) && post.likes.includes(viewerId.toString())) {
+                    userAffinity += 15; // Ya interactuó antes con este contenido
+                }
+            }
+        }
+
+        // Formula final estilo TikTok/Instagram
+        const finalScore = Math.max(0, engagementWeight + recencyBoost + priorityBoost + userAffinity - timeDecay);
         
-        // Log métricas para debugging del algoritmo
         if (engagementWeight > 0) {
-            logger.info(`📊 [FEED_METRIC] ranking_score: ${finalScore.toFixed(2)} | engagement: ${engagementWeight} | post: ${post._id}`);
+            logger.info(`📊 [FEED_RANKING] Score: ${finalScore.toFixed(2)} | Eng: ${engagementWeight} | Decay: -${timeDecay.toFixed(1)} | Aff: ${userAffinity} | Post: ${post._id}`);
         }
 
         return finalScore;
@@ -71,28 +92,34 @@ class FeedService {
             const post = await Post.findById(postId);
             if (!post) return;
 
-            const newScore = await this.calculatePostScore(post);
             const authorId = post.usuario.toString();
+            // Calcular score base para Mongo (Generic Fallback Ranking)
+            const baseScore = await this.calculatePostScore(post, authorId);
             
             // Persistir en MongoDB para búsquedas Fallback e Influencers
-            await Post.updateOne({ _id: postId }, { $set: { relevanceScore: newScore } });
+            await Post.updateOne({ _id: postId }, { $set: { relevanceScore: baseScore } });
 
-            // Obtener todos los destinatarios (amigos)
-            // NOTA: Para alta escala, esto se puede optimizar cacheando friendIds en Redis
+            // Obtener todos los destinatarios (amigos) ligados al post
             const friendships = await Friendship.find({
                 $or: [{ solicitante: authorId, estado: 'aceptada' }, { receptor: authorId, estado: 'aceptada' }]
             }).lean();
 
-            const targetUserIds = friendships.map(f => f.solicitante.toString() === authorId ? f.receptor.toString() : f.solicitante.toString());
+            let targetUserIds = friendships.map(f => f.solicitante.toString() === authorId ? f.receptor.toString() : f.solicitante.toString());
             targetUserIds.push(authorId);
+            targetUserIds = Array.from(new Set(targetUserIds));
 
             const pipeline = redisService.client.pipeline();
-            targetUserIds.forEach(userId => {
-                pipeline.zadd(`user:feed:${userId}`, newScore, postId.toString());
-            });
+            
+            // Evaluar score con afinidad per-user de forma paralela antes del pipeline
+            await Promise.all(targetUserIds.map(async (userId) => {
+                try {
+                    const personalizedScore = await this.calculatePostScore(post, userId);
+                    pipeline.zadd(`user:feed:${userId}`, personalizedScore, postId.toString());
+                } catch(e) { /* Ignorar error individual */ }
+            }));
 
             await pipeline.exec();
-            logger.info(`🔄 [FEED_METRIC] Score actualizado para post ${postId} en ${targetUserIds.length} feeds.`);
+            logger.info(`🔄 [FEED_SYNC] Score actualizado en tiempo real para post ${postId} en ${targetUserIds.length} feeds.`);
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error al sincronizar score:`, error);
         }
@@ -137,23 +164,27 @@ class FeedService {
                 }
             }
 
+            // Agregar auto-follower
             targetUserIds.add(authorId);
-
-            // Calcular Score Inicial
-            const score = await this.calculatePostScore(post);
-            const postId = post._id.toString();
+            const targetUsersArray = Array.from(targetUserIds);
+            const postIdStr = post._id.toString();
 
             const pipeline = redisService.client.pipeline();
-            targetUserIds.forEach(userId => {
-                const feedKey = `user:feed:${userId}`;
-                pipeline.zadd(feedKey, score, postId);
-                pipeline.zremrangebyrank(feedKey, 0, -1001);
-                pipeline.expire(feedKey, 60 * 60 * 24 * 3);
-            });
+            
+            // Mapeo concurrente de afinidades (Personalized Score per User)
+            await Promise.all(targetUsersArray.map(async (userId) => {
+                try {
+                    const score = await this.calculatePostScore(post, userId);
+                    const feedKey = `user:feed:${userId}`;
+                    pipeline.zadd(feedKey, score, postIdStr);
+                    pipeline.zremrangebyrank(feedKey, 0, -1001); // Mantener top 1000 posts listos
+                    pipeline.expire(feedKey, 60 * 60 * 24 * 3); // 3 días en caché
+                } catch(e) { }
+            }));
 
             await pipeline.exec();
             const duration = Date.now() - startTime;
-            logger.info(`✅ [FEED_METRIC] fanout_time: ${duration}ms | score: ${score.toFixed(2)} | targets: ${targetUserIds.size}`);
+            logger.info(`✅ [FEED_FANOUT] fanout_time: ${duration}ms | targets (afinidades calcs): ${targetUsersArray.length}`);
 
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error en fan-out del post ${post._id}:`, error);
@@ -192,7 +223,7 @@ class FeedService {
                 
                 await Promise.all(batch.map(async (p) => {
                     try {
-                        const score = await this.calculatePostScore(p);
+                        const score = await this.calculatePostScore(p, userId);
                         pipeline.zadd(feedKey, score, p._id.toString());
                     } catch (scoreErr) {
                         logger.error(`❌ [FEED_SERVICE] Error calculando score para post ${p._id}:`, scoreErr.message);

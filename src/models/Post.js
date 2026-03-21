@@ -71,11 +71,15 @@ const postSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post'
   },
-  likes: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'UserV2'
-  }],
-  comentarios: [commentSchema],
+  likes: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'UserV2',
+    description: 'DEPRECATED: Usar colección PostLike para nuevos likes.'
+  },
+  comentarios: {
+    type: [commentSchema],
+    description: 'DEPRECATED: Usar colección PostComment para nuevos comentarios.'
+  },
   compartidos: [{
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
@@ -86,6 +90,21 @@ const postSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  // --- NUEVOS CAMPOS PARA ESCALABILIDAD (Fase 1) ---
+  likesCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
+  commentsCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
+  sharesCount: {
+    type: Number,
+    default: 0
+  },
   etiquetas: [{
     type: String,
     trim: true
@@ -93,6 +112,12 @@ const postSchema = new mongoose.Schema({
   grupo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
+  },
+  // --- RANKING INTELIGENTE ---
+  relevanceScore: {
+    type: Number,
+    default: 0,
+    index: true
   }
 }, {
   timestamps: true,
@@ -100,14 +125,14 @@ const postSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtual para contar likes
+// Virtual para contar likes (Usando contador optimizado Fase 1)
 postSchema.virtual('totalLikes').get(function () {
-  return this.likes?.length || 0;
+  return this.likesCount || 0;
 });
 
-// Virtual para contar comentarios
+// Virtual para contar comentarios (Usando contador optimizado Fase 1)
 postSchema.virtual('totalComentarios').get(function () {
-  return this.comentarios?.length || 0;
+  return this.commentsCount || 0;
 });
 
 // Virtual para contar compartidos

@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.29.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.29.2...v1.29.3) (2026-03-21)
+
 ### [1.29.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.29.1...v1.29.2) (2026-03-20)
 
 ### [1.29.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.29.0...v1.29.1) (2026-03-20)

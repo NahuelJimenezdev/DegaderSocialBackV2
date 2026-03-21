@@ -1,5 +1,7 @@
 const redisService = require('./redis.service');
 const Post = require('../models/Post.model');
+const PostLike = require('../models/PostLike.model');
+const PostComment = require('../models/PostComment.model');
 const Friendship = require('../models/Friendship.model');
 const Group = require('../models/Group.model');
 const logger = require('../config/logger');
@@ -10,7 +12,7 @@ class FeedService {
      * @param {Object} post 
      * @returns {Promise<Number>}
      */
-    async calculatePostScore(post, viewerId = null) {
+    async calculatePostScore(post, viewerId = null, affinityData = null) {
         // 1. Engagement Weight (Ajustado según modelo Phase 3)
         const engagementWeight = 
             (post.likesCount || 0) * 3 +
@@ -20,15 +22,13 @@ class FeedService {
         // 2. Freshness & Time Decay
         const hoursSinceCreation = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
         
-        // Recency Boost (Boost inicial muy fuerte en las primeras 2 horas)
         let recencyBoost = 0;
         if (hoursSinceCreation <= 2) {
-            recencyBoost = 150 - (hoursSinceCreation * 25); // Ej: 0h=150, 1h=125, 2h=100
+            recencyBoost = 150 - (hoursSinceCreation * 25);
         } else if (hoursSinceCreation <= 24) {
             recencyBoost = Math.max(0, 100 - (hoursSinceCreation * 4)); 
         }
         
-        // Decay (penalización progresiva crítica por tiempo)
         const decayFactor = 3;
         const timeDecay = hoursSinceCreation * decayFactor;
 
@@ -54,7 +54,7 @@ class FeedService {
             logger.warn('⚠️ [FEED_SERVICE] Error al obtener rol para priority boost:', e.message);
         }
 
-        // 4. User Affinity (Base)
+        // 4. User Affinity Avanzado
         let userAffinity = 0;
         if (viewerId) {
             const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
@@ -62,12 +62,13 @@ class FeedService {
             if (authorId === viewerId.toString()) {
                 userAffinity += 30; // Boost extra al propio contenido
             } else {
-                // Logica base: si lo está evaluando para este usuario es porque hay conexión (amigo/grupo)
-                userAffinity += 10;
+                userAffinity += 10; // Conexión base (está en su feed)
                 
-                // Si en el futuro post.likes viene populado con IDs
-                if (post.likes && Array.isArray(post.likes) && post.likes.includes(viewerId.toString())) {
-                    userAffinity += 15; // Ya interactuó antes con este contenido
+                // Si pasamos la data real de afinidad calculada en batch
+                if (affinityData) {
+                    const likesToAuthor = affinityData.likes || 0;
+                    const commentsToAuthor = affinityData.comments || 0;
+                    userAffinity += (likesToAuthor * 2) + (commentsToAuthor * 4);
                 }
             }
         }
@@ -106,20 +107,52 @@ class FeedService {
 
             let targetUserIds = friendships.map(f => f.solicitante.toString() === authorId ? f.receptor.toString() : f.solicitante.toString());
             targetUserIds.push(authorId);
-            targetUserIds = Array.from(new Set(targetUserIds));
+            const targetUsersArray = Array.from(new Set(targetUserIds));
 
-            const pipeline = redisService.client.pipeline();
-            
-            // Evaluar score con afinidad per-user de forma paralela antes del pipeline
-            await Promise.all(targetUserIds.map(async (userId) => {
-                try {
-                    const personalizedScore = await this.calculatePostScore(post, userId);
-                    pipeline.zadd(`user:feed:${userId}`, personalizedScore, postId.toString());
-                } catch(e) { /* Ignorar error individual */ }
-            }));
+            // Optimización: Pre-cachear top 50 posts del autor para la agregación
+            const recentPostsQuery = await Post.find({ usuario: authorId }).sort({createdAt: -1}).limit(50).select('_id').lean();
+            const authorPostIds = recentPostsQuery.map(p => p._id);
+            const postIdStr = post._id.toString();
 
-            await pipeline.exec();
-            logger.info(`🔄 [FEED_SYNC] Score actualizado en tiempo real para post ${postId} en ${targetUserIds.length} feeds.`);
+            // PROCESAMIENTO CONCURRENTE LOTEADO (BATCHING)
+            const batchSize = 100;
+            for (let i = 0; i < targetUsersArray.length; i += batchSize) {
+                const batch = targetUsersArray.slice(i, i + batchSize);
+                
+                // Aggregations seguras y mega-optimizadas
+                const likesAggr = await PostLike.aggregate([
+                    { $match: { usuario: { $in: batch }, post: { $in: authorPostIds } } },
+                    { $group: { _id: "$usuario", count: { $sum: 1 } } }
+                ]);
+                const commentsAggr = await PostComment.aggregate([
+                    { $match: { usuario: { $in: batch }, post: { $in: authorPostIds } } },
+                    { $group: { _id: "$usuario", count: { $sum: 1 } } }
+                ]);
+
+                // Mapear resultados
+                const affinityMap = {};
+                batch.forEach(id => affinityMap[id] = { likes: 0, comments: 0 });
+                likesAggr.forEach(l => affinityMap[l._id.toString()].likes = l.count);
+                commentsAggr.forEach(c => affinityMap[c._id.toString()].comments = c.count);
+
+                const pipeline = redisService.client.pipeline();
+                
+                await Promise.all(batch.map(async (userId) => {
+                    try {
+                        const score = await this.calculatePostScore(post, userId, affinityMap[userId]);
+                        const feedKey = `user:feed:${userId}`;
+                        pipeline.zadd(feedKey, score, postIdStr);
+                        pipeline.zremrangebyrank(feedKey, 0, -1001); // Límite estricto de 1000 posts
+                    } catch(e) { }
+                }));
+
+                await pipeline.exec();
+                
+                // Ceder event-loop temporalmente para no bloquear Node JS en picos masivos
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+
+            logger.info(`🔄 [FEED_SYNC] Score actualizado en lotes para post ${postId} en ${targetUsersArray.length} feeds.`);
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error al sincronizar score:`, error);
         }
@@ -169,25 +202,79 @@ class FeedService {
             const targetUsersArray = Array.from(targetUserIds);
             const postIdStr = post._id.toString();
 
-            const pipeline = redisService.client.pipeline();
-            
-            // Mapeo concurrente de afinidades (Personalized Score per User)
-            await Promise.all(targetUsersArray.map(async (userId) => {
-                try {
-                    const score = await this.calculatePostScore(post, userId);
-                    const feedKey = `user:feed:${userId}`;
-                    pipeline.zadd(feedKey, score, postIdStr);
-                    pipeline.zremrangebyrank(feedKey, 0, -1001); // Mantener top 1000 posts listos
-                    pipeline.expire(feedKey, 60 * 60 * 24 * 3); // 3 días en caché
-                } catch(e) { }
-            }));
+            // Optimización: Pre-cachear top 50 posts del autor para la agregación
+            const recentPostsQuery = await Post.find({ usuario: authorId }).sort({createdAt: -1}).limit(50).select('_id').lean();
+            const authorPostIds = recentPostsQuery.map(p => p._id);
 
-            await pipeline.exec();
+            // CONTROL DE CONCURRENCIA LOTEADA (BATCHING Phase 3.5)
+            const batchSize = 100;
+            for (let i = 0; i < targetUsersArray.length; i += batchSize) {
+                const batch = targetUsersArray.slice(i, i + batchSize);
+                
+                const likesAggr = await PostLike.aggregate([
+                    { $match: { usuario: { $in: batch }, post: { $in: authorPostIds } } },
+                    { $group: { _id: "$usuario", count: { $sum: 1 } } }
+                ]);
+                const commentsAggr = await PostComment.aggregate([
+                    { $match: { usuario: { $in: batch }, post: { $in: authorPostIds } } },
+                    { $group: { _id: "$usuario", count: { $sum: 1 } } }
+                ]);
+
+                const affinityMap = {};
+                batch.forEach(id => affinityMap[id] = { likes: 0, comments: 0 });
+                likesAggr.forEach(l => affinityMap[l._id.toString()].likes = l.count);
+                commentsAggr.forEach(c => affinityMap[c._id.toString()].comments = c.count);
+
+                const pipeline = redisService.client.pipeline();
+                
+                await Promise.all(batch.map(async (userId) => {
+                    try {
+                        const score = await this.calculatePostScore(post, userId, affinityMap[userId]);
+                        const feedKey = `user:feed:${userId}`;
+                        pipeline.zadd(feedKey, score, postIdStr);
+                        pipeline.zremrangebyrank(feedKey, 0, -1001); // Mantener top 1000 posts listos
+                        pipeline.expire(feedKey, 60 * 60 * 24 * 3); // 3 días en caché
+                    } catch(e) { }
+                }));
+
+                await pipeline.exec();
+                
+                // Ceder thread de JS
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+
             const duration = Date.now() - startTime;
-            logger.info(`✅ [FEED_FANOUT] fanout_time: ${duration}ms | targets (afinidades calcs): ${targetUsersArray.length}`);
+            logger.info(`✅ [FEED_FANOUT] fanout_time: ${duration}ms | targets (afinidades masivas en BATCH): ${targetUsersArray.length}`);
 
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error en fan-out del post ${post._id}:`, error);
+        }
+    }
+
+    /**
+     * Interaction Boost Dinámico (TikTok Style).
+     * Sube el score temporal de los últimos posts de un autor en el feed de un usuario
+     * cuando dicho usuario interactúa (ej. da like).
+     */
+    async boostAuthorInUserFeed(viewerId, authorId) {
+        try {
+            if (!redisService.isConnected) return;
+            const feedKey = `user:feed:${viewerId}`;
+            
+            // Buscar últimos 10 posts de este autor para empujarlos en el feed del usuario
+            const posts = await Post.find({ usuario: authorId }).sort({createdAt: -1}).limit(10).select('_id').lean();
+            if (!posts.length) return;
+
+            const pipeline = redisService.client.pipeline();
+            posts.forEach(p => {
+                // ZINCRBY empuja artificalmente estos posts +50pts temporalmente 
+                pipeline.zincrby(feedKey, 50, p._id.toString());
+            });
+            
+            await pipeline.exec();
+            logger.info(`🚀 [FEED_BOOST] User ${viewerId} interactuó con Author ${authorId}. Boost de +50 aplicado a 10 posts.`);
+        } catch (error) {
+            logger.error(`❌ [FEED_SERVICE] Error ejecutando Interaction Boost temporal:`, error.message);
         }
     }
 

@@ -701,7 +701,8 @@ const toggleLike = async (req, res) => {
       await Promise.all([
         post.save(),
         PostLike.create({ post: id, usuario: req.userId }),
-        feedService.syncPostScore(id) // 🔄 Actualizar ranking en Redis
+        feedService.syncPostScore(id), // 🔄 Actualizar ranking en Redis
+        feedService.boostAuthorInUserFeed(req.userId, post.usuario).catch(e => console.error('⚠️ [FEED_BOOST] Error:', e)) // 🚀 TikTok Boost
       ]);
 
       // 🏆 Notificación V1 PRO centralizada (evita duplicados si el servicio lo soporta o vía lógica simple)
@@ -812,8 +813,9 @@ const addComment = async (req, res) => {
     
     await post.save();
     
-    // 🔄 Actualizar ranking en Redis (Engagement incrementado)
+    // 🔄 Actualizar ranking en Redis (Engagement incrementado) y aplicar Boost TikTok temporal
     feedService.syncPostScore(id).catch(e => console.error('⚠️ [SYNC_SCORE] Error:', e));
+    feedService.boostAuthorInUserFeed(req.userId, post.usuario).catch(e => console.error('⚠️ [FEED_BOOST] Error:', e));
 
     // ✅ FASE 1: Guardar en colección espejo desacoplada
     const newDecoupledComment = await PostComment.create({

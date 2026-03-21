@@ -1,4 +1,6 @@
 const Post = require('../models/Post');
+const PostComment = require('../models/PostComment.model'); // 🆕 Nuevo modelo desacoplado
+const PostLike = require('../models/PostLike.model'); // 🆕 Nuevo modelo desacoplado
 const notificationService = require('../services/notification.service');
 const Group = require('../models/Group');
 const Friendship = require('../models/Friendship'); // 🆕 Importar modelo de amistad
@@ -6,6 +8,7 @@ const UserV2 = require('../models/User.model'); // 🆕 Importar modelo de usuar
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 const { processAndUploadImage } = require('../services/imageOptimizationService');
+const feedService = require('../services/feed.service'); // 🆕 Nuevo servicio para escalabilidad
 
 /**
  * Helper: Verificar si el usuario puede interactuar con el post de otro usuario
@@ -156,6 +159,9 @@ const createPost = async (req, res) => {
     await post.populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema');
     console.log('✅ [CREATE POST] Post populated');
 
+    // 🚀 FASE 2: Fan-out on Write (Inyectar en feeds de amigos vía Redis)
+    feedService.fanOutPost(post).catch(err => console.error('⚠️ [FAN-OUT] Error:', err));
+
     // Emitir nuevo post en tiempo real
     try {
       if (global.emitPostUpdate) {
@@ -231,23 +237,108 @@ const getFeed = async (req, res) => {
     // Deshabilitar caché para asegurar que se muestren los datos más recientes (posts eliminados desaparecen)
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-    const { page = 1, limit = 10, lastDate, lastId } = req.query;
+    const { page = 1, limit = 10, lastDate, lastScore: lastScoreQuery, lastId } = req.query;
     const safeLimit = Math.min(parseInt(limit) || 10, 50);
 
+    // 🚀 FASE 3: Ranking Inteligente (Algorítmico)
+    // El score reemplaza al timestamp como cursor principal
+    const lastScore = lastScoreQuery ? parseFloat(lastScoreQuery) : '+inf';
+    
+    // 1. Obtener IDs de Redis (Posts normales ordenados por Score)
+    let cachedPostIds = await feedService.getFeedFromCache(req.userId, safeLimit, lastScore);
+    
+    // 2. Obtener IDs de Amigos (Reutilizable)
     const Friendship = require('../models/Friendship');
-
-    // Obtener IDs de amigos
     const friendships = await Friendship.find({
-      $or: [
-        { solicitante: req.userId, estado: 'aceptada' },
-        { receptor: req.userId, estado: 'aceptada' }
-      ]
-    });
+      $or: [{ solicitante: req.userId, estado: 'aceptada' }, { receptor: req.userId, estado: 'aceptada' }]
+    }).lean();
 
-    const friendIds = friendships.map(f =>
-      f.solicitante.equals(req.userId) ? f.receptor : f.solicitante
-    );
+    const friendIds = friendships.map(f => f.solicitante.toString() === req.userId.toString() ? f.receptor : f.solicitante);
+    
+    // Identificar influencers entre amigos con UNA sola consulta
+    let influencerIds = [];
+    if (friendIds.length > 0) {
+        try {
+            const User = require('../models/User.model');
+            const influencers = await User.find({
+                _id: { $in: friendIds },
+                'seguridad.rolSistema': { $in: ['Founder', 'admin', 'moderador'] }
+            }).select('_id').lean();
+            
+            influencerIds = influencers.map(inf => inf._id.toString());
+        } catch (dbErr) {
+            console.error('⚠️ [FEED_METRIC] Error al consultar influencers en batch:', dbErr.message);
+        }
+    }
 
+    // 3. Consultar posts de influencers (Fan-out on Read con RELEVANCE SORT)
+    let influencerPosts = [];
+    if (influencerIds.length > 0) {
+        const influencerQuery = {
+            usuario: { $in: influencerIds },
+            privacidad: { $ne: 'privado' }
+        };
+        
+        // Paginación por score si está presente
+        if (lastScoreQuery) {
+            influencerQuery.relevanceScore = { $lt: parseFloat(lastScoreQuery) };
+        }
+        
+        influencerPosts = await Post.find(influencerQuery)
+            .sort({ relevanceScore: -1, _id: -1 }) // Orden algorítmico
+            .limit(safeLimit)
+            .lean();
+    }
+
+    // 4. Mezclar, hidratar y devolver
+    if ((cachedPostIds && cachedPostIds.length > 0) || influencerPosts.length > 0) {
+        // Traer posts de normal friends que están en Redis
+        const cachedPosts = cachedPostIds ? await Post.find({ _id: { $in: cachedPostIds } }).lean() : [];
+        
+        // Unir ambos sets (Normales de Redis + Influencers de Mongo)
+        const allPosts = [...cachedPosts, ...influencerPosts];
+        
+        // Eliminar duplicados e hidratar
+        const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
+        
+        const finalSortedPosts = uniquePosts
+            .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
+            .slice(0, safeLimit);
+
+        const hydratedPosts = await Post.populate(finalSortedPosts, [
+            { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },
+            { path: 'grupo', select: 'nombre tipo' },
+            { path: 'postOriginal' },
+            { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+        ]);
+
+        const lastPost = hydratedPosts.length > 0 ? hydratedPosts[hydratedPosts.length - 1] : null;
+        const nextCursor = lastPost ? {
+            relevanceScore: lastPost.relevanceScore,
+            id: lastPost._id
+        } : null;
+
+        console.log(`📊 [FEED_METRIC] Ranked Retrieval: Redis(${cachedPostIds?.length || 0}) + Influencers(${influencerPosts.length}) | user: ${req.userId}`);
+        
+        return res.json({
+            success: true,
+            message: 'Feed inteligente cargado',
+            data: {
+                posts: hydratedPosts,
+                nextCursor,
+                pagination: {
+                    limit: safeLimit,
+                    hasMore: hydratedPosts.length === safeLimit
+                }
+            }
+        });
+    }
+
+    console.log(`📡 [FEED_METRIC] Fallback Pull total (No cached data) | user: ${req.userId}`);
+    
+    // [FALLBACK] Query MongoDB Completa (Pull Total)
+    console.log(`📡 [FEED_METRIC] Fallback Pull total | user: ${req.userId}`);
+    
     // Incluir el propio usuario en el feed
     const userIds = [req.userId, ...friendIds];
 
@@ -300,12 +391,12 @@ const getFeed = async (req, res) => {
       const originalOr = query.$or;
       delete query.$or;
 
-      // El desempate por _id evita saltarse posts con el mismo milisegundo de creación
+      // El desempate por _id evita saltarse posts con el mismo score
       const cursorQuery = {
         $or: [
-          { createdAt: { $lt: new Date(lastDate) } },
+          { relevanceScore: { $lt: parseFloat(lastScoreQuery) } },
           {
-            createdAt: new Date(lastDate),
+            relevanceScore: parseFloat(lastScoreQuery),
             _id: { $lt: lastId }
           }
         ]
@@ -317,7 +408,7 @@ const getFeed = async (req, res) => {
       ];
     }
 
-    const sort = isCursorMode ? { createdAt: -1, _id: -1 } : { createdAt: -1 };
+    const sort = isCursorMode ? { relevanceScore: -1, _id: -1 } : { relevanceScore: -1 };
     const skipValue = isCursorMode ? 0 : (parseInt(page) - 1) * safeLimit;
 
     const posts = await Post.find(query)
@@ -346,7 +437,7 @@ const getFeed = async (req, res) => {
     // 🆕 MEJORA: Cursor de salida enriquecido sobre el set final de posts
     const lastPost = finalPosts.length > 0 ? finalPosts[finalPosts.length - 1] : null;
     const nextCursor = lastPost ? {
-      createdAt: lastPost.createdAt,
+      relevanceScore: lastPost.relevanceScore,
       id: lastPost._id
     } : null;
 
@@ -561,7 +652,15 @@ const toggleLike = async (req, res) => {
     if (likeIndex > -1) {
       // Quitar like
       post.likes.splice(likeIndex, 1);
-      await post.save();
+      
+      // ✅ FASE 1: Decrementar contador optimizado y borrar de colección espejo
+      post.likesCount = Math.max(0, (post.likesCount || 0) - 1);
+      
+      await Promise.all([
+        post.save(),
+        PostLike.findOneAndDelete({ post: id, usuario: req.userId }),
+        feedService.syncPostScore(id) // 🔄 Actualizar ranking en Redis
+      ]);
 
       // 🆕 ELIMINAR NOTIFICACIÓN EXISTENTE (si existe) V1 PRO
       try {
@@ -595,7 +694,15 @@ const toggleLike = async (req, res) => {
     } else {
       // Dar like
       post.likes.push(req.userId);
-      await post.save();
+      
+      // ✅ FASE 1: Incrementar contador optimizado y guardar en colección espejo
+      post.likesCount = (post.likesCount || 0) + 1;
+      
+      await Promise.all([
+        post.save(),
+        PostLike.create({ post: id, usuario: req.userId }),
+        feedService.syncPostScore(id) // 🔄 Actualizar ranking en Redis
+      ]);
 
       // 🏆 Notificación V1 PRO centralizada (evita duplicados si el servicio lo soporta o vía lógica simple)
       if (!post.usuario.equals(req.userId)) {
@@ -699,7 +806,23 @@ const addComment = async (req, res) => {
     };
 
     post.comentarios.push(comment);
+    
+    // ✅ FASE 1: Incrementar contador optimizado
+    post.commentsCount = (post.commentsCount || 0) + 1;
+    
     await post.save();
+    
+    // 🔄 Actualizar ranking en Redis (Engagement incrementado)
+    feedService.syncPostScore(id).catch(e => console.error('⚠️ [SYNC_SCORE] Error:', e));
+
+    // ✅ FASE 1: Guardar en colección espejo desacoplada
+    const newDecoupledComment = await PostComment.create({
+      post: id,
+      usuario: req.userId,
+      contenido: comment.contenido,
+      image: comment.image,
+      parentComment: comment.parentComment
+    });
 
     // Poblar todo el post antes de emitir actualización global
     // Esto asegura que el frontend reciba datos consistentes (usuario poblado, grupo, etc.)
@@ -844,10 +967,13 @@ const sharePost = async (req, res) => {
     }
 
     const originalPost = await Post.findById(id);
-
     if (!originalPost) {
       return res.status(404).json(formatErrorResponse('Publicación no encontrada'));
     }
+
+    // ✅ FASE 1: Incrementar contador de compartidos
+    originalPost.sharesCount = (originalPost.sharesCount || 0) + 1;
+    await originalPost.save();
 
     // 🆕 RESTRICT: Solo amigos pueden compartir (excepto staff o autor)
     const canShare = await canInteractWithPost(req.userId, originalPost.usuario);
@@ -872,6 +998,9 @@ const sharePost = async (req, res) => {
       fecha: new Date()
     });
     await originalPost.save();
+    
+    // 🔄 Actualizar ranking en Redis del post original
+    feedService.syncPostScore(id).catch(e => console.error('⚠️ [SYNC_SCORE] Error:', e));
 
     // Poblar datos del post compartido
     await sharedPost.populate([
@@ -956,6 +1085,9 @@ const deletePost = async (req, res) => {
       // No bloquear la eliminación del post si falla R2
       console.error('⚠️ [DELETE POST] Error al eliminar archivos de R2:', r2Error);
     }
+
+    // 🚀 FASE 2: Invalidar en Redis (borrar de feeds)
+    feedService.invalidatePost(id).catch(err => console.error('⚠️ [DELETE_FEED] Error:', err));
 
     await Post.findByIdAndDelete(id);
 

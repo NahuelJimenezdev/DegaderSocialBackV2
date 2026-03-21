@@ -301,9 +301,49 @@ const getFeed = async (req, res) => {
         // Eliminar duplicados e hidratar
         const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
         
-        const finalSortedPosts = uniquePosts
-            .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
-            .slice(0, safeLimit);
+        // ORDENAMIENTO DE RELEVANCIA SECUNDARIO (MongoDB vs Redis merges)
+        const sortedDesc = uniquePosts.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+
+        // 🧠 MEJORA PHASE 4: DIVERSIDAD DE CONTENIDO & EXPLORATION FACTOR
+        let diversedPosts = [];
+        let explorationPool = [];
+        const authorCountMap = {};
+
+        sortedDesc.forEach(post => {
+            const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
+            authorCountMap[authorId] = (authorCountMap[authorId] || 0) + 1;
+            
+            // Limitar burbuja: Máximo 2 posts de un mismo autor seguidos/dominantes
+            if (authorCountMap[authorId] > 2) {
+                explorationPool.push(post);
+            } else {
+                diversedPosts.push(post);
+            }
+        });
+
+        // EXPLORATION FACTOR: Barajamos los posts excedentes/relegados
+        explorationPool = explorationPool.sort(() => Math.random() - 0.5);
+        
+        // Interjección: 1 post de exploración inyectado cada 4 top posts para frescura del feed
+        let finalFeed = [];
+        let eIndex = 0;
+        
+        for (let i = 0; i < diversedPosts.length; i++) {
+            finalFeed.push(diversedPosts[i]);
+            // Insertar factor sorpresa (exploration post) para matar monotonía
+            if ((i + 1) % 4 === 0 && eIndex < explorationPool.length) {
+                finalFeed.push(explorationPool[eIndex]);
+                eIndex++;
+            }
+        }
+        
+        // Empujar excedentes al final para no perder data si se scrollea hasta el final
+        while (eIndex < explorationPool.length) {
+            finalFeed.push(explorationPool[eIndex]);
+            eIndex++;
+        }
+
+        const finalSortedPosts = finalFeed.slice(0, safeLimit);
 
         const hydratedPosts = await Post.populate(finalSortedPosts, [
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },

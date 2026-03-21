@@ -12,7 +12,7 @@ class FeedService {
      * @param {Object} post 
      * @returns {Promise<Number>}
      */
-    async calculatePostScore(post, viewerId = null, affinityData = null) {
+    async calculatePostScore(post, viewerId = null, affinityData = null, temporaryBoost = 0) {
         // 1. Engagement Weight (Ajustado según modelo Phase 3)
         const engagementWeight = 
             (post.likesCount || 0) * 3 +
@@ -73,11 +73,11 @@ class FeedService {
             }
         }
 
-        // Formula final estilo TikTok/Instagram
-        const finalScore = Math.max(0, engagementWeight + recencyBoost + priorityBoost + userAffinity - timeDecay);
+        // Formula final estilo TikTok/Instagram con inyección de Temporary Boost (Phase 4)
+        const finalScore = Math.max(0, engagementWeight + recencyBoost + priorityBoost + userAffinity + temporaryBoost - timeDecay);
         
-        if (engagementWeight > 0) {
-            logger.info(`📊 [FEED_RANKING] Score: ${finalScore.toFixed(2)} | Eng: ${engagementWeight} | Decay: -${timeDecay.toFixed(1)} | Aff: ${userAffinity} | Post: ${post._id}`);
+        if (engagementWeight > 0 || temporaryBoost > 0) {
+            logger.info(`📊 [FEED_RANKING] Score: ${finalScore.toFixed(2)} | Eng: ${engagementWeight} | Decay: -${timeDecay.toFixed(1)} | Aff: ${userAffinity} | BoostTemp: ${temporaryBoost} | Post: ${post._id}`);
         }
 
         return finalScore;
@@ -148,8 +148,8 @@ class FeedService {
 
                 await pipeline.exec();
                 
-                // Ceder event-loop temporalmente para no bloquear Node JS en picos masivos
-                await new Promise(resolve => setTimeout(resolve, 20));
+                // Ceder event-loop nativamente sin delay artificial de V8 (Control Concurrencia Ultra-PRO)
+                await new Promise(resolve => setImmediate(resolve));
             }
 
             logger.info(`🔄 [FEED_SYNC] Score actualizado en lotes para post ${postId} en ${targetUsersArray.length} feeds.`);
@@ -239,8 +239,8 @@ class FeedService {
 
                 await pipeline.exec();
                 
-                // Ceder thread de JS
-                await new Promise(resolve => setTimeout(resolve, 20));
+                // Ceder thread de JS nativamente (Evita bloquear Node Server)
+                await new Promise(resolve => setImmediate(resolve));
             }
 
             const duration = Date.now() - startTime;
@@ -259,20 +259,31 @@ class FeedService {
     async boostAuthorInUserFeed(viewerId, authorId) {
         try {
             if (!redisService.isConnected) return;
-            const feedKey = `user:feed:${viewerId}`;
+            const boostKey = `user:boost:${viewerId}:${authorId}`;
             
-            // Buscar últimos 10 posts de este autor para empujarlos en el feed del usuario
-            const posts = await Post.find({ usuario: authorId }).sort({createdAt: -1}).limit(10).select('_id').lean();
+            // 1. Guardar Boost separado (Capping en 30 máximo)
+            let currentBoost = await redisService.client.incrby(boostKey, 15);
+            if (currentBoost > 30) {
+                await redisService.client.set(boostKey, 30);
+                currentBoost = 30;
+            }
+            
+            // 2. Establecer un DECAY del BOOST (expira y se elimina por sí solo en 4 horas)
+            await redisService.client.expire(boostKey, 60 * 60 * 4);
+
+            // 3. RECALCULAR Score (Re-balance real en lugar de ZINCRBY al infinito)
+            const posts = await Post.find({ usuario: authorId }).sort({createdAt: -1}).limit(10).lean();
             if (!posts.length) return;
 
             const pipeline = redisService.client.pipeline();
-            posts.forEach(p => {
-                // ZINCRBY empuja artificalmente estos posts +50pts temporalmente 
-                pipeline.zincrby(feedKey, 50, p._id.toString());
-            });
+            for (const p of posts) {
+                // Inyecta el currentBoost en la función determinística, reemplazando el valor en ZSET (Safe Override)
+                const score = await this.calculatePostScore(p, viewerId, null, currentBoost);
+                pipeline.zadd(`user:feed:${viewerId}`, score, p._id.toString());
+            }
             
             await pipeline.exec();
-            logger.info(`🚀 [FEED_BOOST] User ${viewerId} interactuó con Author ${authorId}. Boost de +50 aplicado a 10 posts.`);
+            logger.info(`🚀 [FEED_BOOST] Interaction Boost de +${currentBoost} asignado a 10 posts de Author ${authorId} en el feed de User ${viewerId} con TTL 4h.`);
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error ejecutando Interaction Boost temporal:`, error.message);
         }

@@ -1,11 +1,12 @@
+const mongoose = require('mongoose');
 const Friendship = require('../models/Friendship');
-const Notification = require('../models/Notification');
 const User = require('../models/User.model');
+const notificationService = require('../services/notification.service'); // Nuevo Servicio V1 PRO
+const logger = require('../config/logger');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 
 /**
  * Enviar solicitud de amistad
- * POST /api/amistades/request
  */
 const sendFriendRequest = async (req, res) => {
   try {
@@ -19,19 +20,17 @@ const sendFriendRequest = async (req, res) => {
       return res.status(400).json(formatErrorResponse('No puedes enviarte una solicitud a ti mismo'));
     }
 
-    // Verificar que el receptor existe
-    const receptor = await User.findById(receptorId);
+    const receptor = await User.findById(receptorId).exec();
     if (!receptor) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
 
-    // Verificar si ya existe una solicitud
     const existingRequest = await Friendship.findOne({
       $or: [
         { solicitante: req.userId, receptor: receptorId },
         { solicitante: receptorId, receptor: req.userId }
       ]
-    });
+    }).exec();
 
     if (existingRequest) {
       if (existingRequest.estado === 'bloqueada') {
@@ -45,7 +44,6 @@ const sendFriendRequest = async (req, res) => {
       }
     }
 
-    // Crear solicitud
     const friendship = new Friendship({
       solicitante: req.userId,
       receptor: receptorId,
@@ -54,26 +52,14 @@ const sendFriendRequest = async (req, res) => {
 
     await friendship.save();
 
-    // Crear notificación
-    const notification = new Notification({
-      receptor: receptorId,
-      emisor: req.userId,
+    // 🏆 Notificación V1 PRO Centralizada
+    notificationService.notify({
+      receptorId: receptorId,
+      emisorId: req.userId,
       tipo: 'solicitud_amistad',
       contenido: 'te envió una solicitud de amistad',
-      referencia: {
-        tipo: 'UserV2',
-        id: req.userId
-      }
-    });
-    await notification.save();
-
-    // Poblar emisor para la notificación en tiempo real
-    await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-    // Emitir notificación en tiempo real
-    if (global.emitNotification) {
-      global.emitNotification(receptorId, notification);
-    }
+      referencia: { tipo: 'UserV2', id: req.userId }
+    }).catch(err => logger.error(`⚠️ [REQUEST] Error notificación service: ${err.message}`));
 
     await friendship.populate([
       { path: 'solicitante', select: 'nombres apellidos social.fotoPerfil' },
@@ -82,14 +68,13 @@ const sendFriendRequest = async (req, res) => {
 
     res.status(201).json(formatSuccessResponse('Solicitud enviada exitosamente', friendship));
   } catch (error) {
-    console.error('Error al enviar solicitud:', error);
+    logger.error(`Error al enviar solicitud: ${error.message}`, { stack: error.stack });
     res.status(500).json(formatErrorResponse('Error al enviar solicitud', [error.message]));
   }
 };
 
 /**
  * Obtener solicitudes pendientes
- * GET /api/amistades/pending
  */
 const getPendingRequests = async (req, res) => {
   try {
@@ -98,339 +83,287 @@ const getPendingRequests = async (req, res) => {
       estado: 'pendiente'
     })
       .populate('solicitante', 'nombres apellidos social.fotoPerfil email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .exec();
 
     res.json(formatSuccessResponse('Solicitudes obtenidas', requests));
   } catch (error) {
-    console.error('Error al obtener solicitudes:', error);
+    logger.error(`Error al obtener solicitudes: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al obtener solicitudes', [error.message]));
   }
 };
 
 /**
- * Aceptar solicitud de amistad
- * POST /api/amistades/:id/accept
+ * Aceptar solicitud de amistad (Nivel DIOS + Service Decoupling)
  */
 const acceptFriendRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+  
+  const transactionOptions = {
+    readConcern: { level: 'snapshot' },
+    writeConcern: { w: 'majority' },
+    readPreference: 'primary'
+  };
+
+  session.startTransaction(transactionOptions);
+
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
+      await session.abortTransaction();
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    const friendship = await Friendship.findById(id);
+    const friendship = await Friendship.findById(id).session(session).exec();
 
-    if (!friendship) {
-      return res.status(404).json(formatErrorResponse('Solicitud no encontrada'));
+    if (!friendship || !friendship.receptor.equals(req.userId)) {
+      await session.abortTransaction();
+      return res.status(403).json(formatErrorResponse('Permiso denegado o solicitud inexistente'));
     }
 
-    // Verificar que el usuario autenticado es el receptor
-    if (!friendship.receptor.equals(req.userId)) {
-      return res.status(403).json(formatErrorResponse('No tienes permiso para aceptar esta solicitud'));
+    if (friendship.estado === 'aceptada') {
+      await session.abortTransaction();
+      return res.status(400).json(formatErrorResponse('La solicitud ya fue aceptada previamente'));
     }
 
     if (friendship.estado !== 'pendiente') {
-      return res.status(400).json(formatErrorResponse('La solicitud ya fue procesada'));
+      await session.abortTransaction();
+      return res.status(400).json(formatErrorResponse('La solicitud ya no está pendiente'));
     }
 
+    // 1. Actualizar Estado de Amistad
     friendship.estado = 'aceptada';
     friendship.fechaAceptacion = new Date();
-    await friendship.save();
+    await friendship.save({ session });
 
-    // ✅ Sincronizar arrays de amigos y estadísticas en User models
-    console.log(`🔄 [ACCEPT FRIEND] Actualizando usuarios: Solicitante=${friendship.solicitante}, Receptor=${friendship.receptor}`);
+    // 2. Sincronizar Usuarios (Pipeline Consistency)
+    const updatePipeline = (friendId) => [
+      {
+        $set: {
+          amigos: { $setUnion: [{ $ifNull: ["$amigos", []] }, [friendId]] },
+          "social.stats.amigos": {
+            $cond: [
+              { $in: [friendId, { $ifNull: ["$amigos", []] }] },
+              "$social.stats.amigos",
+              { $add: [{ $ifNull: ["$social.stats.amigos", 0] }, 1] }
+            ]
+          }
+        }
+      }
+    ];
 
-    try {
-      const updateSolicitante = User.findByIdAndUpdate(friendship.solicitante, {
-        $addToSet: { amigos: friendship.receptor },
-        $inc: { 'social.stats.amigos': 1 }
-      }, { new: true });
+    await User.updateOne({ _id: friendship.solicitante }, updatePipeline(friendship.receptor), { session });
+    await User.updateOne({ _id: friendship.receptor }, updatePipeline(friendship.solicitante), { session });
 
-      const updateReceptor = User.findByIdAndUpdate(friendship.receptor, {
-        $addToSet: { amigos: friendship.solicitante },
-        $inc: { 'social.stats.amigos': 1 }
-      }, { new: true });
+    await session.commitTransaction();
+    logger.info(`✅ [ACCEPT FRIEND] Transacción Exitosa: ${id}`);
 
-      const [user1, user2] = await Promise.all([updateSolicitante, updateReceptor]);
-
-      console.log('✅ [ACCEPT FRIEND] Sincronización exitosa:', {
-        solicitanteAmigos: user1?.amigos?.length,
-        solicitanteStats: user1?.social?.stats?.amigos,
-        receptorAmigos: user2?.amigos?.length,
-        receptorStats: user2?.social?.stats?.amigos
-      });
-    } catch (syncError) {
-      console.error('❌ [ACCEPT FRIEND] Error en sincronización:', syncError);
-    }
-
-    // Crear notificación para el solicitante
-    const notification = new Notification({
-      receptor: friendship.solicitante,
-      emisor: req.userId,
+    // --- Efectos Secundarios (Desacoplados) ---
+    notificationService.notify({
+      receptorId: friendship.solicitante,
+      emisorId: req.userId,
       tipo: 'amistad_aceptada',
       contenido: 'aceptó tu solicitud de amistad',
-      referencia: {
-        tipo: 'UserV2',
-        id: req.userId
-      }
-    });
-    await notification.save();
+      referencia: { tipo: 'UserV2', id: req.userId }
+    }).catch(err => logger.error(`⚠️ [ACCEPT FRIEND] Error v1-pro-notify: ${err.message}`));
 
-    // Poblar emisor para la notificación en tiempo real
-    await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-    // Emitir notificación en tiempo real
+    // Emisión de estados adicionales para sincronización de UI
     if (global.emitNotification) {
-      global.emitNotification(friendship.solicitante, notification);
-
-      // Emitir actualización de estado a ambos usuarios para actualizar botones en tiempo real
-      global.emitNotification(friendship.solicitante.toString(), {
+      const emitUpdate = (uid, friendUid) => global.emitNotification(uid, {
         tipo: 'amistad:actualizada',
-        usuarioId: req.userId.toString(),
+        usuarioId: friendUid,
         nuevoEstado: 'aceptado'
       });
-
-      global.emitNotification(req.userId.toString(), {
-        tipo: 'amistad:actualizada',
-        usuarioId: friendship.solicitante.toString(),
-        nuevoEstado: 'aceptado'
-      });
+      emitUpdate(friendship.solicitante.toString(), req.userId.toString());
+      emitUpdate(req.userId.toString(), friendship.solicitante.toString());
     }
-
-    await friendship.populate([
-      { path: 'solicitante', select: 'nombres apellidos social.fotoPerfil' },
-      { path: 'receptor', select: 'nombres apellidos social.fotoPerfil' }
-    ]);
 
     res.json(formatSuccessResponse('Solicitud aceptada exitosamente', friendship));
   } catch (error) {
-    console.error('Error al aceptar solicitud:', error);
-    res.status(500).json(formatErrorResponse('Error al aceptar solicitud', [error.message]));
+    if (session.inTransaction()) await session.abortTransaction();
+    logger.error(`❌ [ACCEPT FRIEND] Error: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error al procesar amistad', [error.message]));
+  } finally {
+    session.endSession();
   }
 };
 
 /**
  * Rechazar solicitud de amistad
- * POST /api/amistades/:id/reject
  */
 const rejectFriendRequest = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json(formatErrorResponse('ID inválido'));
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json(formatErrorResponse('ID inválido'));
-    }
+    const friendship = await Friendship.findById(id).exec();
+    if (!friendship) return res.status(404).json(formatErrorResponse('Solicitud no encontrada'));
 
-    const friendship = await Friendship.findById(id);
-
-    if (!friendship) {
-      return res.status(404).json(formatErrorResponse('Solicitud no encontrada'));
-    }
-
-    // Verificar que el usuario autenticado es el receptor
     if (!friendship.receptor.equals(req.userId)) {
-      return res.status(403).json(formatErrorResponse('No tienes permiso para rechazar esta solicitud'));
+      return res.status(403).json(formatErrorResponse('No tienes permiso'));
     }
 
     if (friendship.estado !== 'pendiente') {
       return res.status(400).json(formatErrorResponse('La solicitud ya fue procesada'));
     }
 
-    const solicitanteId = friendship.solicitante.toString();
-
     friendship.estado = 'rechazada';
     await friendship.save();
 
-    // Emitir evento en tiempo real al solicitante para que elimine su notificación
+    // Notificación de rechazo (Socket simple, opcional persistencia)
     if (global.emitNotification) {
-      global.emitNotification(solicitanteId, {
+      global.emitNotification(friendship.solicitante.toString(), {
         tipo: 'solicitud_rechazada',
-        usuarioId: req.userId.toString(),
-        mensaje: 'Tu solicitud de amistad fue rechazada'
+        usuarioId: req.userId.toString()
       });
     }
 
     res.json(formatSuccessResponse('Solicitud rechazada'));
   } catch (error) {
-    console.error('Error al rechazar solicitud:', error);
-    res.status(500).json(formatErrorResponse('Error al rechazar solicitud', [error.message]));
+    logger.error(`Error al rechazar solicitud: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error al rechazar', [error.message]));
   }
 };
 
 /**
  * Obtener lista de amigos
- * GET /api/amistades/friends
  */
-// Obtener lista de amigos
 const getFriends = async (req, res) => {
   try {
     const friendships = await Friendship.find({
       $or: [
         { solicitante: req.userId, estado: 'aceptada' },
         { receptor: req.userId, estado: 'aceptada' },
-        // Incluir bloqueados por el usuario actual (asimetría)
         { solicitante: req.userId, estado: 'bloqueada', bloqueadoPor: req.userId },
         { receptor: req.userId, estado: 'bloqueada', bloqueadoPor: req.userId }
       ]
     })
       .populate('solicitante', 'nombres apellidos social email seguridad.ultimaConexion personal username')
       .populate('receptor', 'nombres apellidos social email seguridad.ultimaConexion personal username')
-      .sort({ fechaAceptacion: -1 });
+      .sort({ fechaAceptacion: -1 })
+      .exec();
 
-    // Formatear respuesta para obtener solo el amigo (no el usuario actual)
     const friends = friendships
-      .filter(friendship => {
-        // Filtrar amistades donde alguno de los usuarios fue eliminado
-        if (!friendship.solicitante || !friendship.receptor) {
-          console.warn(`⚠️ Amistad con usuario eliminado encontrada: ${friendship._id}`);
-          return false;
-        }
-        return true;
-      })
-      .map(friendship => {
-        const isSolicitante = friendship.solicitante._id.equals(req.userId);
-        const friend = isSolicitante
-          ? friendship.receptor
-          : friendship.solicitante;
-
-        // Obtener configuración según el rol del usuario
-        const userConfig = isSolicitante ? 'solicitante' : 'receptor';
-
-        const isBlocked = friendship.estado === 'bloqueada';
+      .filter(f => f.solicitante && f.receptor)
+      .map(f => {
+        const isSolicitante = f.solicitante._id.equals(req.userId);
+        const friend = isSolicitante ? f.receptor : f.solicitante;
+        const config = isSolicitante ? 'solicitante' : 'receptor';
 
         return {
           ...friend.toObject(),
-          fechaAmistad: friendship.fechaAceptacion,
-          friendshipId: friendship._id,
-          // Agregar campos de gestión de amigos
-          isFavorite: friendship.favoritos[userConfig] || false,
-          isPinned: friendship.fijado[userConfig] || false,
-          isMuted: friendship.silenciado[userConfig] || false,
-          isBlocked // Flag para el frontend
+          fechaAmistad: f.fechaAceptacion,
+          friendshipId: f._id,
+          isFavorite: f.favoritos[config] || false,
+          isPinned: f.fijado[config] || false,
+          isMuted: f.silenciado[config] || false,
+          isBlocked: f.estado === 'bloqueada'
         };
       });
 
     res.json(formatSuccessResponse('Amigos obtenidos', friends));
   } catch (error) {
-    console.error('Error al obtener amigos:', error);
-    res.status(500).json(formatErrorResponse('Error al obtener amigos', [error.message]));
+    logger.error(`Error al obtener amigos: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error al obtener', [error.message]));
   }
 };
 
 /**
- * Eliminar amistad
- * DELETE /api/amistades/:friendId
+ * Eliminar amistad (Nivel ÉLITE + Service Decoupling)
  */
 const removeFriend = async (req, res) => {
+  const session = await mongoose.startSession();
+  
+  const transactionOptions = {
+    readConcern: { level: 'snapshot' },
+    writeConcern: { w: 'majority' },
+    readPreference: 'primary'
+  };
+
+  session.startTransaction(transactionOptions);
+
   try {
     const { friendId } = req.params;
-
     if (!isValidObjectId(friendId)) {
+      await session.abortTransaction();
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    // Buscar la amistad primero (sin eliminar aún)
     const friendship = await Friendship.findOne({
       $or: [
         { solicitante: req.userId, receptor: friendId },
         { solicitante: friendId, receptor: req.userId }
       ]
-    });
+    }).session(session).exec();
 
     if (!friendship) {
-      return res.status(404).json(formatErrorResponse('Amistad o solicitud no encontrada'));
+      await session.abortTransaction();
+      return res.status(404).json(formatErrorResponse('Vínculo no encontrado'));
     }
 
     const esSolicitante = friendship.solicitante.equals(req.userId);
     const estadoAnterior = friendship.estado;
     const otherUserId = esSolicitante ? friendship.receptor : friendship.solicitante;
 
-    // Emitir evento en tiempo real según el estado ANTES de eliminar
-    if (global.emitNotification) {
-      try {
-        if (estadoAnterior === 'aceptada') {
-          // ... (Notification Logic) ... 
-          const notification = new Notification({
-            receptor: otherUserId,
-            emisor: req.userId,
-            tipo: 'amistad_eliminada',
-            contenido: 'eliminó la amistad',
-            referencia: { tipo: 'UserV2', id: req.userId }
-          });
-          await notification.save();
-          // Solo poblar si se guardó bien
-          await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-          global.emitNotification(friendId, notification);
-          global.emitNotification(req.userId.toString(), {
-            tipo: 'amistad_eliminada',
-            usuarioId: friendId,
-            mensaje: 'Amistad eliminada'
-          });
-          console.log('✅ [REMOVE FRIEND] Notificación enviada');
-        } else if (estadoAnterior === 'pendiente' && esSolicitante) {
-          // ... (Pending Logic) ...
-          console.log('✅ [REMOVE FRIEND] Notificación cancelación enviada');
-        }
-      } catch (notifError) {
-        console.error('⚠️ [REMOVE FRIEND] Error en notificaciones (no bloqueante):', notifError);
-      }
-    }
-
-    // ✅ Sincronizar arrays de amigos y estadísticas si estaba aceptada (ANTES de eliminar)
     if (estadoAnterior === 'aceptada') {
-      console.log('🔄 [REMOVE FRIEND] Iniciando sincronización de usuarios...');
-      try {
-        const updateUser1 = User.findByIdAndUpdate(req.userId, {
-          $pull: { amigos: otherUserId },
-          $inc: { 'social.stats.amigos': -1 }
-        });
+      const removePipeline = (uIdToRemove) => [
+        {
+          $set: {
+            amigos: { $setDifference: [{ $ifNull: ["$amigos", []] }, [uIdToRemove]] },
+            "social.stats.amigos": {
+              $cond: [
+                { $in: [uIdToRemove, { $ifNull: ["$amigos", []] }] },
+                { $subtract: ["$social.stats.amigos", 1] },
+                "$social.stats.amigos"
+              ]
+            }
+          }
+        }
+      ];
 
-        const updateUser2 = User.findByIdAndUpdate(otherUserId, {
-          $pull: { amigos: req.userId },
-          $inc: { 'social.stats.amigos': -1 }
-        });
+      await User.updateOne({ _id: req.userId }, removePipeline(otherUserId), { session });
+      await User.updateOne({ _id: otherUserId }, removePipeline(req.userId), { session });
+    }
 
-        await Promise.all([updateUser1, updateUser2]);
-        console.log('✅ [REMOVE FRIEND] Sincronización completada');
-      } catch (syncError) {
-        console.error('⚠️ [REMOVE FRIEND] Error sincronizando usuarios:', syncError);
+    await Friendship.findByIdAndDelete(friendship._id, { session }).exec();
+
+    await session.commitTransaction();
+    logger.info(`✅ [REMOVE FRIEND] Ejecución Exitosa: ${friendship._id}`);
+
+    // Notificación centralizada (solo si eran amigos aceptados)
+    if (estadoAnterior === 'aceptada') {
+      notificationService.notify({
+        receptorId: otherUserId,
+        emisorId: req.userId,
+        tipo: 'amistad_eliminada',
+        contenido: 'eliminó la amistad'
+      }).catch(err => logger.error(`⚠️ [REMOVE FRIEND] Error v1-pro-notify: ${err.message}`));
+      
+      if (global.emitNotification) {
+        global.emitNotification(friendId, { tipo: 'amistad_eliminada', usuarioId: req.userId });
       }
     }
 
-    // Ahora sí eliminar la amistad
-    await Friendship.findByIdAndDelete(friendship._id);
-    console.log('✅ [REMOVE FRIEND] Amistad eliminada de DB');
-
-    const mensaje = estadoAnterior === 'aceptada'
-      ? 'Amistad eliminada exitosamente'
-      : 'Solicitud cancelada exitosamente';
-
-    res.json(formatSuccessResponse(mensaje));
+    res.json(formatSuccessResponse(estadoAnterior === 'aceptada' ? 'Amistad eliminada' : 'Solicitud cancelada'));
   } catch (error) {
-    console.error('Error al eliminar amistad:', error);
-    res.status(500).json(formatErrorResponse('Error al eliminar amistad', [error.message]));
+    if (session.inTransaction()) await session.abortTransaction();
+    logger.error(`❌ [REMOVE FRIEND] Error en transacción: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error al eliminar', [error.message]));
+  } finally {
+    session.endSession();
   }
 };
 
 /**
- * Verificar estado de amistad con un usuario
- * GET /api/amistades/status/:userId
+ * Verificar estado de amistad
  */
 const getFriendshipStatus = async (req, res) => {
   try {
     const { userId } = req.params;
-
-    if (!isValidObjectId(userId)) {
-      return res.status(400).json(formatErrorResponse('ID inválido'));
-    }
+    if (!isValidObjectId(userId)) return res.status(400).json(formatErrorResponse('ID inválido'));
 
     if (userId === req.userId.toString()) {
-      return res.json({
-        success: true,
-        data: { status: 'self' }
-      });
+      return res.json({ success: true, data: { status: 'self' } });
     }
 
     const friendship = await Friendship.findOne({
@@ -438,25 +371,18 @@ const getFriendshipStatus = async (req, res) => {
         { solicitante: req.userId, receptor: userId },
         { solicitante: userId, receptor: req.userId }
       ]
-    });
+    }).exec();
 
-    if (!friendship) {
-      return res.json({
-        success: true,
-        data: { status: 'none' }
-      });
-    }
+    if (!friendship) return res.json({ success: true, data: { status: 'none' } });
 
-    const status = {
+    res.json(formatSuccessResponse('Estado obtenido', {
       status: friendship.estado,
       friendshipId: friendship._id,
       isSender: friendship.solicitante.equals(req.userId)
-    };
-
-    res.json(formatSuccessResponse('Estado obtenido', status));
+    }));
   } catch (error) {
-    console.error('Error al verificar estado:', error);
-    res.status(500).json(formatErrorResponse('Error al verificar estado', [error.message]));
+    logger.error(`Error al verificar estado: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error', [error.message]));
   }
 };
 

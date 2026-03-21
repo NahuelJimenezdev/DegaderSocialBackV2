@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
 
 /**
@@ -138,40 +139,21 @@ const solicitarUnirse = async (req, res) => {
         if (superiores.length > 0) {
           console.log(`✅ [Fundación] Superior encontrado en nivel ${nivelObjetivo}: ${superiores.length} usuarios.`);
 
-          // Crear notificaciones
-          const notificaciones = superiores.map(superior => ({
-            receptor: superior._id,
-            emisor: userId,
-            tipo: 'solicitud_fundacion',
-            contenido: `${user.nombres.primero} ${user.apellidos.primero} solicita unirse a la fundación como ${cargo} en ${area}`,
-            metadata: {
-              nivel,
-              area,
-              subArea, // Nuevo
-              programa, // Nuevo
-              cargo,
-              territorio
-            }
-          }));
-
-          await Notification.insertMany(notificaciones);
-          notificacionEnviada = true;
-
-          // Emitir eventos Socket.IO
-          const io = req.app.get('io');
-          if (io) {
-            for (const superior of superiores) {
-              const notifCompleta = await Notification.findOne({
-                receptor: superior._id,
-                emisor: userId,
-                tipo: 'solicitud_fundacion'
-              }).populate('emisor', 'nombres apellidos social.fotoPerfil').sort({ createdAt: -1 });
-
-              if (notifCompleta) {
-                io.to(`notifications:${superior._id}`).emit('newNotification', notifCompleta);
+          // 🏆 Notificaciones V1 PRO (Concurrentes)
+          const notificationPromises = superiores.map(superior => 
+            notificationService.notify({
+              receptorId: superior._id,
+              emisorId: userId,
+              tipo: 'solicitud_fundacion',
+              contenido: `${user.nombres.primero} ${user.apellidos.primero} solicita unirse a la fundación como ${cargo} en ${area}`,
+              metadata: {
+                nivel, area, subArea, programa, cargo, territorio
               }
-            }
-          }
+            })
+          );
+
+          await Promise.allSettled(notificationPromises);
+          notificacionEnviada = true;
 
           // ✋ DETENER ESCALADA (Ya se notificó al nivel inmediato superior)
           break;
@@ -183,36 +165,21 @@ const solicitarUnirse = async (req, res) => {
         console.warn('⚠️ [Fundación] No se encontraron superiores jerárquicos en la cadena.');
         console.log('🚨 Escalando notificación directamente al Founder.');
 
-        const founders = await User.find({ 'seguridad.rolSistema': 'Founder' }).select('_id');
-
         if (founders.length > 0) {
-          const notificacionesFounder = founders.map(founder => ({
-            receptor: founder._id,
-            emisor: userId,
-            tipo: 'solicitud_fundacion',
-            contenido: `[ESCALADA] Solicitud de ${user.nombres.primero} (${cargo} - ${nivel}) sin superior inmediato. Requiere atención.`,
-            metadata: {
-              nivel,
-              area,
-              subArea,
-              programa,
-              cargo,
-              territorio,
-              esEscalada: true
-            }
-          }));
+          const founderPromises = founders.map(founder => 
+            notificationService.notify({
+              receptorId: founder._id,
+              emisorId: userId,
+              tipo: 'solicitud_fundacion',
+              contenido: `[ESCALADA] Solicitud de ${user.nombres.primero} (${cargo} - ${nivel}) sin superior inmediato. Requiere atención.`,
+              metadata: {
+                nivel, area, subArea, programa, cargo, territorio,
+                esEscalada: true
+              }
+            })
+          );
 
-          await Notification.insertMany(notificacionesFounder);
-
-          // Socket IO para Founder
-          const io = req.app.get('io');
-          if (io) {
-            for (const founder of founders) {
-              const notif = await Notification.findOne({ receptor: founder._id, emisor: userId, tipo: 'solicitud_fundacion' })
-                .populate('emisor', 'nombres apellidos social.fotoPerfil').sort({ createdAt: -1 });
-              if (notif) io.to(`notifications:${founder._id}`).emit('newNotification', notif);
-            }
-          }
+          await Promise.allSettled(founderPromises);
           console.log('✅ Notificación escalada al Founder exitosamente.');
         }
       }
@@ -449,30 +416,11 @@ const aprobarSolicitud = async (req, res) => {
     // ========================================
     // 🔔 CREAR NOTIFICACIÓN PARA EL SOLICITANTE
     // ========================================
+    // 🏆 Notificación V1 PRO
     try {
-      const Notification = require('../models/Notification');
-      const io = req.app.get('io');
-
-      // 🧹 Limpiar notificación original de solicitud (si el aprobador es un receptor)
-      await Notification.deleteMany({
-        receptor: aprobadorId,
-        emisor: solicitante._id,
-        tipo: 'solicitud_fundacion'
-      });
-      console.log('🧹 [Fundación] Notificación original eliminada');
-
-      // 📡 Notificar al aprobador que la notificación fue eliminada
-      if (io) {
-        io.to(`notifications:${aprobadorId}`).emit('notificationDeleted', {
-          emisorId: solicitante._id,
-          tipo: 'solicitud_fundacion'
-        });
-      }
-
-      // Crear notificación de aprobación
-      const nuevaNotificacion = await Notification.create({
-        receptor: solicitante._id,
-        emisor: aprobadorId,
+      notificationService.notify({
+        receptorId: solicitante._id,
+        emisorId: aprobadorId,
         tipo: 'solicitud_fundacion_aprobada',
         contenido: `¡Felicidades! Tu solicitud para unirte a la fundación como ${solicitante.fundacion.cargo} ha sido aprobada`,
         metadata: {
@@ -481,21 +429,13 @@ const aprobarSolicitud = async (req, res) => {
           cargo: solicitante.fundacion.cargo,
           aprobadoPor: aprobador.nombreCompleto || `${aprobador.nombres.primero} ${aprobador.apellidos.primero}`
         }
-      });
+      }).catch(err => console.error('⚠️ [Fundación] Error notification:', err.message));
 
-      console.log('✅ [Fundación] Notificación de aprobación creada');
+      console.log('✅ [Fundación] Notificación de aprobación enviada (V1 PRO)');
 
-      // Emitir evento Socket.IO al solicitante
+      // 📡 BROADCAST: Actualizar listas en tiempo real
+      const io = req.app.get('io');
       if (io) {
-        const notifCompleta = await Notification.findById(nuevaNotificacion._id)
-          .populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-        if (notifCompleta) {
-          io.to(`notifications:${solicitante._id}`).emit('newNotification', notifCompleta);
-          console.log(`🔔 Notificación de aprobación enviada a: ${solicitante._id}`);
-        }
-
-        // 📡 BROADCAST: Actualizar listas en tiempo real
         io.emit('fundacion:solicitudActualizada', {
           userId: solicitante._id,
           accion: 'aprobada',
@@ -517,7 +457,7 @@ const aprobarSolicitud = async (req, res) => {
         });
       }
     } catch (notifError) {
-      console.error('❌ Error creando notificación de aprobación:', notifError);
+      console.error('❌ Error gestionando notificación de aprobación:', notifError);
     }
 
     res.json(formatSuccessResponse('Solicitud aprobada exitosamente', {
@@ -640,30 +580,11 @@ const rechazarSolicitud = async (req, res) => {
     // ========================================
     // 🔔 CREAR NOTIFICACIÓN PARA EL SOLICITANTE
     // ========================================
+    // 🏆 Notificación V1 PRO
     try {
-      const Notification = require('../models/Notification');
-      const io = req.app.get('io');
-
-      // 🧹 Limpiar notificación original de solicitud
-      await Notification.deleteMany({
-        receptor: aprobadorId,
-        emisor: solicitante._id,
-        tipo: 'solicitud_fundacion'
-      });
-      console.log('🧹 [Fundación] Notificación original eliminada');
-
-      // 📡 Notificar al aprobador que la notificación fue eliminada
-      if (io) {
-        io.to(`notifications:${aprobadorId}`).emit('notificationDeleted', {
-          emisorId: solicitante._id,
-          tipo: 'solicitud_fundacion'
-        });
-      }
-
-      // Crear notificación de rechazo
-      const nuevaNotificacion = await Notification.create({
-        receptor: solicitante._id,
-        emisor: aprobadorId,
+      notificationService.notify({
+        receptorId: solicitante._id,
+        emisorId: aprobadorId,
         tipo: 'solicitud_fundacion_rechazada',
         contenido: `Tu solicitud para unirte a la fundación como ${solicitante.fundacion.cargo} no fue aceptada. Motivo: ${solicitante.fundacion.motivoRechazo}`,
         metadata: {
@@ -672,21 +593,13 @@ const rechazarSolicitud = async (req, res) => {
           cargo: solicitante.fundacion.cargo,
           motivo: solicitante.fundacion.motivoRechazo
         }
-      });
+      }).catch(err => console.error('⚠️ [Fundación] Error notification:', err.message));
 
-      console.log('✅ [Fundación] Notificación de rechazo creada');
+      console.log('✅ [Fundación] Notificación de rechazo enviada (V1 PRO)');
 
-      // Emitir evento Socket.IO al solicitante
+      // 📡 BROADCAST: Actualizar listas en tiempo real
+      const io = req.app.get('io');
       if (io) {
-        const notifCompleta = await Notification.findById(nuevaNotificacion._id)
-          .populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-        if (notifCompleta) {
-          io.to(`notifications:${solicitante._id}`).emit('newNotification', notifCompleta);
-          console.log(`🔔 Notificación de rechazo enviada a: ${solicitante._id}`);
-        }
-
-        // 📡 BROADCAST: Actualizar listas en tiempo real
         io.emit('fundacion:solicitudActualizada', {
           userId: solicitante._id,
           accion: 'rechazada',
@@ -709,7 +622,7 @@ const rechazarSolicitud = async (req, res) => {
         });
       }
     } catch (notifError) {
-      console.error('❌ Error creando notificación de rechazo:', notifError);
+      console.error('❌ Error gestionando notificación de rechazo:', notifError);
     }
 
     res.json(formatSuccessResponse('Solicitud rechazada', {

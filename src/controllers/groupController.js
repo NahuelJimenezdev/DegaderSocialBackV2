@@ -1,6 +1,6 @@
 const Group = require('../models/Group');
 const GroupMessage = require('../models/GroupMessage');
-const Notification = require('../models/Notification');
+const notificationService = require('../services/notification.service');
 const User = require('../models/User.model');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
@@ -437,36 +437,19 @@ const joinGroup = async (req, res) => {
       // Eliminar duplicados
       const uniqueTargets = [...new Set(notificationTargets.map(t => t.toString()))];
 
-      console.log('📧 [JOIN] Enviando notificaciones a:', uniqueTargets.length, 'usuarios');
-
-      // Crear y guardar notificaciones
-      const adminNotifications = uniqueTargets.map(targetId => {
-        return new Notification({
-          receptor: targetId,
-          emisor: req.userId,
+      // 🏆 Notificaciones V1 PRO Centralizadas
+      const notificationPromises = uniqueTargets.map(targetId => 
+        notificationService.notify({
+          receptorId: targetId,
+          emisorId: req.userId,
           tipo: 'solicitud_grupo',
           contenido: 'solicitó unirse al grupo',
-          referencia: {
-            tipo: 'Group',
-            id: group._id
-          }
-        }).save();
-      });
+          referencia: { tipo: 'Group', id: group._id }
+        })
+      );
 
-      const savedNotifications = await Promise.all(adminNotifications);
-
-      // IMPORTANTE: Popula emisor y grupo ANTES de emitir por Socket.IO
-      for (const notification of savedNotifications) {
-        await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil username');
-        await notification.populate('referencia.id', 'nombre imagen');
-
-        // Emitir notificación por Socket.IO con datos completos
-        if (global.emitNotification) {
-          global.emitNotification(notification.receptor.toString(), notification);
-        }
-      }
-
-      console.log('✅ [JOIN] Solicitud enviada exitosamente');
+      await Promise.allSettled(notificationPromises);
+      console.log('✅ [JOIN] Solicitudes enviadas exitosamente');
       return res.json(formatSuccessResponse('Solicitud enviada. Espera la aprobación de un administrador'));
     }
 
@@ -488,29 +471,14 @@ const joinGroup = async (req, res) => {
     await group.save();
     console.log('✅ [JOIN] Usuario agregado como miembro');
 
-    // Notificar al creador
-    try {
-      const notification = new Notification({
-        receptor: group.creador,
-        emisor: req.userId,
-        tipo: 'nuevo_miembro_grupo',
-        contenido: 'se unió a tu grupo',
-        referencia: {
-          tipo: 'Group',
-          id: group._id
-        }
-      });
-      await notification.save();
-
-      // Emitir notificación por Socket.IO
-      if (global.emitNotification) {
-        global.emitNotification(group.creador, notification);
-      }
-
-      console.log('✅ [JOIN] Notificación enviada al creador');
-    } catch (notifError) {
-      console.error('⚠️ [JOIN] Error al enviar notificación (continuando):', notifError.message);
-    }
+    // 🏆 Notificación V1 PRO
+    notificationService.notify({
+      receptorId: group.creador,
+      emisorId: req.userId,
+      tipo: 'nuevo_miembro_grupo',
+      contenido: 'se unió a tu grupo',
+      referencia: { tipo: 'Group', id: group._id }
+    }).catch(err => console.error('⚠️ [JOIN] Error notification:', err.message));
 
     await group.populate('miembros.usuario', 'nombre apellido avatar');
 
@@ -958,32 +926,20 @@ const sendMessage = async (req, res) => {
       console.log(`📬 [GROUP MESSAGE] Enviando notificaciones a ${membersToNotify.length} miembros`);
       console.log(`🔕 [GROUP MESSAGE] Miembros silenciados: ${silencedCount}`);
 
-      // Crear notificaciones
-      for (const member of membersToNotify) {
-        const notification = new Notification({
-          receptor: member.usuario,
-          emisor: req.userId,
+      // 🏆 Notificaciones V1 PRO (CONCURRENTE)
+      const notificationPromises = membersToNotify.map(member => 
+        notificationService.notify({
+          receptorId: member.usuario,
+          emisorId: req.userId,
           tipo: 'mensaje_grupo',
           contenido: `envió un mensaje en ${group.nombre}`,
-          referencia: {
-            tipo: 'Group',
-            id: group._id
-          },
-          datos: {
-            mensajeId: message._id,
-            grupoNombre: group.nombre
-          }
-        });
-        await notification.save();
+          referencia: { tipo: 'Group', id: group._id },
+          metadata: { mensajeId: message._id, grupoNombre: group.nombre }
+        })
+      );
 
-        // Emitir notificación individual
-        if (global.emitNotification) {
-          await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
-          global.emitNotification(member.usuario.toString(), notification);
-        }
-      }
-
-      console.log(`✅ [GROUP MESSAGE] Notificaciones creadas exitosamente`);
+      await Promise.allSettled(notificationPromises);
+      console.log(`✅ [GROUP MESSAGE] Notificaciones enviadas exitosamente`);
     } catch (notifError) {
       console.error('⚠️ [GROUP MESSAGE] Error al crear notificaciones (continuando):', notifError);
     }
@@ -1287,23 +1243,14 @@ const approveJoinRequest = async (req, res) => {
 
     await group.save();
 
-    // Notificar al usuario que su solicitud fue aprobada
-    const notification = new Notification({
-      receptor: requestId,
-      emisor: req.userId,
+    // 🏆 Notificación V1 PRO
+    notificationService.notify({
+      receptorId: requestId,
+      emisorId: req.userId,
       tipo: 'solicitud_grupo_aprobada',
       contenido: 'aceptó tu solicitud para unirte al grupo',
-      referencia: {
-        tipo: 'Group',
-        id: group._id
-      }
-    });
-    await notification.save();
-
-    // Emitir notificación por Socket.IO si existe
-    if (global.emitNotification) {
-      global.emitNotification(requestId, notification);
-    }
+      referencia: { tipo: 'Group', id: group._id }
+    }).catch(err => console.error('⚠️ [APPROVE] Error notification:', err.message));
 
     await group.populate('miembros.usuario', 'nombre apellido avatar');
 
@@ -1354,23 +1301,14 @@ const rejectJoinRequest = async (req, res) => {
 
     await group.save();
 
-    // Notificar al usuario que su solicitud fue rechazada
-    const notification = new Notification({
-      receptor: requestId,
-      emisor: req.userId,
+    // 🏆 Notificación V1 PRO
+    notificationService.notify({
+      receptorId: requestId,
+      emisorId: req.userId,
       tipo: 'solicitud_grupo_rechazada',
       contenido: 'rechazó tu solicitud para unirte al grupo',
-      referencia: {
-        tipo: 'Group',
-        id: group._id
-      }
-    });
-    await notification.save();
-
-    // Emitir notificación por Socket.IO si existe
-    if (global.emitNotification) {
-      global.emitNotification(requestId, notification);
-    }
+      referencia: { tipo: 'Group', id: group._id }
+    }).catch(err => console.error('⚠️ [REJECT] Error notification:', err.message));
 
     res.json(formatSuccessResponse('Solicitud rechazada exitosamente'));
   } catch (error) {
@@ -1591,35 +1529,15 @@ const updateMemberRole = async (req, res) => {
 
     await group.save();
 
-    // 📧 Enviar notificación si se promovió a administrador
+    // 🏆 Notificación V1 PRO
     if (role === 'admin') {
-      try {
-        const notification = new Notification({
-          receptor: memberId,
-          emisor: req.userId,
-          tipo: 'promocion_admin_grupo',
-          contenido: 'te nombró administrador del grupo',
-          referencia: {
-            tipo: 'Group',
-            id: group._id
-          }
-        });
-
-        await notification.save();
-
-        // IMPORTANTE: Popula emisor y grupo ANTES de emitir por Socket.IO
-        await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil username');
-        await notification.populate('referencia.id', 'nombre imagen');
-
-        // Emitir notificación en tiempo real
-        if (global.emitNotification) {
-          global.emitNotification(memberId.toString(), notification);
-        }
-
-        console.log(`📧 [UPDATE ROLE] Notificación de promoción enviada a ${memberId}`);
-      } catch (notifError) {
-        console.error('⚠️ [UPDATE ROLE] Error al enviar notificación (continuando):', notifError.message);
-      }
+      notificationService.notify({
+        receptorId: memberId,
+        emisorId: req.userId,
+        tipo: 'promocion_admin_grupo',
+        contenido: 'te nombró administrador del grupo',
+        referencia: { tipo: 'Group', id: group._id }
+      }).catch(err => console.error('⚠️ [PROMOTE] Error notification:', err.message));
     }
 
     console.log(`✅ [UPDATE ROLE] Rol actualizado exitosamente a '${group.miembros[memberIndex].rol}'`);

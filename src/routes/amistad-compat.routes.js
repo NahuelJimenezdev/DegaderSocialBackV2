@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Friendship = require('../models/Friendship');
-const Notification = require('../models/Notification');
+const notificationService = require('../services/notification.service');
 const User = require('../models/User.model');
 const friendshipController = require('../controllers/friendshipController');
 const friendshipActionsController = require('../controllers/friendshipActionsController');
@@ -118,53 +118,23 @@ router.post('/solicitar', async (req, res) => {
     });
     await friendship.save();
 
-    // Crear notificación
-    const notification = new Notification({
-      receptor: usuarioId,
-      emisor: currentUserId,
+    // 🏆 Notificación V1 PRO
+    notificationService.notify({
+      receptorId: usuarioId,
+      emisorId: currentUserId,
       tipo: 'solicitud_amistad',
       contenido: 'te envió una solicitud de amistad',
-      referencia: {
-        tipo: 'UserV2',
-        id: currentUserId
-      }
-    });
-    await notification.save();
+      referencia: { tipo: 'UserV2', id: currentUserId }
+    }).catch(err => console.error('Error al enviar notificación:', err));
 
-    // Emitir notificación en tiempo real con Socket.IO
+    // Nota: El servicio ya emite via socket.
+    // Si se necesitan eventos específicos de estado (amistad:actualizada), se pueden mantener aquí:
     if (global.emitNotification) {
-      await notification.populate('emisor', 'nombres apellidos social.fotoPerfil');
-
-      // Estructura compatible con NotificationCard del frontend
-      const nombreCompleto = `${req.user.nombres?.primero || ''} ${req.user.apellidos?.primero || ''}`.trim();
-      const notificationData = {
-        _id: notification._id,
-        tipo: 'amistad', // Frontend espera 'amistad', no 'solicitud_amistad'
-        mensaje: `${nombreCompleto} te envió una solicitud de amistad`,
-        leido: false,
-        fechaCreacion: notification.createdAt,
-        remitenteId: {
-          _id: req.user._id,
-          nombre: req.user.nombres?.primero,
-          apellido: req.user.apellidos?.primero,
-          avatar: req.user.social?.fotoPerfil
-        },
-        datos: {
-          nombre: nombreCompleto,
-          avatar: req.user.social?.fotoPerfil,
-          fromUserId: req.user._id
-        }
-      };
-
-      global.emitNotification(usuarioId, notificationData);
-
-      // Emitir actualización de estado a ambos usuarios
       global.emitNotification(currentUserId.toString(), {
         tipo: 'amistad:actualizada',
         usuarioId: usuarioId,
         nuevoEstado: 'enviada'
       });
-
       global.emitNotification(usuarioId, {
         tipo: 'amistad:actualizada',
         usuarioId: currentUserId.toString(),
@@ -234,50 +204,22 @@ router.post('/aceptar', async (req, res) => {
 
     // Procesar notificaciones en segundo plano (no bloquea la respuesta)
     try {
-      // Crear notificación para el solicitante
-      const notification = new Notification({
-        receptor: usuarioId,
-        emisor: currentUserId,
+      // 🏆 Notificación V1 PRO
+      notificationService.notify({
+        receptorId: usuarioId,
+        emisorId: currentUserId,
         tipo: 'amistad_aceptada',
         contenido: 'aceptó tu solicitud de amistad',
-        referencia: {
-          tipo: 'UserV2',
-          id: currentUserId
-        }
-      });
-      await notification.save();
+        referencia: { tipo: 'UserV2', id: currentUserId }
+      }).catch(err => console.error('Error al enviar notificación:', err));
 
-      // Emitir notificación en tiempo real
       if (global.emitNotification) {
-        const nombreCompleto = `${req.user.nombres?.primero || ''} ${req.user.apellidos?.primero || ''}`.trim() || 'Usuario';
-        const notificationData = {
-          _id: notification._id,
-          tipo: 'amistad',
-          mensaje: `${nombreCompleto} aceptó tu solicitud de amistad`,
-          leido: false,
-          fechaCreacion: notification.createdAt,
-          remitenteId: {
-            _id: req.user._id,
-            nombre: req.user.nombres?.primero,
-            apellido: req.user.apellidos?.primero,
-            avatar: req.user.social?.fotoPerfil
-          },
-          datos: {
-            nombre: nombreCompleto,
-            avatar: req.user.social?.fotoPerfil,
-            fromUserId: req.user._id
-          }
-        };
-
-        global.emitNotification(usuarioId, notificationData);
-
         // Emitir actualización de estado a ambos usuarios
         global.emitNotification(currentUserId.toString(), {
           tipo: 'amistad:actualizada',
           usuarioId: usuarioId,
           nuevoEstado: 'aceptado'
         });
-
         global.emitNotification(usuarioId, {
           tipo: 'amistad:actualizada',
           usuarioId: currentUserId.toString(),

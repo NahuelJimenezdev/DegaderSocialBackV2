@@ -23,6 +23,7 @@ class SocketService {
     global.emitGroupMessage = this.emitGroupMessage.bind(this);
     global.emitMeetingUpdate = this.emitMeetingUpdate.bind(this);
     global.emitPostUpdate = this.emitPostUpdate.bind(this);
+    global.isUserOnline = this.isUserOnline.bind(this);
   }
 
   handleConnection(socket) {
@@ -64,6 +65,9 @@ class SocketService {
         console.log(`🔌 [LEAVE] Socket ${socket.id} (User: ${socket.userId}) left room: ${room}`);
       }
     });
+
+    // Acuse de recibo de notificación (ACK) V1 PRO PLUS
+    socket.on('notification_delivered', (data) => this.handleNotificationDelivered(socket, data));
 
     // Desconexión
     socket.on('disconnect', () => this.handleDisconnect(socket));
@@ -244,6 +248,17 @@ class SocketService {
       }
     } catch (e) {
       console.error("Error en handleMessageRead", e);
+    }
+  }
+
+  async handleNotificationDelivered(socket, { notificationId }) {
+    if (!notificationId) return;
+    try {
+      const notificationService = require('./notification.service');
+      await notificationService.markAsDelivered(notificationId);
+      console.log(`✅ [ACK] Notificación ${notificationId} marcada como entregada via Socket`);
+    } catch (error) {
+      console.error('❌ Error en handleNotificationDelivered:', error.message);
     }
   }
 
@@ -490,6 +505,10 @@ class SocketService {
 
   getOnlineUsers() {
     return Array.from(this.connectedUsers.keys());
+  }
+
+  isUserOnline(userId) {
+    return this.connectedUsers.has(userId?.toString());
   }
 }
 

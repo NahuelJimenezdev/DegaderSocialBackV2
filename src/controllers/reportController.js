@@ -1,10 +1,10 @@
-const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report');
+const { Report, REPORT_CONTENT_TYPES, REPORT_STATUSES, MODERATOR_ACTIONS, REPORT_REASONS } = require('../models/Report.model');
 const User = require('../models/User.model');
 const Post = require('../models/Post');
-const Notification = require('../models/Notification');
+const notificationService = require('../services/notification.service');
 
 // ==========================================
-// 🔹 FUNCIONES PARA USUARIOS
+// ðŸ”¹ FUNCIONES PARA USUARIOS
 // ==========================================
 
 /**
@@ -20,7 +20,7 @@ const createReport = async (req, res) => {
         if (!REPORT_CONTENT_TYPES.includes(contentType)) {
             return res.status(400).json({
                 success: false,
-                message: 'Tipo de contenido inválido'
+                message: 'Tipo de contenido invÃ¡lido'
             });
         }
 
@@ -135,11 +135,11 @@ const createReport = async (req, res) => {
                 break;
             }
 
-            // Mensajes aún no implementados
+            // Mensajes aÃºn no implementados
             case 'message':
                 return res.status(501).json({
                     success: false,
-                    message: 'Tipo de reporte aún no implementado'
+                    message: 'Tipo de reporte aÃºn no implementado'
                 });
 
             default:
@@ -172,16 +172,16 @@ const createReport = async (req, res) => {
             });
         }
 
-        // Obtener información del usuario que reporta
+        // Obtener informaciÃ³n del usuario que reporta
         const reporter = await User.findById(userId);
 
-        // Generar reportNumber único
+        // Generar reportNumber Ãºnico
         const reportCount = await Report.countDocuments();
         const reportNumber = `RPT-${Date.now()}-${String(reportCount + 1).padStart(6, '0')}`;
 
         // Crear el reporte
         const newReport = new Report({
-            reportNumber, // Asignar explícitamente
+            reportNumber, // Asignar explÃ­citamente
             contentSnapshot,
             reportedBy: {
                 userId: reporter._id,
@@ -202,7 +202,7 @@ const createReport = async (req, res) => {
 
         await newReport.save();
 
-        // Agregar acción al historial
+        // Agregar acciÃ³n al historial
         newReport.addActionToHistory(
             'reporte_creado',
             reporter,
@@ -210,11 +210,11 @@ const createReport = async (req, res) => {
         );
         await newReport.save();
 
-        console.log(`✅ Reporte creado: ${newReport.reportNumber} - Prioridad: ${newReport.priority}`);
+        console.log(`âœ… Reporte creado: ${newReport.reportNumber} - Prioridad: ${newReport.priority}`);
 
         res.status(201).json({
             success: true,
-            message: 'Reporte enviado correctamente. Será revisado por nuestro equipo de moderación.',
+            message: 'Reporte enviado correctamente. SerÃ¡ revisado por nuestro equipo de moderaciÃ³n.',
             data: {
                 reportNumber: newReport.reportNumber,
                 status: newReport.status,
@@ -223,7 +223,7 @@ const createReport = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al crear reporte:', error);
+        console.error('âŒ Error al crear reporte:', error);
         res.status(500).json({
             success: false,
             message: 'Error al crear el reporte',
@@ -262,7 +262,7 @@ const getUserReports = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener reportes del usuario:', error);
+        console.error('âŒ Error al obtener reportes del usuario:', error);
         res.status(500).json({
             success: false,
             message: 'Error al obtener reportes',
@@ -272,7 +272,7 @@ const getUserReports = async (req, res) => {
 };
 
 // ==========================================
-// 🔹 FUNCIONES PARA MODERADORES (Trust & Safety)
+// ðŸ”¹ FUNCIONES PARA MODERADORES (Trust & Safety)
 // ==========================================
 
 /**
@@ -338,7 +338,7 @@ const getAllReports = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al listar reportes:', error);
+        console.error('âŒ Error al listar reportes:', error);
         res.status(500).json({
             success: false,
             message: 'Error al listar reportes',
@@ -369,14 +369,14 @@ const getReportById = async (req, res) => {
             });
         }
 
-        // Obtener contexto adicional del usuario reportado (con logs para depuración)
-        // console.log('🔍 [DEBUG] Procesando reporte:', id);
-        // console.log('📄 [DEBUG] Snapshot author:', report.contentSnapshot?.author);
+        // Obtener contexto adicional del usuario reportado (con logs para depuraciÃ³n)
+        // console.log('ðŸ” [DEBUG] Procesando reporte:', id);
+        // console.log('ðŸ“„ [DEBUG] Snapshot author:', report.contentSnapshot?.author);
 
         const userDoc = report.contentSnapshot?.author?.userId;
         const reportedUserId = userDoc?._id || userDoc;
 
-        // console.log('👤 [DEBUG] UserDoc ID:', reportedUserId);
+        // console.log('ðŸ‘¤ [DEBUG] UserDoc ID:', reportedUserId);
 
         // Conteo de reportes previos del mismo usuario
         let previousReports = 0;
@@ -411,7 +411,7 @@ const getReportById = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener reporte:', error);
+        console.error('âŒ Error al obtener reporte:', error);
         res.status(500).json({
             success: false,
             message: 'Error al obtener reporte',
@@ -438,11 +438,11 @@ const assignReportToSelf = async (req, res) => {
             });
         }
 
-        // Verificar que el reporte esté pendiente o no asignado
+        // Verificar que el reporte estÃ© pendiente o no asignado
         if (report.moderation.assignedTo && report.moderation.assignedTo.toString() !== userId.toString()) {
             return res.status(400).json({
                 success: false,
-                message: 'Este reporte ya está asignado a otro moderador'
+                message: 'Este reporte ya estÃ¡ asignado a otro moderador'
             });
         }
 
@@ -467,7 +467,7 @@ const assignReportToSelf = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al asignar reporte:', error);
+        console.error('âŒ Error al asignar reporte:', error);
         res.status(500).json({
             success: false,
             message: 'Error al asignar reporte',
@@ -489,14 +489,14 @@ const updateReportStatus = async (req, res) => {
         if (!REPORT_STATUSES.includes(status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Estado inválido'
+                message: 'Estado invÃ¡lido'
             });
         }
 
         if (!justification || justification.trim().length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'La justificación es obligatoria'
+                message: 'La justificaciÃ³n es obligatoria'
             });
         }
 
@@ -529,7 +529,7 @@ const updateReportStatus = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al actualizar estado:', error);
+        console.error('âŒ Error al actualizar estado:', error);
         res.status(500).json({
             success: false,
             message: 'Error al actualizar estado',
@@ -539,7 +539,7 @@ const updateReportStatus = async (req, res) => {
 };
 
 /**
- * Aplicar acción de moderación
+ * Aplicar acciÃ³n de moderaciÃ³n
  * POST /api/reports/moderator/:id/action
  */
 const takeModeratorAction = async (req, res) => {
@@ -551,14 +551,14 @@ const takeModeratorAction = async (req, res) => {
         if (!MODERATOR_ACTIONS.includes(action)) {
             return res.status(400).json({
                 success: false,
-                message: 'Acción inválida'
+                message: 'AcciÃ³n invÃ¡lida'
             });
         }
 
         if (!justification || justification.trim().length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'La justificación es obligatoria para tomar acciones'
+                message: 'La justificaciÃ³n es obligatoria para tomar acciones'
             });
         }
 
@@ -573,7 +573,7 @@ const takeModeratorAction = async (req, res) => {
 
         const moderator = await User.findById(userId);
 
-        // Actualizar decisión de moderación
+        // Actualizar decisiÃ³n de moderaciÃ³n
         report.moderation.reviewedBy = userId;
         report.moderation.reviewedAt = new Date();
         report.moderation.decision = {
@@ -583,14 +583,14 @@ const takeModeratorAction = async (req, res) => {
             appliedAt: new Date()
         };
 
-        // Actualizar estado según la decisión
+        // Actualizar estado segÃºn la decisiÃ³n
         if (isValid) {
             report.status = 'valido';
         } else {
             report.status = 'no_valido';
         }
 
-        // Si se escaló al Founder
+        // Si se escalÃ³ al Founder
         if (action === 'escalar_founder') {
             report.status = 'escalado';
             report.flags.isEscalated = true;
@@ -609,23 +609,23 @@ const takeModeratorAction = async (req, res) => {
         // APICAR ACCIONES REALES
         // ======================
         if (isValid) {
-            // CORRECCIÓN: Mapear las propiedades correctas del snapshot
+            // CORRECCIÃ“N: Mapear las propiedades correctas del snapshot
             // El snapshot guarda 'type' (no contentType) y 'originalId' (no contentId)
             const { type: contentType, originalId: contentId, author } = report.contentSnapshot;
 
-            console.log(`🔍 [DEBUG] Procesando acción ${action} para ${contentType} ID: ${contentId}`);
+            console.log(`ðŸ” [DEBUG] Procesando acciÃ³n ${action} para ${contentType} ID: ${contentId}`);
 
             // 1. Acciones sobre Contenido (Eliminar / Ocultar)
             if (action === 'eliminar_contenido') {
                 if (contentType === 'post') {
                     const deletedPost = await Post.findByIdAndDelete(contentId);
                     if (deletedPost) {
-                        console.log(`🗑️ Post ${contentId} eliminado por moderación`);
+                        console.log(`ðŸ—‘ï¸ Post ${contentId} eliminado por moderaciÃ³n`);
 
-                        // Verificación doble
+                        // VerificaciÃ³n doble
                         const checkExists = await Post.findById(contentId);
                         if (!checkExists) {
-                            console.log('✅ [DB] Confirmado: El post ha sido eliminado físicamente');
+                            console.log('âœ… [DB] Confirmado: El post ha sido eliminado fÃ­sicamente');
                         } else {
                             console.error('❌ [DB] ERROR FATAL: El post sigue existiendo después de findByIdAndDelete');
                         }
@@ -639,30 +639,15 @@ const takeModeratorAction = async (req, res) => {
                             console.error('❌ [SOCKET] No se pudo emitir post_deleted: instancia io no encontrada');
                         }
 
-                        // Notificar al autor
-                        try {
-                            const notification = new Notification({
-                                receptor: author.userId,
-                                emisor: userId, // El moderador actúa como emisor
-                                tipo: 'sistema',
-                                contenido: `Tu publicación ha sido eliminada por incumplir las normas de la comunidad. Motivo: ${justification}`,
-                                referencia: { tipo: 'Post', id: contentId }, // ID aunque no exista, como referencia histórica
-                                metadata: { action: 'eliminar_contenido', reportId: report._id }
-                            });
-                            await notification.save();
-
-                            // Poblar y emitir socket
-                            await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
-                            if (global.emitNotification) {
-                                const targetUserId = author.userId.toString();
-                                console.log(`📡 [NOTIFY] Intentando notificar a autor: ${targetUserId}`);
-                                global.emitNotification(targetUserId, notification);
-                            } else {
-                                console.error('❌ [NOTIFY] global.emitNotification no está definido');
-                            }
-                        } catch (notifError) {
-                            console.error('Error al notificar eliminación:', notifError);
-                        }
+                        // 🏆 Notificar al autor V1 PRO
+                        notificationService.notify({
+                            receptorId: author.userId,
+                            emisorId: userId,
+                            tipo: 'sistema',
+                            contenido: `Tu publicación ha sido eliminada por incumplir las normas de la comunidad. Motivo: ${justification}`,
+                            referencia: { tipo: 'Post', id: contentId },
+                            metadata: { action: 'eliminar_contenido', reportId: report._id }
+                        }).catch(err => console.error('Error al notificar eliminación:', err));
                     } else {
                         console.warn(`⚠️ Intento de eliminar post ${contentId} fallido: No encontrado`);
                     }
@@ -684,29 +669,15 @@ const takeModeratorAction = async (req, res) => {
                             console.log('📡 [SOCKET] Emitido evento post_updated tras eliminar comentario');
                         }
 
-                        // Notificar al autor del comentario
-                        try {
-                            const notification = new Notification({
-                                receptor: author.userId,
-                                emisor: userId,
-                                tipo: 'sistema',
-                                contenido: `Tu comentario ha sido eliminado por incumplir las normas de la comunidad. Motivo: ${justification}`,
-                                referencia: { tipo: 'Comment', id: contentId },
-                                metadata: { action: 'eliminar_contenido', reportId: report._id, postId: report.contentSnapshot.content.postId }
-                            });
-                            await notification.save();
-
-                            await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
-                            if (global.emitNotification) {
-                                const targetUserId = author.userId.toString();
-                                console.log(`📡 [NOTIFY] Notificando eliminación de comentario a: ${targetUserId}`);
-                                global.emitNotification(targetUserId, notification);
-                            } else {
-                                console.error('❌ [NOTIFY] global.emitNotification no está definido');
-                            }
-                        } catch (notifError) {
-                            console.error('Error al notificar eliminación de comentario:', notifError);
-                        }
+                        // 🏆 Notificar al autor del comentario V1 PRO
+                        notificationService.notify({
+                            receptorId: author.userId,
+                            emisorId: userId,
+                            tipo: 'sistema',
+                            contenido: `Tu comentario ha sido eliminado por incumplir las normas de la comunidad. Motivo: ${justification}`,
+                            referencia: { tipo: 'Comment', id: contentId },
+                            metadata: { action: 'eliminar_contenido', reportId: report._id, postId: report.contentSnapshot.content.postId }
+                        }).catch(err => console.error('Error al notificar eliminación de comentario:', err));
                     } else {
                         console.warn(`⚠️ Intento de eliminar comentario ${contentId} fallido: No encontrado`);
                     }
@@ -717,17 +688,15 @@ const takeModeratorAction = async (req, res) => {
                 if (contentType === 'post') {
                     await Post.findByIdAndUpdate(contentId, { privacidad: 'privado' });
                     console.log(`👁️ Post ${contentId} ocultado (propiedad privada)`);
-                    try {
-                        const notification = new Notification({
-                            receptor: author.userId,
-                            emisor: userId,
-                            tipo: 'sistema',
-                            contenido: `Tu publicación ha sido ocultada por incumplir las normas. Motivo: ${justification}`,
-                            referencia: { tipo: 'Post', id: contentId },
-                            metadata: { action: 'ocultar_contenido', reportId: report._id }
-                        });
-                        await notification.save();
-                    } catch (notifError) { console.error(notifError); }
+                    // 🏆 Notificar ocultación V1 PRO
+                    notificationService.notify({
+                        receptorId: author.userId,
+                        emisorId: userId,
+                        tipo: 'sistema',
+                        contenido: `Tu publicación ha sido ocultada por incumplir las normas. Motivo: ${justification}`,
+                        referencia: { tipo: 'Post', id: contentId },
+                        metadata: { action: 'ocultar_contenido', reportId: report._id }
+                    }).catch(err => console.error('Error al notificar ocultación:', err));
                 }
             }
 
@@ -774,35 +743,17 @@ const takeModeratorAction = async (req, res) => {
                         console.log(`🚫 Usuario ${author.username} suspendido hasta ${suspensionEndDate}`);
                     }
 
-                    // Enviar notificación de sistema
-                    try {
-                        const notification = new Notification({
-                            receptor: userToSanction._id,
-                            emisor: userId,
-                            tipo: 'sistema',
-                            contenido: mensajeSancion,
-                            metadata: { action, reportId: report._id }
-                        });
-                        await notification.save();
-
-                        // Poblar y emitir socket
-                        await notification.populate('emisor', 'username nombres apellidos social.fotoPerfil');
-                        if (global.emitNotification) {
-                            const targetUserId = userToSanction._id.toString();
-                            console.log(`📡 [NOTIFY] Intentando notificar sanción a: ${targetUserId}`);
-                            global.emitNotification(targetUserId, notification);
-                        } else {
-                            console.error('❌ [NOTIFY] global.emitNotification no está definido');
-                        }
-                    } catch (notifError) {
-                        console.error('Error al notificar sanción:', notifError);
-                    }
+                    // 🏆 Enviar notificación de sistema V1 PRO
+                    notificationService.notify({
+                        receptorId: userToSanction._id,
+                        emisorId: userId,
+                        tipo: 'sistema',
+                        contenido: mensajeSancion,
+                        metadata: { action, reportId: report._id }
+                    }).catch(err => console.error('Error al notificar sanción:', err));
                 }
             }
         }
-
-
-        console.log(`✅ Acción de moderación aplicada: ${action} en reporte ${report.reportNumber}`);
 
         res.json({
             success: true,
@@ -811,17 +762,17 @@ const takeModeratorAction = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al aplicar acción:', error);
+        console.error('â�Œ Error al aplicar acciÃ³n:', error);
         res.status(500).json({
             success: false,
-            message: 'Error al aplicar acción',
+            message: 'Error al aplicar acciÃ³n',
             error: error.message
         });
     }
 };
 
 /**
- * Obtener estadísticas para moderadores
+ * Obtener estadÃ­sticas para moderadores
  * GET /api/reports/moderator/stats
  */
 const getModeratorStats = async (req, res) => {
@@ -831,7 +782,7 @@ const getModeratorStats = async (req, res) => {
         // Reportes pendientes
         const pendingCount = await Report.countDocuments({ status: 'pendiente' });
 
-        // Reportes en revisión
+        // Reportes en revisiÃ³n
         const inReviewCount = await Report.countDocuments({ status: 'en_revision' });
 
         // Reportes asignados al moderador actual
@@ -867,21 +818,21 @@ const getModeratorStats = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener estadísticas:', error);
+        console.error('â�Œ Error al obtener estadÃ­sticas:', error);
         res.status(500).json({
             success: false,
-            message: 'Error al obtener estadísticas',
+            message: 'Error al obtener estadÃ­sticas',
             error: error.message
         });
     }
 };
 
 // ==========================================
-// 🔹 FUNCIONES PARA FOUNDER
+// ðŸ”¹ FUNCIONES PARA FOUNDER
 // ==========================================
 
 /**
- * Obtener estadísticas de auditoría para el Founder
+ * Obtener estadÃ­sticas de auditorÃ­a para el Founder
  * GET /api/reports/founder/audit
  */
 const getFounderAuditStats = async (req, res) => {
@@ -906,7 +857,7 @@ const getFounderAuditStats = async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(20);
 
-        // Estadísticas por moderador
+        // EstadÃ­sticas por moderador
         const moderatorStats = await Report.aggregate([
             {
                 $match: {
@@ -927,7 +878,7 @@ const getFounderAuditStats = async (req, res) => {
             }
         ]);
 
-        // Poblar información de moderadores
+        // Poblar informaciÃ³n de moderadores
         const populatedModeratorStats = await User.populate(moderatorStats, {
             path: '_id',
             select: 'username nombres apellidos'
@@ -944,10 +895,10 @@ const getFounderAuditStats = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error al obtener auditoría:', error);
+        console.error('â�Œ Error al obtener auditorÃ­a:', error);
         res.status(500).json({
             success: false,
-            message: 'Error al obtener datos de auditoría',
+            message: 'Error al obtener datos de auditorÃ­a',
             error: error.message
         });
     }
@@ -966,7 +917,7 @@ const escalateOrRevertCase = async (req, res) => {
         if (!justification || justification.trim().length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'La justificación es obligatoria'
+                message: 'La justificaciÃ³n es obligatoria'
             });
         }
 
@@ -985,7 +936,7 @@ const escalateOrRevertCase = async (req, res) => {
             report.flags.isEscalated = true;
             report.status = 'escalado';
         } else if (action === 'revert') {
-            // Revertir decisión del moderador
+            // Revertir decisiÃ³n del moderador
             if (newDecision) {
                 report.moderation.decision = {
                     ...report.moderation.decision,
@@ -1006,19 +957,19 @@ const escalateOrRevertCase = async (req, res) => {
 
         await report.save();
 
-        console.log(`✅ Founder ${action} en reporte ${report.reportNumber}`);
+        console.log(`âœ… Founder ${action} en reporte ${report.reportNumber}`);
 
         res.json({
             success: true,
-            message: `Acción de Founder aplicada: ${action}`,
+            message: `AcciÃ³n de Founder aplicada: ${action}`,
             data: report
         });
 
     } catch (error) {
-        console.error('❌ Error al procesar acción de Founder:', error);
+        console.error('â�Œ Error al procesar acciÃ³n de Founder:', error);
         res.status(500).json({
             success: false,
-            message: 'Error al procesar acción',
+            message: 'Error al procesar acciÃ³n',
             error: error.message
         });
     }

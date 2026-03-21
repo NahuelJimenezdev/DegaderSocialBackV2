@@ -119,5 +119,6 @@ postSchema.virtual('totalCompartidos').get(function () {
 postSchema.index({ usuario: 1, createdAt: -1 });
 postSchema.index({ grupo: 1, createdAt: -1 });
 postSchema.index({ etiquetas: 1 });
+postSchema.index({ createdAt: -1, _id: -1 }); // 🆕 Clave para Cursor Pagination a escala
 
 module.exports = mongoose.model('Post', postSchema);

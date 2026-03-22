@@ -22,8 +22,39 @@ class ArenaSocketService {
     socket.on('arena:submitAnswer', (data) => this.handleSubmitAnswer(socket, data));
 
     // Desconexion manejada por socketService.js principal, 
-    // pero si el user se desconecta limpiar de la cola
-    socket.on('disconnect', () => this.handleCancelSearch(socket));
+    // pero si el user se desconecta limpiar de la cola o declarar derrota
+    socket.on('disconnect', async () => {
+      this.handleCancelSearch(socket);
+      if (socket.activeMatchId) {
+        await this.handlePlayerDisconnection(socket.activeMatchId, socket.userId);
+      }
+    });
+  }
+
+  async handlePlayerDisconnection(matchId, disconnectedUserId) {
+    try {
+      const match = await ArenaMatch.findById(matchId);
+      if (!match || match.status !== 'active') return;
+
+      console.log(`🔌 [ARENA] Abandono detectado: Player ${disconnectedUserId} huyó de la partida ${matchId}.`);
+      
+      const winnerId = match.player1.toString() === disconnectedUserId ? match.player2 : match.player1;
+
+      match.status = 'completed';
+      match.winner = winnerId;
+      await match.save();
+
+      const roomId = `match:${match._id}`;
+      this.io.to(roomId).emit('arena:matchEnded', {
+        winnerId: winnerId,
+        reason: 'opponent_abandoned'
+      });
+
+      await this.awardPGRewards(match, winnerId);
+      this.io.in(roomId).socketsLeave(roomId);
+    } catch (e) {
+      console.error('Error al manejar desconexion en partida', e);
+    }
   }
 
   async handleFindMatch(socket, data) {
@@ -85,6 +116,12 @@ class ArenaSocketService {
         // 2. Unir sockets a la Room y notificar
         this.joinToRoom(p1.socketId, roomId);
         this.joinToRoom(p2.socketId, roomId);
+        
+        // Atar socket local al partido para el evento Disconnect
+        const s1 = this.io.sockets.sockets.get(p1.socketId);
+        if (s1) s1.activeMatchId = newMatch._id;
+        const s2 = this.io.sockets.sockets.get(p2.socketId);
+        if (s2) s2.activeMatchId = newMatch._id;
 
         // Fetch User Data for Avatars
         const user1 = await UserV2.findById(p1.userId).select('nombres apellidos social arena');
@@ -162,8 +199,8 @@ class ArenaSocketService {
       if (currentQuestion && data.selectedOptionId) {
           isCorrect = data.selectedOptionId === currentQuestion.correctAnswer;
       } else {
-          // Fallback legacy (Si el front viejo todavía usa el bool o si se enviaron id quemados)
-          isCorrect = data.correct === true;
+          // Exploit de Legacy cerrado. Cualquier peticion mal formulada se declara trampa / error.
+          isCorrect = false;
       }
 
       // === LOGICA TUG-OF-WAR (DOMINACION) ===
@@ -241,8 +278,28 @@ class ArenaSocketService {
         // Expulsar de la sala
         this.io.in(roomId).socketsLeave(roomId);
       } else {
-        // Pasar a siguiente ronda (Inyectar de base de datos)
+        // Pasar a siguiente ronda
         match.gameState.currentRoundNum += 1;
+
+        // Si la ronda actual excede la sumatoria de preguntas, se termina el pleito por muerte súbita
+        if (match.gameState.currentRoundNum > match.gameState.questions.length) {
+            console.log(`⚠️ [ARENA] Fin Secreto: Sin preguntas restantes. Partida ${match._id} finalizada por Muerte Súbita.`);
+            winnerId = match.gameState.currentDomination >= 50 ? match.player1 : match.player2;
+            
+            match.status = 'completed';
+            match.winner = winnerId;
+            await match.save();
+
+            this.io.to(roomId).emit('arena:matchEnded', {
+              winnerId: winnerId,
+              reason: 'questions_depleted'
+            });
+
+            await this.awardPGRewards(match, winnerId);
+            this.io.in(roomId).socketsLeave(roomId);
+            return;
+        }
+
         await match.save();
 
         setTimeout(() => {
@@ -277,7 +334,7 @@ class ArenaSocketService {
 
       // Sumar PG Winner +30, Restar PG Loser -10, y popular info para Redis Event Bus
       const winnerDoc = await UserV2.findByIdAndUpdate(winnerId, {
-        $inc: { 'arena.rankPoints': 30, 'arena.statsByMode.arena.wins': 1, 'arena.statsByMode.arena.gamesPlayed': 1 }
+        $inc: { 'arena.rankPoints': 30, 'arena.wins': 1, 'arena.statsByMode.arena.wins': 1, 'arena.statsByMode.arena.gamesPlayed': 1 }
       }, { new: true });
 
       const loserDoc = await UserV2.findByIdAndUpdate(loserId, {

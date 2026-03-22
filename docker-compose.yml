@@ -1,7 +1,6 @@
 services:
   backend:
     build: .
-    container_name: degader-backend
     restart: always
     env_file: .env
     environment:
@@ -17,7 +16,6 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: degader-redis
     restart: always
     command: redis-server --appendonly yes
     ports:
@@ -34,7 +32,6 @@ services:
       args:
         - VITE_API_URL=https://degadersocial.com/api
         - VITE_ENV=production
-    container_name: degader-frontend
     restart: always
     ports:
       - "8080:80"

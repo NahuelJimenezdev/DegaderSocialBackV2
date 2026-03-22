@@ -46,9 +46,9 @@ class ArenaSocketService {
       const p2 = this.matchmakingQueue.shift(); // Saca el siguiente de la cola
 
       try {
-        // 0. Extraer 10 preguntas reales de la Base de Datos
+        // 0. Extraer 10 preguntas reales de la Base de Datos (Tolera creadas a mano sin metadata)
         const questionsDB = await Challenge.aggregate([
-          { $match: { 'metadata.active': true } },
+          { $match: { $or: [{ 'metadata.active': true }, { metadata: { $exists: false } }] } },
           { $sample: { size: 10 } }
         ]);
 

@@ -16,7 +16,10 @@ class ArenaRepository {
     }
 
     async getRandomChallenges(level, limit = 5, excludeIds = []) {
-        const query = { level, 'metadata.active': true };
+        const query = { 
+            level, 
+            $or: [{ 'metadata.active': true }, { metadata: { $exists: false } }] 
+        };
 
         if (excludeIds.length > 0) {
             const objectIds = excludeIds.map(id => {
@@ -40,7 +43,7 @@ class ArenaRepository {
         // Si no hay suficientes preguntas no completadas, relajar la restricción
         if (challenges.length < limit && excludeIds.length > 0) {
             return await Challenge.aggregate([
-                { $match: { level, 'metadata.active': true } },
+                { $match: { level, $or: [{ 'metadata.active': true }, { metadata: { $exists: false } }] } },
                 { $sample: { size: limit } }
             ]);
         }

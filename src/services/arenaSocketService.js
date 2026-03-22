@@ -1,5 +1,7 @@
 const ArenaMatch = require('../models/ArenaMatch.model');
 const UserV2 = require('../models/User.model');
+const Challenge = require('../models/Challenge.model');
+const eventBus = require('../infrastructure/events/eventBus');
 
 class ArenaSocketService {
   constructor() {
@@ -44,6 +46,20 @@ class ArenaSocketService {
       const p2 = this.matchmakingQueue.shift(); // Saca el siguiente de la cola
 
       try {
+        // 0. Extraer 10 preguntas reales de la Base de Datos
+        const questionsDB = await Challenge.aggregate([
+          { $match: { 'metadata.active': true } },
+          { $sample: { size: 10 } }
+        ]);
+
+        const questionsArray = questionsDB.map(q => ({
+            _id: q._id,
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            xpReward: q.xpReward
+        }));
+
         // 1. Crear Match en DB
         const newMatch = new ArenaMatch({
           mode: 'arena',
@@ -57,7 +73,9 @@ class ArenaSocketService {
             player2Health: 3,
             player1Streak: 0,
             player2Streak: 0,
-            currentRoundNum: 1
+            currentRoundNum: 1,
+            questions: questionsArray,
+            currentQuestionId: questionsArray.length > 0 ? questionsArray[0]._id : null
           }
         });
         await newMatch.save();
@@ -90,13 +108,19 @@ class ArenaSocketService {
 
         console.log(`⚔️ [ARENA] Partida Creada: ${newMatch._id} (${p1.userId} vs ${p2.userId})`);
 
-        // 3. Empezar primera ronda luego de 7 segundos visuales (MOCK de carga)
+        // 3. Empezar primera ronda luego de 7 segundos visuales (MOCK de carga en UI)
         setTimeout(() => {
           console.log(`🚀 [ARENA] Enviando roundStart para partida ${newMatch._id}`);
+          const q = questionsArray[0];
           this.io.to(roomId).emit('arena:roundStart', {
             roundNum: 1,
-            // MOCK: Generar un ID de pregunta aleatorio que los clientes usen para buscar el JSON local
-            questionId: Math.floor(Math.random() * 10).toString()
+            questionId: q ? q._id.toString() : null,
+            question: q ? {
+              _id: q._id,
+              question: q.question,
+              options: q.options,
+              xpReward: q.xpReward
+            } : null
           });
         }, 7000);
 
@@ -117,18 +141,29 @@ class ArenaSocketService {
 
   async handleSubmitAnswer(socket, data) {
     try {
-      // data = { matchId, questionId, correct: boolean, timeMs: number }
+      // data = { matchId, questionId, selectedOptionId, correct: boolean (legacy), timeMs: number }
       const match = await ArenaMatch.findById(data.matchId);
       if (!match || match.status !== 'active') return;
 
       const roomId = `match:${match._id}`;
       const isPlayer1 = match.player1.toString() === socket.userId;
 
+      // === VALIDACIÓN DEL SERVER (ANTI-CHEAT) ===
+      let isCorrect = false;
+      const currentQuestion = match.gameState.questions[match.gameState.currentRoundNum - 1];
+      
+      if (currentQuestion && data.selectedOptionId) {
+          isCorrect = data.selectedOptionId === currentQuestion.correctAnswer;
+      } else {
+          // Fallback legacy (Si el front viejo todavía usa el bool o si se enviaron id quemados)
+          isCorrect = data.correct === true;
+      }
+
       // === LOGICA TUG-OF-WAR (DOMINACION) ===
       let pushValue = 0;
       let basePush = 10;
 
-      if (data.correct) {
+      if (isCorrect) {
         // Calcula empuje adicional por rapidez (ej: si timeMs < 2000 => push extra)
         const timeBonus = Math.max(0, (5000 - (data.timeMs || 5000)) / 500); // Hasta +10 extra si fue muy veloz
         pushValue = basePush + timeBonus;
@@ -150,7 +185,7 @@ class ArenaSocketService {
 
       // Aplicar empuje a la barra
       // Si Player 1 acierta suma a la barra. Si P2 acierta resta a la barra.
-      if (data.correct) {
+      if (isCorrect) {
         if (isPlayer1) match.gameState.currentDomination += pushValue;
         else match.gameState.currentDomination -= pushValue;
       }
@@ -166,7 +201,7 @@ class ArenaSocketService {
         streak1: match.gameState.player1Streak,
         streak2: match.gameState.player2Streak,
         lastActionBy: socket.userId,
-        wasCorrect: data.correct
+        wasCorrect: isCorrect
       });
 
       // === CHECKEAR VICTORIA O DERROTA ===
@@ -199,11 +234,21 @@ class ArenaSocketService {
         // Expulsar de la sala
         this.io.in(roomId).socketsLeave(roomId);
       } else {
-        // Pasar a siguiente ronda (MOCK continuo para prototipo)
+        // Pasar a siguiente ronda (Inyectar de base de datos)
+        match.gameState.currentRoundNum += 1;
+        await match.save();
+
         setTimeout(() => {
+          const nextQ = match.gameState.questions[match.gameState.currentRoundNum - 1];
           this.io.to(roomId).emit('arena:roundStart', {
-            roundNum: match.gameState.currentRoundNum + 1,
-            questionId: Math.floor(Math.random() * 10).toString()
+            roundNum: match.gameState.currentRoundNum,
+            questionId: nextQ ? nextQ._id.toString() : null,
+            question: nextQ ? {
+              _id: nextQ._id,
+              question: nextQ.question,
+              options: nextQ.options,
+              xpReward: nextQ.xpReward
+            } : null
           });
         }, 4000); // 4 segs pa procesar animacion y ver resultado anterior
       }
@@ -223,16 +268,35 @@ class ArenaSocketService {
       const isPlayer1Winner = match.player1.toString() === winnerId.toString();
       const loserId = isPlayer1Winner ? match.player2 : match.player1;
 
-      // Sumar PG Winner +30, Restar PG Loser -10
-      await UserV2.findByIdAndUpdate(winnerId, {
+      // Sumar PG Winner +30, Restar PG Loser -10, y popular info para Redis Event Bus
+      const winnerDoc = await UserV2.findByIdAndUpdate(winnerId, {
         $inc: { 'arena.rankPoints': 30, 'arena.statsByMode.arena.wins': 1, 'arena.statsByMode.arena.gamesPlayed': 1 }
-      });
+      }, { new: true });
 
-      await UserV2.findByIdAndUpdate(loserId, {
+      const loserDoc = await UserV2.findByIdAndUpdate(loserId, {
         $inc: { 'arena.rankPoints': -10, 'arena.losses': 1, 'arena.statsByMode.arena.gamesPlayed': 1 }
-      });
+      }, { new: true });
 
       console.log(`🏆 [ARENA] PG Awards Emitidos: Vencedor(${winnerId}) +30 PG, Perdedor(${loserId}) -10 PG`);
+
+      // 🏆 Disparar evento para actualizar el Leaderboard (Redis Rank Cache)
+      if (winnerDoc) {
+        eventBus.emit(eventBus.constructor.Events.ARENA_GAME_COMPLETED, {
+            userId: winnerId,
+            rankPoints: winnerDoc.arena.rankPoints,
+            country: winnerDoc.arena.country || winnerDoc.personal?.ubicacion?.pais,
+            state: winnerDoc.personal?.ubicacion?.estado
+        });
+      }
+      if (loserDoc) {
+        eventBus.emit(eventBus.constructor.Events.ARENA_GAME_COMPLETED, {
+            userId: loserId,
+            rankPoints: loserDoc.arena.rankPoints,
+            country: loserDoc.arena.country || loserDoc.personal?.ubicacion?.pais,
+            state: loserDoc.personal?.ubicacion?.estado
+        });
+      }
+
     } catch (err) {
       console.error("Error al dar rank points:", err);
     }

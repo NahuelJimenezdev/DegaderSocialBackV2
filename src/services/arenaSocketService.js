@@ -148,9 +148,13 @@ class ArenaSocketService {
         // 3. Empezar primera ronda luego de 10 segundos visuales (MOCK de carga en UI)
         // Esto previene Race Conditions (asegura que el componente React ya se haya montado al emitir)
         setTimeout(() => {
-          console.log(`🚀 [ARENA] Enviando roundStart para partida ${newMatch._id}`);
+          console.log(`🚀 [ARENA] Enviando roundStart a sala ${roomId} para partida ${newMatch._id}`);
+          if (questionsArray.length === 0) {
+            console.log('⚠️ [ARENA] ¡ATENCIÓN! questionsArray vino VACÍO de MongoDB.');
+          }
           const q = questionsArray[0];
-          this.io.to(roomId).emit('arena:roundStart', {
+          
+          const payload = {
             roundNum: 1,
             questionId: q ? q._id.toString() : null,
             question: q ? {
@@ -159,7 +163,13 @@ class ArenaSocketService {
               options: q.options,
               xpReward: q.xpReward
             } : null
-          });
+          };
+
+          // Disparo redundante por seguridad: Si la Room falla, lo forzamos a ambos sockets
+          this.io.to(roomId).emit('arena:roundStart', payload);
+          this.io.to(p1.socketId).emit('arena:roundStart', payload);
+          this.io.to(p2.socketId).emit('arena:roundStart', payload);
+
         }, 10000);
 
       } catch (error) {
@@ -305,7 +315,7 @@ class ArenaSocketService {
 
         setTimeout(() => {
           const nextQ = match.gameState.questions[match.gameState.currentRoundNum - 1];
-          this.io.to(roomId).emit('arena:roundStart', {
+          const payload = {
             roundNum: match.gameState.currentRoundNum,
             questionId: nextQ ? nextQ._id.toString() : null,
             question: nextQ ? {
@@ -314,7 +324,11 @@ class ArenaSocketService {
               options: nextQ.options,
               xpReward: nextQ.xpReward
             } : null
-          });
+          };
+
+          this.io.to(roomId).emit('arena:roundStart', payload);
+          // Redundancia por seguridad a ambos jugadores
+          this.io.to(match.player1.toString()).emit('arena:roundStart', payload); // Podría no funcionar si emitimos a userId sin auth rooms.
         }, 4000); // 4 segs pa procesar animacion y ver resultado anterior
       }
     } catch (e) {
@@ -324,8 +338,13 @@ class ArenaSocketService {
 
   joinToRoom(socketId, roomId) {
     if (!this.io) return;
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) socket.join(roomId);
+    try {
+      // Método universal y moderno de Socket.IO para inscribir sockets cruzados a salas
+      this.io.in(socketId).socketsJoin(roomId);
+      console.log(`🔗 [ARENA] Socket ${socketId} emparejado forzosamente a la sala: ${roomId}`);
+    } catch (error) {
+      console.error(`❌ [ARENA] Error uniendo socket ${socketId} a room ${roomId}:`, error);
+    }
   }
 
   async awardPGRewards(match, winnerId) {

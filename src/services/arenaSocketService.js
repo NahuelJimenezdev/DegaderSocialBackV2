@@ -1,6 +1,6 @@
 const ArenaMatch = require('../models/ArenaMatch.model');
 const UserV2 = require('../models/User.model');
-const Challenge = require('../models/Challenge.model');
+const Challenge = require('../models/challenge.model');
 const eventBus = require('../infrastructure/events/eventBus');
 
 class ArenaSocketService {

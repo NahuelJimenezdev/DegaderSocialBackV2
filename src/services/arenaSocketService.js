@@ -145,7 +145,8 @@ class ArenaSocketService {
 
         console.log(`⚔️ [ARENA] Partida Creada: ${newMatch._id} (${p1.userId} vs ${p2.userId})`);
 
-        // 3. Empezar primera ronda luego de 7 segundos visuales (MOCK de carga en UI)
+        // 3. Empezar primera ronda luego de 10 segundos visuales (MOCK de carga en UI)
+        // Esto previene Race Conditions (asegura que el componente React ya se haya montado al emitir)
         setTimeout(() => {
           console.log(`🚀 [ARENA] Enviando roundStart para partida ${newMatch._id}`);
           const q = questionsArray[0];
@@ -159,7 +160,7 @@ class ArenaSocketService {
               xpReward: q.xpReward
             } : null
           });
-        }, 7000);
+        }, 10000);
 
       } catch (error) {
         console.error('❌ [ARENA] Error creando partida:', error);

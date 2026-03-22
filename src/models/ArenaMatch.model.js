@@ -32,11 +32,16 @@ const ArenaMatchSchema = new Schema({
     player1Floor: { type: Number, default: 1 },
     player2Floor: { type: Number, default: 1 },
 
-    // Pregunta actual en disputa (Si se leen de JSON estático desde el frontend, guardamos el ID o un hash)
+    // Pregunta actual en disputa y caché de preguntas reales de la partida
     currentRoundNum: { type: Number, default: 1 },
-    currentQuestionCategoryId: { type: String },
-    currentQuestionDifficulty: { type: String },
-    currentQuestionId: { type: String } // Referencia al ID local de la pregunta en el JSON para que ambos frontends abran la misma
+    questions: [{
+      _id: { type: Schema.Types.ObjectId, ref: 'Challenge' },
+      question: String,
+      options: [{ id: String, text: String }],
+      correctAnswer: String,
+      xpReward: Number
+    }],
+    currentQuestionId: { type: Schema.Types.ObjectId, ref: 'Challenge' }
   },
 
   winner: { type: Schema.Types.ObjectId, ref: 'UserV2' },

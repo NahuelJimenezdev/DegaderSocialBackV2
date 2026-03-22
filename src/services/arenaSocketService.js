@@ -152,6 +152,13 @@ class ArenaSocketService {
       let isCorrect = false;
       const currentQuestion = match.gameState.questions[match.gameState.currentRoundNum - 1];
       
+      // === MECÁNICA ULTRA-HARDCORE (ROBO DE PREGUNTA) ===
+      // Si el cliente envía una respuesta a una pregunta que ya no es la activa (porque el rival fue más rápido)
+      if (data.questionId && currentQuestion && data.questionId.toString() !== currentQuestion._id.toString()) {
+          console.log(`⏱️ [ARENA] ¡Robo de Pregunta! Jugador ${socket.userId} respondió tarde. Su respuesta a ${data.questionId} fue descartada.`);
+          return; 
+      }
+
       if (currentQuestion && data.selectedOptionId) {
           isCorrect = data.selectedOptionId === currentQuestion.correctAnswer;
       } else {

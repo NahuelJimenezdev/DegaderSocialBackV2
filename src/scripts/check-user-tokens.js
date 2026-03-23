@@ -14,8 +14,8 @@ const checkUserTokens = async () => {
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB');
 
-    const User = require('./src/models/User.model');
-    const DeviceToken = require('./src/models/DeviceToken.model');
+    const User = require('../models/User.model');
+    const DeviceToken = require('../models/DeviceToken.model');
 
     const user = await User.findOne({ 
       $or: [

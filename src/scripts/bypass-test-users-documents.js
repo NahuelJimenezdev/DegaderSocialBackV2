@@ -11,11 +11,8 @@ const TEST_EMAILS = [
   'secretariamunicipal@gmail.com',
   'secretariadepartamental@gmail.com',
   'secretariaregional@gmail.com'
+  // 💡 Para agregar más correos, simplemente escríbelos aquí separados por comas.
 ];
-
-// Obtener correos adicionales por parámetro
-const argEmails = process.argv.slice(2).filter(e => e.includes('@'));
-const finalEmails = [...new Set([...TEST_EMAILS, ...argEmails])];
 
 // Construir URI de MongoDB (Igual que en index.js)
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
@@ -27,12 +24,7 @@ async function bypassDocuments() {
     await mongoose.connect(MONGO_URI);
     console.log('✅ Conexión establecida.');
 
-    if (finalEmails.length === 0) {
-        console.warn('⚠️ No se especificaron correos para procesar.');
-        return;
-    }
-
-    for (const email of finalEmails) {
+    for (const email of TEST_EMAILS) {
       console.log(`\n🔍 Procesando usuario: ${email}`);
       
       const user = await UserV2.findOne({ email: email.toLowerCase() });

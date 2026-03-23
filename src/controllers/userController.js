@@ -276,9 +276,11 @@ const updateProfile = async (req, res) => {
 
     // Actualizar perfil de fundación si se proporciona
     if (req.body.fundacion) {
+      console.log('📦 [Controller] Detectada actualización de fundación');
       // Si no es el Founder, cualquier cambio requiere nueva aprobación
       if (req.user?.seguridad?.rolSistema !== 'Founder') {
         updates['fundacion.estadoAprobacion'] = 'pendiente';
+        console.log('📝 [Controller] Forzando estadoAprobacion: pendiente');
       }
 
       if (req.body.fundacion.codigoEmpleado !== undefined) {

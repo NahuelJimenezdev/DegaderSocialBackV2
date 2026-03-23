@@ -153,6 +153,12 @@ class NotificationService {
       const registrationTokens = Array.from(tokenMap.values()).map(t => t.token);
       console.log(`[FCM] Tokens finales tras deduplicación: ${registrationTokens.length} (Original: ${tokens.length})`);
 
+      // Determinar link dinámico según tipo
+      let targetLink = 'https://degadersocial.com/notificaciones';
+      if (data.tipo === 'mensaje') targetLink = 'https://degadersocial.com/mensajes';
+      if (data.tipo?.startsWith('solicitud_fundacion')) targetLink = 'https://degadersocial.com/fundacion/solicitudes';
+      if (data.tipo?.startsWith('solicitud_amistad')) targetLink = 'https://degadersocial.com/amigos';
+
       const message = {
         notification: { title, body },
         data: { ...data },
@@ -161,10 +167,10 @@ class NotificationService {
             title,
             body,
             icon: '/favicon-96x96.png',
-            click_action: 'https://degadersocial.com/mensajes'
+            click_action: targetLink
           },
           fcm_options: {
-            link: 'https://degadersocial.com/mensajes'
+            link: targetLink
           }
         },
         tokens: registrationTokens

@@ -337,14 +337,20 @@ class SocketService {
       participants.forEach(participant => {
         const userId = (participant._id || participant).toString();
         
-        // No auto-notificar al emisor
-        if (userId === message.sender.toString()) return;
-
-        // Emitir vía socket
+        // 🧠 FIXED: Emitimos a TODOS los dispositivos del emisor también.
+        // El frontend ya cuenta con deduplicación por `clientMessageId` y `_id`,
+        // lo que garantiza que el dispositivo activo que envió el mensaje vía HTTP 
+        // no duplicará la renderización, pero OTROS dispositivos del mismo usuario
+        // recibirán el evento en tiempo real.
         this.io.to(`user:${userId}`).emit('newMessage', message);
 
         // Lógica de PUSH inteligente:
-        // Solo enviar push si el usuario NO está en la sala de la conversación
+        // Evitar auto-enviar push notifications al creador del mensaje
+        if (userId === message.sender.toString() || userId === message.sender?._id?.toString()) {
+          return;
+        }
+
+        // Solo enviar push si el receptor NO está en la sala de la conversación
         const roomName = `conversation:${conversationId}`;
         const room = this.io.sockets.adapter.rooms.get(roomName);
         const userIsActiveInConversation = room && Array.from(room).some(socketId => {
@@ -354,7 +360,6 @@ class SocketService {
 
         if (!userIsActiveInConversation) {
           console.log(`🔕 Usuario ${userId} no está en el chat activo. Intentando enviar Push...`);
-          // Aquí llamaríamos al servicio de notificaciones para enviar el Push
           const notificationService = require('./notification.service');
           notificationService.notify({
             receptorId: userId,
@@ -362,7 +367,7 @@ class SocketService {
             tipo: 'mensaje',
             contenido: message.contenido || 'Te envió un archivo',
             referencia: { tipo: 'Conversation', id: conversationId },
-            metadata: { sound: true, icon: 'message' }
+            metadata: { sound: true, icon: 'message', messageId: message._id.toString() }
           });
         } else {
           console.log(`🔔 Usuario ${userId} está activo en el chat. Push omitido.`);

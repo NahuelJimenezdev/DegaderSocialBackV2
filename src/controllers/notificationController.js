@@ -401,7 +401,7 @@ const registerDeviceToken = async (req, res) => {
 
     // Upsert del token: si ya existe para este usuario, actualiza lastUsedAt.
     // Si el token estaba en otro usuario, lo reasigna (un dispositivo = un usuario actual).
-    await DeviceToken.findOneAndUpdate(
+    const doc = await DeviceToken.findOneAndUpdate(
       { token },
       { 
         userId: req.userId, 
@@ -411,6 +411,7 @@ const registerDeviceToken = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    console.log(`[PUSH_TOKEN] Token registrado/actualizado. User: ${req.userId} | Platform: ${platform} | Token: ${token.substring(0, 15)}...`);
     res.json(formatSuccessResponse('Token registrado exitosamente'));
   } catch (error) {
     console.error('❌ Error al registrar token:', error);

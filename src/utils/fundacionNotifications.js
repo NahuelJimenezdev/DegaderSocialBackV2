@@ -1,5 +1,6 @@
 const User = require('../models/User.model');
 const Notification = require('../models/Notification.model');
+const notificationService = require('../services/notification.service');
 
 /**
  * Envía notificaciones jerárquicas para solicitudes de fundación
@@ -80,7 +81,8 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
             }
 
             // 🔒 REGLA DE NIVEL + TERRITORIO + ÁREA (Smart Match)
-            const areaCore = area.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
+            const safeArea = area || '';
+            const areaCore = safeArea.replace(/^(Dirección de |Coordinación de |Gerencia de |Jefatura de )/i, '').trim();
             const areaRegex = new RegExp(areaCore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
             if (!query['$and']) query['$and'] = [];
@@ -100,41 +102,28 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
                 console.log(`✅ [Fundación] Superior encontrado en nivel ${nivelObjetivo}: ${superiores.length} usuarios.`);
 
                 // Crear contenido de notificación
-                const areaTexto = area || 'sin área específica';
+                const areaTexto = area || 'Dirección General / Sin área';
                 const contenido = `${user.nombres?.primero || ''} ${user.apellidos?.primero || ''} solicita unirse a la fundación como ${cargo} en ${areaTexto}`;
 
-                // Crear notificaciones
-                const notificaciones = superiores.map(superior => ({
-                    receptor: superior._id,
-                    emisor: userId,
-                    tipo: 'solicitud_fundacion',
-                    contenido,
-                    metadata: {
-                        nivel,
-                        area,
-                        cargo,
-                        territorio
-                    }
-                }));
-
-                await Notification.insertMany(notificaciones);
-                notificacionEnviada = true;
-
-                // Emitir eventos Socket.IO
-                if (io) {
-                    for (const superior of superiores) {
-                        const notifCompleta = await Notification.findOne({
-                            receptor: superior._id,
-                            emisor: userId,
-                            tipo: 'solicitud_fundacion'
-                        }).populate('emisor', 'nombres apellidos social.fotoPerfil').sort({ createdAt: -1 });
-
-                        if (notifCompleta) {
-                            io.to(`notifications:${superior._id}`).emit('newNotification', notifCompleta);
-                            console.log(`   📤 Notificación enviada a: ${superior.nombres?.primero} ${superior.apellidos?.primero}`);
+                // 🏆 Enviar notificaciones usando el servicio unificado (Push + Socket + DB)
+                const notificationPromises = superiores.map(superior => 
+                    notificationService.notify({
+                        receptorId: superior._id,
+                        emisorId: userId,
+                        tipo: 'solicitud_fundacion',
+                        contenido,
+                        referencia: { tipo: 'UserV2', id: user._id },
+                        metadata: {
+                            nivel,
+                            area,
+                            cargo,
+                            territorio
                         }
-                    }
-                }
+                    }).catch(err => console.error(`   ⚠️ Error notificando a superior ${superior._id}:`, err.message))
+                );
+
+                await Promise.all(notificationPromises);
+                notificacionEnviada = true;
 
                 // ✋ DETENER ESCALADA (Ya se notificó al nivel inmediato superior)
                 break;
@@ -149,41 +138,26 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
             const founders = await User.find({ 'seguridad.rolSistema': 'Founder' }).select('_id nombres apellidos');
 
             if (founders.length > 0) {
-                const areaTexto = area || 'sin área específica';
-                const notificacionesFounder = founders.map(founder => ({
-                    receptor: founder._id,
-                    emisor: userId,
-                    tipo: 'solicitud_fundacion',
-                    contenido: `[ESCALADA] Solicitud de ${user.nombres?.primero || ''} (${cargo} - ${nivel}) sin superior inmediato. Requiere atención.`,
-                    metadata: {
-                        nivel,
-                        area,
-                        cargo,
-                        territorio,
-                        esEscalada: true
-                    }
-                }));
-
-                await Notification.insertMany(notificacionesFounder);
-
-                // Socket IO para Founder
-                if (io) {
-                    for (const founder of founders) {
-                        const notif = await Notification.findOne({
-                            receptor: founder._id,
-                            emisor: userId,
-                            tipo: 'solicitud_fundacion'
-                        })
-                            .populate('emisor', 'nombres apellidos social.fotoPerfil')
-                            .sort({ createdAt: -1 });
-
-                        if (notif) {
-                            io.to(`notifications:${founder._id}`).emit('newNotification', notif);
-                            console.log(`   📤 Notificación escalada a Founder: ${founder.nombres?.primero} ${founder.apellidos?.primero}`);
+                const areaTexto = area || 'Dirección General / Sin área';
+                const founderPromises = founders.map(founder => 
+                    notificationService.notify({
+                        receptorId: founder._id,
+                        emisorId: userId,
+                        tipo: 'solicitud_fundacion',
+                        contenido: `[ESCALADA] Solicitud de ${user.nombres?.primero || ''} (${cargo} - ${nivel}) sin superior inmediato. Requiere atención.`,
+                        referencia: { tipo: 'UserV2', id: user._id },
+                        metadata: {
+                            nivel,
+                            area,
+                            cargo,
+                            territorio,
+                            esEscalada: true
                         }
-                    }
-                }
-                console.log('✅ Notificación escalada al Founder exitosamente.');
+                    }).catch(err => console.error(`   ⚠️ Error notificando a founder ${founder._id}:`, err.message))
+                );
+
+                await Promise.all(founderPromises);
+                console.log('✅ Notificación escalada al Founder exitosamente (Push + Socket).');
             }
         }
 

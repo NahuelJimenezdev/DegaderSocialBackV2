@@ -125,14 +125,31 @@ class NotificationService {
       const targetUserId = (typeof userId === 'string') ? new mongoose.Types.ObjectId(userId) : userId;
       
       console.log(`[FCM] Buscando tokens para UID: ${targetUserId} (Type: ${typeof targetUserId})`);
-      const tokens = await DeviceToken.find({ userId: targetUserId }).select('token').lean();
+      const tokens = await DeviceToken.find({ userId: targetUserId }).sort({ lastUsedAt: -1 }).lean();
       
       if (!tokens || tokens.length === 0) {
         console.log(`[FCM] Usuario ${userId} no tiene tokens registrados en DB.`);
         return;
       }
 
-      const registrationTokens = tokens.map(t => t.token);
+      // --- Lógica de Deduplicación y Priorización PWA ---
+      const tokenMap = new Map();
+
+      tokens.forEach(t => {
+        const key = t.deviceId || `legacy_${t.token}`;
+        const existing = tokenMap.get(key);
+
+        // Prioridad: 
+        // 1. Si no hay token para este dispositivo, lo agregamos.
+        // 2. Si el nuevo token es PWA y el existente no, lo sobreescribimos.
+        // 3. Si el existente es más viejo (por lastUsedAt), lo sobreescribimos (si ambos son igual de "PWA").
+        if (!existing || (t.isPWA && !existing.isPWA)) {
+          tokenMap.set(key, t);
+        }
+      });
+
+      const registrationTokens = Array.from(tokenMap.values()).map(t => t.token);
+      console.log(`[FCM] Tokens finales tras deduplicación: ${registrationTokens.length} (Original: ${tokens.length})`);
 
       const message = {
         notification: { title, body },

@@ -391,7 +391,7 @@ const clearReadNotifications = async (req, res) => {
  */
 const registerDeviceToken = async (req, res) => {
   try {
-    const { token, platform = 'web' } = req.body;
+    const { token, platform = 'web', deviceId, isPWA = false } = req.body;
 
     if (!token) {
       return res.status(400).json(formatErrorResponse('Token es requerido'));
@@ -399,17 +399,25 @@ const registerDeviceToken = async (req, res) => {
 
     const DeviceToken = require('../models/DeviceToken.model');
 
-    // Upsert del token: si ya existe para este usuario, actualiza lastUsedAt.
-    // Si el token estaba en otro usuario, lo reasigna (un dispositivo = un usuario actual).
+    // Lógica de Deduplicación: 
+    // Si viene deviceId, buscamos por {userId, deviceId} para actualizar el token de ese dispositivo físico.
+    // Si no viene (clientes viejos), usamos el token como clave.
+    const query = deviceId ? { userId: req.userId, deviceId } : { token };
+    
     const doc = await DeviceToken.findOneAndUpdate(
-      { token },
+      query,
       { 
         userId: req.userId, 
+        token,
+        deviceId,
+        isPWA,
         platform, 
         lastUsedAt: new Date() 
       },
       { upsert: true, new: true }
     );
+
+    console.log(`[PUSH_TOKEN] Token registrado/actualizado. User: ${req.userId} | PWA: ${isPWA} | Dev: ${deviceId?.substring(0, 8)}...`);
 
     console.log(`[PUSH_TOKEN] Token registrado/actualizado. User: ${req.userId} | Platform: ${platform} | Token: ${token.substring(0, 15)}...`);
     res.json(formatSuccessResponse('Token registrado exitosamente'));

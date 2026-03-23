@@ -12,6 +12,14 @@ const deviceTokenSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  deviceId: {
+    type: String,
+    index: true // Para identificar el dispositivo físico
+  },
+  isPWA: {
+    type: Boolean,
+    default: false
+  },
   platform: {
     type: String,
     enum: ['web', 'android', 'ios'],

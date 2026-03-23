@@ -136,7 +136,18 @@ class NotificationService {
 
       const message = {
         notification: { title, body },
-        data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' }, // Compatibilidad móvil
+        data: { ...data },
+        webpush: {
+          notification: {
+            title,
+            body,
+            icon: '/favicon-96x96.png',
+            click_action: 'https://degadersocial.com/mensajes'
+          },
+          fcm_options: {
+            link: 'https://degadersocial.com/mensajes'
+          }
+        },
         tokens: registrationTokens
       };
 

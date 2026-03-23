@@ -244,8 +244,8 @@ const getFeed = async (req, res) => {
     // El score reemplaza al timestamp como cursor principal
     const lastScore = lastScoreQuery ? parseFloat(lastScoreQuery) : '+inf';
     
-    // 1. Obtener IDs de Redis (Posts normales ordenados por Score)
-    let cachedPostIds = await feedService.getFeedFromCache(req.userId, safeLimit, lastScore);
+    // 1. Obtener Snapshots de Redis (Posts normales ordenados por Score)
+    let cachedPostsData = await feedService.getFeedFromCache(req.userId, safeLimit, lastScore);
     
     // 2. Obtener IDs de Amigos (Reutilizable)
     const Friendship = require('../models/Friendship.model');
@@ -291,12 +291,9 @@ const getFeed = async (req, res) => {
     }
 
     // 4. Mezclar, hidratar y devolver
-    if ((cachedPostIds && cachedPostIds.length > 0) || influencerPosts.length > 0) {
-        // Traer posts de normal friends que están en Redis
-        const cachedPosts = cachedPostIds ? await Post.find({ _id: { $in: cachedPostIds } }).lean() : [];
-        
-        // Unir ambos sets (Normales de Redis + Influencers de Mongo)
-        const allPosts = [...cachedPosts, ...influencerPosts];
+    if ((cachedPostsData && cachedPostsData.length > 0) || influencerPosts.length > 0) {
+        // Combinar: Snapshots de Redis + Posts de Influencers (Mongo)
+        const allPosts = [...(cachedPostsData || []), ...influencerPosts];
         
         // Eliminar duplicados e hidratar
         const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
@@ -349,7 +346,7 @@ const getFeed = async (req, res) => {
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },
             { path: 'grupo', select: 'nombre tipo' },
             { path: 'postOriginal' },
-            { path: 'comentarios.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil' }
+            { path: 'comentariosRecientes.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username' }
         ]);
 
         const lastPost = hydratedPosts.length > 0 ? hydratedPosts[hydratedPosts.length - 1] : null;
@@ -358,7 +355,7 @@ const getFeed = async (req, res) => {
             id: lastPost._id
         } : null;
 
-        console.log(`📊 [FEED_METRIC] Ranked Retrieval: Redis(${cachedPostIds?.length || 0}) + Influencers(${influencerPosts.length}) | user: ${req.userId}`);
+        console.log(`📊 [FEED_METRIC] Ranked Retrieval: Redis Snapshots(${cachedPostsData?.length || 0}) + Influencers(${influencerPosts.length}) | user: ${req.userId}`);
         
         return res.json({
             success: true,
@@ -456,8 +453,8 @@ const getFeed = async (req, res) => {
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
-        path: 'comentarios.usuario',
-        select: 'nombres.primero apellidos.primero social.fotoPerfil'
+        path: 'comentariosRecientes.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
       })
       .sort(sort)
       .limit(isCursorMode ? safeLimit + 1 : safeLimit) // 🆕 Traer 1 extra en modo cursor para hasMore real
@@ -530,8 +527,8 @@ const getUserPosts = async (req, res) => {
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
       .populate({
-        path: 'comentarios.usuario',
-        select: 'nombres.primero apellidos.primero social.fotoPerfil'
+        path: 'comentariosRecientes.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
       })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
@@ -604,7 +601,7 @@ const getGroupPosts = async (req, res) => {
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
-        path: 'comentarios.usuario',
+        path: 'comentariosRecientes.usuario',
         select: 'nombres.primero apellidos.primero social.fotoPerfil'
       })
       .sort({ createdAt: -1 })
@@ -648,8 +645,8 @@ const getPostById = async (req, res) => {
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
-        path: 'comentarios.usuario',
-        select: 'nombres.primero apellidos.primero social.fotoPerfil'
+        path: 'comentariosRecientes.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
       });
 
     if (!post) {
@@ -865,6 +862,26 @@ const addComment = async (req, res) => {
       image: comment.image,
       parentComment: comment.parentComment
     });
+
+    // ✅ FASE 5: Sincronizar Snapshot Híbrido (comentariosRecientes)
+    // Mantenemos solo los 3 más recientes para visualización instantánea en el Feed
+    await Post.updateOne(
+      { _id: id },
+      {
+        $push: {
+          comentariosRecientes: {
+            $each: [{
+              _id: newDecoupledComment._id,
+              usuario: req.userId,
+              contenido: newDecoupledComment.contenido,
+              image: newDecoupledComment.image,
+              createdAt: newDecoupledComment.createdAt
+            }],
+            $slice: -3 // Mantener los últimos 3
+          }
+        }
+      }
+    );
 
     // Poblar todo el post antes de emitir actualización global
     // Esto asegura que el frontend reciba datos consistentes (usuario poblado, grupo, etc.)
@@ -1180,7 +1197,17 @@ const toggleCommentLike = async (req, res) => {
     if (likeIndex > -1) {
       // Quitar like
       comment.likes.splice(likeIndex, 1);
-      await post.save();
+      
+      // ✅ FASE 5: Sincronizar Decoupled y Snapshot
+      const newLikesCount = comment.likes.length;
+      await Promise.all([
+        post.save(),
+        PostComment.updateOne({ _id: commentId }, { $set: { likesCount: newLikesCount } }),
+        Post.updateOne(
+          { _id: id, "comentariosRecientes._id": commentId },
+          { $set: { "comentariosRecientes.$.likesCount": newLikesCount } }
+        )
+      ]);
 
       // 🆕 ELIMINAR NOTIFICACIÓN EXISTENTE (si existe)
       try {
@@ -1208,7 +1235,17 @@ const toggleCommentLike = async (req, res) => {
     } else {
       // Dar like
       comment.likes.push(req.userId);
-      await post.save();
+      
+      // ✅ FASE 5: Sincronizar Decoupled y Snapshot
+      const newLikesCount = comment.likes.length;
+      await Promise.all([
+        post.save(),
+        PostComment.updateOne({ _id: commentId }, { $set: { likesCount: newLikesCount } }),
+        Post.updateOne(
+          { _id: id, "comentariosRecientes._id": commentId },
+          { $set: { "comentariosRecientes.$.likesCount": newLikesCount } }
+        )
+      ]);
 
       // 🏆 Notificación V1 PRO
       const commentUserId = comment.usuario._id || comment.usuario;
@@ -1384,9 +1421,30 @@ const deleteComment = async (req, res) => {
       console.error('⚠️ [DELETE COMMENT] Error al eliminar imagen de R2:', r2Error);
     }
 
-    // Eliminar el comentario del array
+    // Eliminar el comentario del array embebido (legacy)
     comment.deleteOne();
+    
+    // ✅ FASE 1: Decrementar contador
+    post.commentsCount = Math.max(0, (post.commentsCount || 0) - 1);
+    
     await post.save();
+
+    // ✅ FASE 5: Sincronizar con Colección Desacoplada y Snapshot Híbrido
+    await Promise.all([
+      // 1. Borrar de la colección principal
+      PostComment.deleteOne({ _id: commentId }),
+      // 2. Borrar del Snapshot
+      Post.updateOne({ _id: id }, { $pull: { comentariosRecientes: { _id: commentId } } })
+    ]);
+
+    // 🏆 REFILL SNAPSHOT (Nivel PRO): Si al borrar quedamos con < 3, traemos los más recientes de DB
+    const latestFromDb = await PostComment.find({ post: id })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .select('_id usuario contenido image createdAt')
+      .lean();
+
+    await Post.updateOne({ _id: id }, { $set: { comentariosRecientes: latestFromDb } });
 
     // Poblar el post antes de emitir
     await post.populate([

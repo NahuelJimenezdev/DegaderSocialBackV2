@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const UserV2 = require('../models/User.model');
+const Message = require('../models/Message.model');
 const Friendship = require('../models/Friendship.model');
 const arenaSocketService = require('./arenaSocketService');
 
@@ -50,6 +51,7 @@ class SocketService {
 
     // Estado de mensajes
     socket.on('message_read', (data) => this.handleMessageRead(socket, data));
+    socket.on('message_delivered', (data) => this.handleMessageDelivered(socket, data));
 
     // Generic room management (for Iglesias, etc.)
     socket.on('joinRoom', (room) => {
@@ -206,46 +208,74 @@ class SocketService {
     }
   }
 
+  // Confirmación de entrega (ACK del receptor)
+  async handleMessageDelivered(socket, { conversationId, messageId }) {
+    if (!socket.userId || !messageId) return;
+    try {
+      console.log(`🚚 [SOCKET] Message Delivered: Msg ${messageId} in Conv ${conversationId}`);
+      
+      const message = await Message.findById(messageId);
+      if (!message || message.estado !== 'enviado') return;
+
+      message.estado = 'entregado';
+      message.fechaEntregado = new Date();
+      await message.save();
+
+      // Notificar al emisor que el mensaje fue entregado
+      this.io.to(`user:${message.sender}`).emit('message_status_update', {
+        messageId,
+        conversationId,
+        estado: 'entregado',
+        fechaEntregado: message.fechaEntregado
+      });
+    } catch (e) {
+      console.error("Error en handleMessageDelivered", e);
+    }
+  }
+
   // Confirmación de lectura
   async handleMessageRead(socket, { conversationId, messageId, readerId }) {
-    console.log(`👁️ [SOCKET] Message Read: User ${readerId} (Socket User: ${socket.userId}) in Conv ${conversationId}`);
+    const userId = socket.userId;
+    if (!userId) return;
+
+    console.log(`👁️ [SOCKET] Message Read: User ${userId} in Conv ${conversationId}`);
     try {
       const Conversation = require('../models/Conversation.model');
-      // Buscar conversación
-      const conversation = await Conversation.findById(conversationId);
+      
+      // 1. Marcar mensajes como leídos en la colección independiente
+      const query = { conversationId, sender: { $ne: userId }, estado: { $ne: 'leido' } };
+      if (messageId) query._id = messageId;
+      
+      await Message.updateMany(query, {
+        $set: { estado: 'leido', fechaLeido: new Date() }
+      });
+
+      // 2. Resetear contador en la conversación para el lector
+      await Conversation.updateOne(
+        { _id: conversationId, 'mensajesNoLeidos.usuario': userId },
+        { $set: { 'mensajesNoLeidos.$.cantidad': 0 } }
+      );
+
+      // 3. Notificar a los OTROS participantes
+      const conversation = await Conversation.findById(conversationId).select('participantes');
       if (!conversation) return;
 
-      // 0. Obtener contador de no leídos ANTES de marcar como leído
-      const unreadEntry = conversation.mensajesNoLeidos.find(
-        m => m.usuario && m.usuario.toString() === readerId
-      );
-      const previousUnreadCount = unreadEntry ? unreadEntry.cantidad : 0;
+      conversation.participantes.forEach(p => {
+        if (p.toString() !== userId.toString()) {
+          this.io.to(`user:${p}`).emit('messages_read_update', {
+            conversationId,
+            readerId: userId,
+            readAt: new Date(),
+            messageId // Si es nulo, significa que se leyó toda la conversación
+          });
+        }
+      });
 
-      console.log(`🔢 [SOCKET] Unread count for ${readerId} was: ${previousUnreadCount}`);
-
-      if (!messageId) {
-        await conversation.marcarComoLeido(readerId);
-
-        // Notificar a los OTROS participantes que sus mensajes fueron leídos
-        conversation.participantes.forEach(p => {
-          if (p.toString() !== readerId) {
-            this.io.to(`user:${p}`).emit('messages_read_update', {
-              conversationId,
-              readerId,
-              readAt: new Date()
-            });
-          }
-        });
-
-        // 🆕 Emitir evento al LECTOR para que actualice su contador global de notificaciones
-        // (El hook useMessageCounter escucha 'conversationRead')
-        // Enviamos previousUnreadCount para que el cliente reste esa cantidad
-        this.io.to(`user:${readerId}`).emit('conversationRead', {
-          conversationId,
-          userId: readerId,
-          unreadCount: previousUnreadCount // Enviar la cantidad que acabamos de leer
-        });
-      }
+      // 4. Emitir evento al LECTOR para actualizar su contador global
+      this.io.to(`user:${userId}`).emit('conversationRead', {
+        conversationId,
+        userId: userId
+      });
     } catch (e) {
       console.error("Error en handleMessageRead", e);
     }
@@ -302,15 +332,42 @@ class SocketService {
     this.io.to(`conversation:${conversationId}`).emit('newMessage', message);
     console.log(`💬 Mensaje emitido a conversación ${conversationId}`);
 
-    // 2. Emitir a la sala personal de CADA participante (para notificaciones globales)
+    // 2. Emitir a la sala personal de CADA participante (para contadores globales y Push inteligente)
     if (participants && participants.length > 0) {
       participants.forEach(participant => {
-        const userId = participant._id || participant; // Manejar objeto o ID
-        // No emitir al emisor (opcional, pero el frontend suele manejar su propio mensaje optimista)
-        // Aunque para contadores globales, es mejor emitir a todos y que el front decida
+        const userId = (participant._id || participant).toString();
+        
+        // No auto-notificar al emisor
+        if (userId === message.sender.toString()) return;
+
+        // Emitir vía socket
         this.io.to(`user:${userId}`).emit('newMessage', message);
+
+        // Lógica de PUSH inteligente:
+        // Solo enviar push si el usuario NO está en la sala de la conversación
+        const roomName = `conversation:${conversationId}`;
+        const room = this.io.sockets.adapter.rooms.get(roomName);
+        const userIsActiveInConversation = room && Array.from(room).some(socketId => {
+          const socket = this.io.sockets.sockets.get(socketId);
+          return socket && socket.userId && socket.userId.toString() === userId;
+        });
+
+        if (!userIsActiveInConversation) {
+          console.log(`🔕 Usuario ${userId} no está en el chat activo. Intentando enviar Push...`);
+          // Aquí llamaríamos al servicio de notificaciones para enviar el Push
+          const notificationService = require('./notification.service');
+          notificationService.notify({
+            receptorId: userId,
+            emisorId: message.sender,
+            tipo: 'mensaje',
+            contenido: message.contenido || 'Te envió un archivo',
+            referencia: { tipo: 'Conversation', id: conversationId },
+            metadata: { sound: true, icon: 'message' }
+          });
+        } else {
+          console.log(`🔔 Usuario ${userId} está activo en el chat. Push omitido.`);
+        }
       });
-      console.log(`📨 Mensaje notificado a ${participants.length} usuarios`);
     }
   }
 

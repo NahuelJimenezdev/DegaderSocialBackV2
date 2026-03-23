@@ -2,9 +2,13 @@ const redisService = require('./redis.service');
 const Post = require('../models/Post.model');
 const PostLike = require('../models/PostLike.model');
 const PostComment = require('../models/PostComment.model');
+const UserV2 = require('../models/User.model');
 const Friendship = require('../models/Friendship.model');
 const Group = require('../models/Group.model');
 const logger = require('../config/logger');
+
+// Configuración de TTL para snapshots en Redis (24 horas)
+const SNAPSHOT_TTL = 60 * 60 * 24;
 
 class FeedService {
     /**
@@ -153,8 +157,51 @@ class FeedService {
             }
 
             logger.info(`🔄 [FEED_SYNC] Score actualizado en lotes para post ${postId} en ${targetUsersArray.length} feeds.`);
+
+            // ✅ FASE 3 REMANENTE: Actualizar Snapshot en Redis
+            await this.updatePostSnapshot(postId);
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error al sincronizar score:`, error);
+        }
+    }
+
+    /**
+     * Crea o actualiza un snapshot minificado del post en Redis para carga ultra-rápida.
+     */
+    async updatePostSnapshot(postId) {
+        try {
+            if (!redisService.isConnected) return;
+
+            const post = await Post.findById(postId)
+                .populate({ path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' })
+                .populate({ path: 'grupo', select: 'nombre tipo' })
+                .populate({ path: 'comentariosRecientes.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username' })
+                .lean();
+
+            if (!post) return;
+
+            const snapshot = {
+                _id: post._id,
+                usuario: post.usuario,
+                contenido: post.contenido,
+                tipo: post.tipo,
+                image: post.image,
+                grupo: post.grupo,
+                comentariosRecientes: post.comentariosRecientes,
+                likesCount: post.likesCount,
+                commentsCount: post.commentsCount,
+                sharesCount: post.sharesCount,
+                relevanceScore: post.relevanceScore,
+                createdAt: post.createdAt,
+                postOriginal: post.postOriginal // Para compartidos
+            };
+
+            const key = `post:snapshot:${postId}`;
+            await redisService.client.set(key, JSON.stringify(snapshot), 'EX', SNAPSHOT_TTL);
+            
+            // logger.debug(`📸 [FEED_SNAPSHOT] Snapshot actualizado para ${postId}`);
+        } catch (error) {
+            logger.error(`❌ [FEED_SNAPSHOT] Error al actualizar snapshot de ${postId}:`, error.message);
         }
     }
 
@@ -245,6 +292,9 @@ class FeedService {
 
             const duration = Date.now() - startTime;
             logger.info(`✅ [FEED_FANOUT] fanout_time: ${duration}ms | targets (afinidades masivas en BATCH): ${targetUsersArray.length}`);
+
+            // ✅ FASE 3 REMANENTE: Asegurar que el post nuevo tenga snapshot
+            await this.updatePostSnapshot(post._id);
 
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error en fan-out del post ${post._id}:`, error);
@@ -359,10 +409,41 @@ class FeedService {
             }
 
             logger.info(`📡 [FEED_METRIC] redis_hits: ${postIds.length} | user: ${userId} (Cache Hit)`);
-            return postIds;
+
+            // ✅ FASE 3 REMANENTE: Hidratar con Snapshots
+            const snapshots = await this.getPostsWithSnapshots(postIds);
+            
+            // Devolver solo los que tengan snapshot válido (los que falten se recuperarán de Mongo en el controlador)
+            return snapshots.filter(s => s !== null);
         } catch (error) {
             logger.error(`❌ [FEED_SERVICE] Error al leer feed de Redis para usuario ${userId}:`, error);
             return null;
+        }
+    }
+
+    /**
+     * Obtiene múltiples snapshots de posts en una sola operación de red (MGET).
+     */
+    async getPostsWithSnapshots(postIds) {
+        if (!postIds || postIds.length === 0) return [];
+        
+        try {
+            const keys = postIds.map(id => `post:snapshot:${id}`);
+            const results = await redisService.client.mget(keys);
+            
+            return results.map((res, index) => {
+                if (res) {
+                    try {
+                        return JSON.parse(res);
+                    } catch (e) {
+                        return null;
+                    }
+                }
+                return null;
+            });
+        } catch (error) {
+            logger.error(`❌ [FEED_SNAPSHOT] Error en MGET de snapshots:`, error.message);
+            return postIds.map(() => null);
         }
     }
 

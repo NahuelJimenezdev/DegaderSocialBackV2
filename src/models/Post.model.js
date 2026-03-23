@@ -118,7 +118,19 @@ const postSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     index: true
-  }
+  },
+  // --- HYBRID SNAPSHOTS (Fase 5) ---
+  comentariosRecientes: [{
+    _id: mongoose.Schema.Types.ObjectId,
+    usuario: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserV2'
+    },
+    contenido: String,
+    image: String,
+    likesCount: { type: Number, default: 0 },
+    createdAt: Date
+  }]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

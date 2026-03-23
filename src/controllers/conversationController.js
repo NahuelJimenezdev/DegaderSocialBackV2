@@ -1,4 +1,5 @@
-﻿const Conversation = require('../models/Conversation.model');
+const Conversation = require('../models/Conversation.model');
+const Message = require('../models/Message.model');
 const Friendship = require('../models/Friendship.model');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
@@ -38,8 +39,11 @@ const getAllConversations = async (req, res) => {
 
     const conversations = await Conversation.find(query)
       .populate('participantes', 'nombres apellidos social ultimaConexion')
-      .populate('ultimoMensaje.emisor', 'nombres apellidos social')
-      .sort({ 'ultimoMensaje.fecha': -1 });
+      .populate({
+        path: 'ultimoMensaje',
+        populate: { path: 'sender', select: 'nombres apellidos social' }
+      })
+      .sort({ updatedAt: -1 });
 
     res.json(formatSuccessResponse('Conversaciones obtenidas', conversations));
   } catch (error) {
@@ -55,15 +59,14 @@ const getAllConversations = async (req, res) => {
 const getConversationById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { cursorAt, cursorId, limit = 50 } = req.query;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
     const conversation = await Conversation.findById(id)
-      .populate('participantes', 'nombres apellidos social ultimaConexion')
-      .populate('mensajes.emisor', 'nombres apellidos social');
+      .populate('participantes', 'nombres apellidos social ultimaConexion');
 
     if (!conversation) {
       return res.status(404).json(formatErrorResponse('Conversación no encontrada'));
@@ -75,33 +78,52 @@ const getConversationById = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes acceso a esta conversación'));
     }
 
-    // Filtrar mensajes según si el usuario vació la conversación
-    let mensajesFiltrados = conversation.mensajes;
-    const userClear = conversation.clearedBy.find(c => c.usuario.equals(req.userId));
+    // Construir query de mensajes con cursor compuesto
+    let messageQuery = { conversationId: id };
 
+    // Filtrar mensajes según si el usuario vació la conversación
+    const userClear = conversation.clearedBy.find(c => c.usuario.equals(req.userId));
     if (userClear) {
-      // Solo mostrar mensajes creados después de la fecha de vaciado
-      mensajesFiltrados = conversation.mensajes.filter(m =>
-        new Date(m.createdAt) > new Date(userClear.fecha)
-      );
+      messageQuery.createdAt = { $gt: userClear.fecha };
     }
 
-    // Paginación de mensajes
-    const skip = (page - 1) * limit;
-    const totalMensajes = mensajesFiltrados.length;
-    const mensajesPaginados = mensajesFiltrados
-      .slice()
-      .reverse()
-      .slice(skip, skip + parseInt(limit))
-      .reverse();
+    // Aplicar cursor compuesto para paginación segura
+    if (cursorAt && cursorId) {
+      messageQuery.$or = [
+        { createdAt: { $lt: new Date(cursorAt) } },
+        {
+          createdAt: new Date(cursorAt),
+          _id: { $lt: cursorId }
+        }
+      ];
+    }
+
+    const messages = await Message.find(messageQuery)
+      .populate('sender', 'nombres apellidos social')
+      .populate({
+         path: 'replyTo',
+         populate: { path: 'sender', select: 'nombres' }
+      })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(parseInt(limit));
 
     const conversationData = conversation.toObject();
-    conversationData.mensajes = mensajesPaginados;
+    
+    // Devolvemos mensajes ordenados cronológicamente para el frontend
+    conversationData.mensajes = messages.reverse();
+    
+    // Cursor para la siguiente página
+    const lastMessage = messages[0]; // messages ya está invertido por reverse() arriba? No, messages es createdAt -1.
+    // Re-calculamos el lastMessage de la lista original (messages)
+    const nextCursor = messages.length === parseInt(limit) ? {
+      createdAt: messages[messages.length - 1].createdAt,
+      _id: messages[messages.length - 1]._id
+    } : null;
+
     conversationData.pagination = {
-      total: totalMensajes,
-      page: parseInt(page),
+      nextCursor,
       limit: parseInt(limit),
-      pages: Math.ceil(totalMensajes / limit)
+      hasMore: !!nextCursor
     };
 
     res.json(formatSuccessResponse('Conversación obtenida', conversationData));
@@ -201,13 +223,14 @@ const getOrCreateConversation = async (req, res) => {
 const sendMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { contenido, metadata, tipo = 'texto' } = req.body;
-
-    console.log('💬 [SEND MESSAGE] Conversación:', id);
-    console.log('💬 [SEND MESSAGE] Archivos:', req.files ? req.files.length : 0);
+    const { contenido, metadata, tipo = 'texto', clientMessageId, replyTo } = req.body;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    if (!clientMessageId) {
+      return res.status(400).json(formatErrorResponse('clientMessageId es requerido para asegurar idempotencia'));
     }
 
     // Validar que haya contenido o archivos
@@ -216,7 +239,6 @@ const sendMessage = async (req, res) => {
     }
 
     const conversation = await Conversation.findById(id);
-
     if (!conversation) {
       return res.status(404).json(formatErrorResponse('Conversación no encontrada'));
     }
@@ -227,117 +249,82 @@ const sendMessage = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes acceso a esta conversación'));
     }
 
-    const mensaje = {
-      emisor: req.userId,
-      contenido: contenido ? contenido.trim() : '',
+    // Preparar objeto del mensaje
+    const mensajeData = {
+      conversationId: id,
+      sender: req.userId,
       tipo,
       metadata,
-      leido: false
+      replyTo: isValidObjectId(replyTo) ? replyTo : null,
+      estado: 'enviado'
     };
 
-    // 🆕 PROCESAR ARCHIVOS SUBIDOS A R2 (múltiples archivos)
+    if (contenido) {
+      mensajeData.contenido = contenido.trim();
+    }
+
+    // PROCESAR ARCHIVOS (se mantiene lógica existente pero adaptada al nuevo modelo)
     if (req.files && req.files.length > 0) {
-      console.log('📤 [SEND MESSAGE] Subiendo', req.files.length, 'archivos a R2...');
+      const file = req.files[0];
+      const esImagen = file.mimetype.startsWith('image/');
+      const esVideo = file.mimetype.startsWith('video/');
+      const esAudio = file.mimetype.startsWith('audio/');
 
-      const file = req.files[0]; // Por ahora, tomar el primer archivo
+      mensajeData.tipo = esImagen ? 'imagen' : esVideo ? 'video' : esAudio ? 'audio' : 'archivo';
 
-      try {
-        const esImagen = file.mimetype.startsWith('image/');
-        const esVideo = file.mimetype.startsWith('video/');
-        const esAudio = file.mimetype.startsWith('audio/');
-
-        mensaje.tipo = esImagen ? 'imagen' : esVideo ? 'video' : esAudio ? 'audio' : 'archivo';
-
-        if (esImagen) {
-          const optimizedResult = await processAndUploadImage(file.buffer, file.originalname, 'messages');
-          console.log('✅ [SEND MESSAGE] Image optimized and uploaded to R2');
-
-          mensaje.archivo = {
-            url: optimizedResult.large || optimizedResult.medium || optimizedResult.small,
-            small: optimizedResult.small,
-            medium: optimizedResult.medium,
-            large: optimizedResult.large,
-            blurHash: optimizedResult.blurHash,
-            nombre: file.originalname,
-            tipo: file.mimetype,
-            tamaño: file.size
-          };
-        } else {
-          const fileUrl = await uploadToR2(file.buffer, file.originalname, 'messages');
-          console.log('✅ [SEND MESSAGE] Archivo subido a R2:', fileUrl);
-
-          mensaje.archivo = {
-            url: fileUrl,
-            nombre: file.originalname,
-            tipo: file.mimetype,
-            tamaño: file.size
-          };
-        }
-      } catch (uploadError) {
-        console.error('❌ [SEND MESSAGE] Error al subir archivo a R2:', uploadError);
-        return res.status(500).json(formatErrorResponse('Error al subir archivo', [uploadError.message]));
-      }
-    }
-    // Mantener compatibilidad con sistema legacy (single file)
-    else if (req.file) {
-      console.log('📎 [SEND MESSAGE] Archivo legacy detectado');
-
-      try {
-        const fileUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'messages');
-        console.log('✅ [SEND MESSAGE] Archivo legacy subido a R2:', fileUrl);
-
-        const esImagen = req.file.mimetype.startsWith('image/');
-        const esVideo = req.file.mimetype.startsWith('video/');
-        const esAudio = req.file.mimetype.startsWith('audio/');
-
-        mensaje.tipo = esImagen ? 'imagen' : esVideo ? 'video' : esAudio ? 'audio' : 'archivo';
-        mensaje.archivo = {
-          url: fileUrl,
-          nombre: req.file.originalname,
-          tipo: req.file.mimetype,
-          tamaño: req.file.size
+      if (esImagen) {
+        const optimizedResult = await processAndUploadImage(file.buffer, file.originalname, 'messages');
+        mensajeData.archivo = {
+          url: optimizedResult.large || optimizedResult.medium || optimizedResult.small,
+          small: optimizedResult.small,
+          medium: optimizedResult.medium,
+          large: optimizedResult.large,
+          blurHash: optimizedResult.blurHash,
+          nombre: file.originalname,
+          tipo: file.mimetype,
+          tamaño: file.size
         };
-      } catch (uploadError) {
-        console.error('❌ [SEND MESSAGE] Error al subir archivo legacy a R2:', uploadError);
-        return res.status(500).json(formatErrorResponse('Error al subir archivo', [uploadError.message]));
+      } else {
+        const fileUrl = await uploadToR2(file.buffer, file.originalname, 'messages');
+        mensajeData.archivo = {
+          url: fileUrl,
+          nombre: file.originalname,
+          tipo: file.mimetype,
+          tamaño: file.size
+        };
       }
     }
 
-    console.log('💾 [SEND MESSAGE] Guardando mensaje...');
+    // --- IDEMPOTENCIA ESTRICTA ---
+    // Si ya existe un mensaje con este clientMessageId en esta conversación, lo devolvemos sin crear uno nuevo.
+    const message = await Message.findOneAndUpdate(
+      { conversationId: id, clientMessageId },
+      { $setOnInsert: mensajeData },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).populate('sender', 'nombres apellidos social');
 
-    // 🆕 Reactivar conversación si estaba eliminada por algún participante
-    // Si el usuario A eliminó la chat, y B le escribe, debe reaparecer para A.
-    if (conversation.deletedBy && conversation.deletedBy.length > 0) {
-      console.log('♻️ [SEND MESSAGE] Reactivando conversación para usuarios que la eliminaron');
-      conversation.deletedBy = []; // Limpiar array de eliminados
-      await conversation.save(); // Guardar cambio de estado
-    }
+    // Actualizar ultimoMensaje y updatedAt en la conversación
+    await Conversation.findByIdAndUpdate(id, {
+      ultimoMensaje: message._id,
+      updatedAt: new Date(),
+      $pull: { deletedBy: req.userId } // Reactivar si estaba eliminada
+    });
 
-    await conversation.agregarMensaje(mensaje);
+    // Actualizar contadores de no leídos para otros
+    await Conversation.updateMany(
+      { _id: id, 'mensajesNoLeidos.usuario': { $ne: req.userId } },
+      { $inc: { 'mensajesNoLeidos.$.cantidad': 1 } }
+    );
 
-    await conversation.populate([
-      { path: 'participantes', select: 'nombres apellidos social' },
-      { path: 'mensajes.emisor', select: 'nombres apellidos social' }
-    ]);
-
-    const newMessage = conversation.mensajes[conversation.mensajes.length - 1];
-    console.log('✅ [SEND MESSAGE] Mensaje guardado con ID:', newMessage._id);
-
-    // Emitir mensaje en tiempo real a través de Socket.IO
+    // Emitir mensaje en tiempo real
     if (global.emitMessage) {
       global.emitMessage(id, {
-        _id: newMessage._id,
-        conversationId: id,
-        emisor: newMessage.emisor,
-        contenido: newMessage.contenido,
-        tipo: newMessage.tipo,
-        archivo: newMessage.archivo,
-        leido: newMessage.leido,
-        createdAt: newMessage.createdAt
+        ...message.toObject(),
+        clientMessageId // Asegurar que el front reciba el ID que generó
       }, conversation.participantes);
     }
 
-    res.status(201).json(formatSuccessResponse('Mensaje enviado', newMessage));
+    res.status(201).json(formatSuccessResponse('Mensaje procesado', message));
   } catch (error) {
     console.error('❌ [SEND MESSAGE] Error:', error);
     res.status(500).json(formatErrorResponse('Error al enviar mensaje', [error.message]));
@@ -356,31 +343,35 @@ const markAsRead = async (req, res) => {
       return res.status(400).json(formatErrorResponse('ID inválido'));
     }
 
-    const conversation = await Conversation.findById(id);
+    // Actualizar contadores en la conversación
+    await Conversation.updateOne(
+      { _id: id, 'mensajesNoLeidos.usuario': req.userId },
+      { $set: { 'mensajesNoLeidos.$.cantidad': 0 } }
+    );
 
-    if (!conversation) {
-      return res.status(404).json(formatErrorResponse('Conversación no encontrada'));
-    }
+    // Marcar mensajes como leídos en la colección independiente
+    await Message.updateMany(
+      { conversationId: id, sender: { $ne: req.userId }, estado: { $ne: 'leido' } },
+      { $set: { estado: 'leido', fechaLeido: new Date() } }
+    );
 
-    // Verificar que el usuario es participante
-    const isParticipant = conversation.participantes.some(p => p.equals(req.userId));
-    if (!isParticipant) {
-      return res.status(403).json(formatErrorResponse('No tienes acceso a esta conversación'));
-    }
-
-    // Obtener contador actual antes de resetear (para decremento optimista en frontend)
-    const userUnread = conversation.mensajesNoLeidos.find(m => m.usuario.equals(req.userId));
-    const previousUnreadCount = userUnread?.cantidad || 0;
-
-    await conversation.marcarComoLeido(req.userId);
-
-    // Emitir evento Socket.IO para actualizar contador en tiempo real
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`user:${req.userId}`).emit('conversationRead', {
+    // Emitir evento Socket.IO
+    if (global.io) {
+      global.io.to(`user:${req.userId}`).emit('conversationRead', {
         conversationId: id,
-        userId: req.userId,
-        unreadCount: previousUnreadCount // Enviar cuántos mensajes se marcaron como leídos
+        userId: req.userId
+      });
+      
+      // Notificar a otros que sus mensajes fueron leídos
+      const conversation = await Conversation.findById(id).select('participantes');
+      conversation.participantes.forEach(p => {
+        if (!p.equals(req.userId)) {
+          global.io.to(`user:${p}`).emit('messages_read_update', {
+            conversationId: id,
+            readerId: req.userId,
+            readAt: new Date()
+          });
+        }
       });
     }
 

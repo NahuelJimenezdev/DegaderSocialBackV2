@@ -89,13 +89,16 @@ const getConversationById = async (req, res) => {
 
     // Aplicar cursor compuesto para paginación segura
     if (cursorAt && cursorId) {
-      messageQuery.$or = [
-        { createdAt: { $lt: new Date(cursorAt) } },
-        {
-          createdAt: new Date(cursorAt),
-          _id: { $lt: cursorId }
-        }
-      ];
+      messageQuery.$and = messageQuery.$and || [];
+      messageQuery.$and.push({
+        $or: [
+          { createdAt: { $lt: new Date(cursorAt) } },
+          {
+            createdAt: new Date(cursorAt),
+            _id: { $lt: cursorId }
+          }
+        ]
+      });
     }
 
     const messages = await Message.find(messageQuery)
@@ -104,29 +107,26 @@ const getConversationById = async (req, res) => {
          path: 'replyTo',
          populate: { path: 'sender', select: 'nombres' }
       })
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ createdAt: -1, _id: -1 }) // Primero obtenemos los más recientes hacia atrás
       .limit(parseInt(limit));
+
+    // IMPORTANTE: Devolvemos en orden ASCENDENTE para que el frontend 
+    // pueda renderizarlos de arriba (viejo) a abajo (nuevo) fácilmente.
+    messages.reverse();
 
     const conversationData = conversation.toObject();
     
-    // Devolvemos mensajes ordenados cronológicamente para el frontend
-    conversationData.mensajes = messages.reverse();
-    
-    // Cursor para la siguiente página
-    const lastMessage = messages[0]; // messages ya está invertido por reverse() arriba? No, messages es createdAt -1.
-    // Re-calculamos el lastMessage de la lista original (messages)
-    const nextCursor = messages.length === parseInt(limit) ? {
-      createdAt: messages[messages.length - 1].createdAt,
-      _id: messages[messages.length - 1]._id
-    } : null;
-
-    conversationData.pagination = {
-      nextCursor,
-      limit: parseInt(limit),
-      hasMore: !!nextCursor
-    };
-
-    res.json(formatSuccessResponse('Conversación obtenida', conversationData));
+    res.json(formatSuccessResponse('Conversación obtenida', {
+      conversation: conversationData,
+      mensajes: messages,
+      pagination: {
+        hasMore: messages.length === parseInt(limit),
+        nextCursor: messages.length > 0 ? {
+          createdAt: messages[0].createdAt,
+          _id: messages[0]._id
+        } : null
+      }
+    }));
   } catch (error) {
     console.error('Error al obtener conversación:', error);
     res.status(500).json(formatErrorResponse('Error al obtener conversación', [error.message]));

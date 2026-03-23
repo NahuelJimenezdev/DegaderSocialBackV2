@@ -386,33 +386,35 @@ const clearReadNotifications = async (req, res) => {
 };
 
 /**
- * Marcar notificación como entregada (ACK)
- * PUT /api/notificaciones/:id/delivered
+ * Registrar token de dispositivo para Push Notifications
+ * POST /api/notificaciones/register-token
  */
-const markAsDelivered = async (req, res) => {
+const registerDeviceToken = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { token, platform = 'web' } = req.body;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json(formatErrorResponse('ID inválido'));
+    if (!token) {
+      return res.status(400).json(formatErrorResponse('Token es requerido'));
     }
 
-    const notification = await Notification.findById(id);
+    const DeviceToken = require('../models/DeviceToken.model');
 
-    if (!notification) {
-      return res.status(404).json(formatErrorResponse('Notificación no encontrada'));
-    }
+    // Upsert del token: si ya existe para este usuario, actualiza lastUsedAt.
+    // Si el token estaba en otro usuario, lo reasigna (un dispositivo = un usuario actual).
+    await DeviceToken.findOneAndUpdate(
+      { token },
+      { 
+        userId: req.userId, 
+        platform, 
+        lastUsedAt: new Date() 
+      },
+      { upsert: true, new: true }
+    );
 
-    // Verificar pertenencia
-    if (!notification.receptor.equals(req.userId)) {
-      return res.status(403).json(formatErrorResponse('No tienes permiso para modificar esta notificación'));
-    }
-
-    await notificationService.markAsDelivered(id);
-    res.json(formatSuccessResponse('Notificación marcada como entregada'));
+    res.json(formatSuccessResponse('Token registrado exitosamente'));
   } catch (error) {
-    console.error('Error al marcar entrega:', error);
-    res.status(500).json(formatErrorResponse('Error al marcar entrega', [error.message]));
+    console.error('❌ Error al registrar token:', error);
+    res.status(500).json(formatErrorResponse('Error al registrar token', [error.message]));
   }
 };
 
@@ -425,5 +427,6 @@ module.exports = {
   markAllAsRead,
   deleteNotification,
   clearReadNotifications,
-  markAsDelivered
+  markAsDelivered,
+  registerDeviceToken
 };

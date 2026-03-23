@@ -418,6 +418,28 @@ const registerDeviceToken = async (req, res) => {
   }
 };
 
+
+/**
+ * Marcar una notificación como entregada
+ * PUT /api/notificaciones/:id/delivered
+ */
+const markAsDelivered = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const NotificationService = require('../services/notification.service');
+    const notification = await NotificationService.markAsDelivered(id);
+
+    if (!notification) {
+      return res.status(404).json(formatErrorResponse('Notificación no encontrada'));
+    }
+
+    res.json(formatSuccessResponse('Notificación marcada como entregada'));
+  } catch (error) {
+    console.error('❌ Error al marcar entrega:', error);
+    res.status(500).json(formatErrorResponse('Error al marcar entrega', [error.message]));
+  }
+};
+
 module.exports = {
   getAllNotifications,
   getUnreadNotifications,

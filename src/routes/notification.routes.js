@@ -16,6 +16,7 @@ router.put('/:id/read', notificationController.markAsRead);
 router.put('/:id/delivered', notificationController.markAsDelivered);
 router.put('/mark-all-read', notificationController.markAllAsRead);
 
+router.post('/register-token', notificationController.registerDeviceToken);
 router.delete('/:id', notificationController.deleteNotification);
 router.delete('/clear-read', notificationController.clearReadNotifications);
 

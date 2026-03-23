@@ -95,8 +95,17 @@ const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, carg
                 ]
             });
 
+            console.log(`🔎 [Fundación] Buscando en nivel: ${nivelObjetivo}`);
+            console.log(`🔎 [Fundación] Query:`, JSON.stringify(query, null, 2));
+
             // Buscar usuarios en este nivel
-            const superiores = await User.find(query).select('_id nombres apellidos');
+            const superiores = await User.find(query).select('_id nombres apellidos fundacion');
+
+            console.log(`🔎 [Fundación] Usuarios encontrados en nivel ${nivelObjetivo}: ${superiores.length}`);
+            superiores.forEach(s => {
+                console.log(`   - Candidato: ${s.nombres.primero} ${s.apellidos.primero} (${s._id})`);
+                console.log(`     Nivel: ${s.fundacion.nivel}, Cargo: ${s.fundacion.cargo}, Area: ${s.fundacion.area}`);
+            });
 
             if (superiores.length > 0) {
                 console.log(`✅ [Fundación] Superior encontrado en nivel ${nivelObjetivo}: ${superiores.length} usuarios.`);

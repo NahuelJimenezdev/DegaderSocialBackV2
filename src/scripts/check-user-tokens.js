@@ -38,6 +38,7 @@ const checkUserTokens = async () => {
         console.log(`   Area: ${user.fundacion.area}`);
         console.log(`   Cargo: ${user.fundacion.cargo}`);
         console.log(`   Approval: ${user.fundacion.estadoAprobacion}`);
+        console.log(`   Territory:`, JSON.stringify(user.fundacion.territorio, null, 2));
     }
 
     const tokens = await DeviceToken.find({ userId: user._id });

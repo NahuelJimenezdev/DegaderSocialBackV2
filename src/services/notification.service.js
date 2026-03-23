@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const admin = require('firebase-admin');
 const Notification = require('../models/Notification.model');
 const DeviceToken = require('../models/DeviceToken.model');
@@ -122,6 +121,7 @@ class NotificationService {
   async sendPushNotification(userId, { title, body, data = {} }, notificationId = null) {
     try {
       // Obtener tokens registrados para el usuario
+      const mongoose = require('mongoose');
       const targetUserId = (typeof userId === 'string') ? new mongoose.Types.ObjectId(userId) : userId;
       
       console.log(`[FCM] Buscando tokens para UID: ${targetUserId} (Type: ${typeof targetUserId})`);

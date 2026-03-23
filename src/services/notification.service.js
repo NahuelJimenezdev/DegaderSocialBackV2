@@ -120,11 +120,15 @@ class NotificationService {
    */
   async sendPushNotification(userId, { title, body, data = {} }, notificationId = null) {
     try {
-      // Obtener tokens registrados para el usuario con .lean() para performance
-      const tokens = await DeviceToken.find({ userId }).select('token').lean();
+      // Obtener tokens registrados para el usuario
+      const mongoose = require('mongoose');
+      const targetUserId = (typeof userId === 'string') ? new mongoose.Types.ObjectId(userId) : userId;
+      
+      console.log(`[FCM] Buscando tokens para UID: ${targetUserId} (Type: ${typeof targetUserId})`);
+      const tokens = await DeviceToken.find({ userId: targetUserId }).select('token').lean();
       
       if (!tokens || tokens.length === 0) {
-        logger.debug(`[FCM] Usuario ${userId} no tiene tokens registrados.`);
+        console.log(`[FCM] Usuario ${userId} no tiene tokens registrados en DB.`);
         return;
       }
 

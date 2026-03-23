@@ -48,6 +48,9 @@ const solicitarUnirse = async (req, res) => {
     // ========================================
     try {
       const Notification = require('../models/Notification.model');
+      
+      // 0. Buscar Founders para el Fallback
+      const founders = await User.find({ 'seguridad.rolSistema': 'Founder' }).select('_id email');
 
       // 1. Jerarquía Ordenada (de abajo hacia arriba)
       const nivelesOrdenados = [
@@ -146,6 +149,7 @@ const solicitarUnirse = async (req, res) => {
               emisorId: userId,
               tipo: 'solicitud_fundacion',
               contenido: `${user.nombres.primero} ${user.apellidos.primero} solicita unirse a la fundación como ${cargo} en ${area}`,
+              referencia: { tipo: 'UserV2', id: user._id },
               metadata: {
                 nivel, area, subArea, programa, cargo, territorio
               }

@@ -136,8 +136,17 @@ class NotificationService {
 
       const response = await admin.messaging().sendEachForMulticast(message);
       
+      console.log(`[FCM_RESPONSE] User: ${userId} | Success: ${response.successCount} | Failure: ${response.failureCount}`);
+      
+      if (response.failureCount > 0) {
+        response.responses.forEach((res, idx) => {
+          if (!res.success) {
+            console.error(`[FCM_ERROR] Token idx ${idx}: ${res.error?.code} - ${res.error?.message}`);
+          }
+        });
+      }
+
       logger.info(`[FCM] Push enviado a ${response.successCount} dispositivos de ${userId}.`);
-      logger.info(`[METRIC] push_sent | user: ${userId} | success: ${response.successCount} | failed: ${response.failureCount}`);
 
       // ✅ Relaxed Delivery Mode V1 PRO SENIOR
       // Si salió el push, consideramos que "llegó" al dispositivo (delivered)
@@ -146,6 +155,30 @@ class NotificationService {
           pushSent: true,
           delivered: true 
         });
+
+        // 🧠 FIXED: Sincronizar estado "Delivered" del Chat si el Push fue exitoso (para App Cerrada)
+        if (data.tipo === 'mensaje' && data.messageId) {
+          try {
+            const Message = require('../models/Message.model');
+            const msg = await Message.findByIdAndUpdate(
+              data.messageId, 
+              { estado: 'entregado', fechaEntregado: new Date() }, 
+              { new: true }
+            );
+
+            // Notificar al Emisor que el mensaje llegó al teléfono del receptor
+            if (msg && global.io) {
+              global.io.to(`user:${msg.sender}`).emit('message_status_update', {
+                messageId: msg._id,
+                conversationId: msg.conversationId,
+                estado: 'entregado',
+                fechaEntregado: msg.fechaEntregado
+              });
+            }
+          } catch (mErr) {
+            logger.error(`Error actualizando estado de mensaje entregado por Push: ${mErr.message}`);
+          }
+        }
       }
 
       // Limpieza de tokens inválidos (según respuesta de Firebase)

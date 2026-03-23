@@ -1,0 +1,49 @@
+{
+  "syncSuccess": true,
+  "syncError": null,
+  "indexes": [
+    {
+      "v": 2,
+      "key": {
+        "_id": 1
+      },
+      "name": "_id_"
+    },
+    {
+      "v": 2,
+      "key": {
+        "conversationId": 1
+      },
+      "name": "conversationId_1",
+      "background": true
+    },
+    {
+      "v": 2,
+      "key": {
+        "clientMessageId": 1
+      },
+      "name": "clientMessageId_1",
+      "background": true
+    },
+    {
+      "v": 2,
+      "key": {
+        "conversationId": 1,
+        "clientMessageId": 1
+      },
+      "name": "conversationId_1_clientMessageId_1",
+      "background": true,
+      "unique": true
+    },
+    {
+      "v": 2,
+      "key": {
+        "conversationId": 1,
+        "createdAt": -1,
+        "_id": -1
+      },
+      "name": "conversationId_1_createdAt_-1__id_-1",
+      "background": true
+    }
+  ]
+}

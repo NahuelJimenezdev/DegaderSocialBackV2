@@ -157,20 +157,10 @@ const getOrCreateConversation = async (req, res) => {
       tipo: 'privada',
       participantes: { $all: [req.userId, userId], $size: 2 }
     })
-      .populate('participantes', 'nombres apellidos social ultimaConexion')
-      .populate('mensajes.emisor', 'nombres apellidos social');
+      .populate('participantes', 'nombres apellidos social ultimaConexion');
 
     if (conversation) {
       console.log('✅ Conversación encontrada:', conversation._id);
-
-      // 🆕 Filtrar mensajes si el usuario ha limpiado la conversación anteriormente
-      // Esto evita que vea el historial antiguo si "revivió" el chat
-      const userClear = conversation.clearedBy.find(c => c.usuario.equals(req.userId));
-      if (userClear) {
-        conversation.mensajes = conversation.mensajes.filter(m =>
-          new Date(m.createdAt) > new Date(userClear.fecha)
-        );
-      }
 
       return res.json(formatSuccessResponse('Conversación encontrada', conversation));
     }

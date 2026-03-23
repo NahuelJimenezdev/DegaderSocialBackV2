@@ -1,13 +1,23 @@
-require('dotenv').config({ path: '../.env' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const mongoose = require('mongoose');
-const Challenge = require('../src/models/challenge.model');
-const UserV2 = require('../src/models/User.model');
+
+// Use relative paths from the script location
+const Challenge = require(path.join(__dirname, '../src/models/challenge.model'));
+const UserV2 = require(path.join(__dirname, '../src/models/User.model'));
 const fs = require('fs');
 
 async function testQuery() {
     let out = '';
+    const resultsFile = path.join(__dirname, '../db_results.txt');
     try {
-        await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
+        console.log("URI from env:", process.env.MONGODB_URI);
+        if (!process.env.MONGODB_URI) {
+            throw new Error("MONGODB_URI is not defined in .env");
+        }
+        await mongoose.connect(process.env.MONGODB_URI);
+        out += "Connected to DB.\n";
+        
         const count = await Challenge.countDocuments();
         out += `Total Challenges in DB: ${count}\n`;
         
@@ -20,15 +30,26 @@ async function testQuery() {
 
         const userCount = await UserV2.countDocuments();
         out += `Total Users in DB: ${userCount}\n`;
-        const sampleUser = await UserV2.findOne({ 'social.fotoPerfil': { $exists: true, $ne: "" } });
-        out += `Sample user with fotoPerfil: ${sampleUser ? sampleUser.social.fotoPerfil : 'None'}\n`;
         
-        const sampleUsersAny = await UserV2.find().limit(5);
-        out += sampleUsersAny.map(u => `User: ${u.email}, fotoPerfil: ${u.social?.fotoPerfil}`).join('\n') + '\n';
+        // Check for users with photos
+        const usersWithPhotos = await UserV2.find({ 'social.fotoPerfil': { $exists: true, $ne: "" } }).limit(5);
+        out += `Users with photos count (limit 5): ${usersWithPhotos.length}\n`;
+        usersWithPhotos.forEach(u => {
+            out += `User: ${u.email}, fotoPerfil: ${u.social.fotoPerfil}\n`;
+        });
 
-        fs.writeFileSync('db_results.txt', out);
+        // Check any 5 users
+        const anyUsers = await UserV2.find().limit(5);
+        out += "Any 5 users:\n";
+        anyUsers.forEach(u => {
+            out += `User: ${u.email}, ID: ${u._id}, foto: ${u.social?.fotoPerfil || 'NONE'}\n`;
+        });
+
+        fs.writeFileSync(resultsFile, out);
+        console.log("Results written to:", resultsFile);
     } catch (err) {
-        fs.writeFileSync('db_results.txt', `Error: ${err.message}\n` + out);
+        console.error("Script Error:", err);
+        fs.writeFileSync(resultsFile, `Error: ${err.message}\n` + out);
     } finally {
         await mongoose.disconnect();
     }

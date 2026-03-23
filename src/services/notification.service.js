@@ -24,12 +24,13 @@ class NotificationService {
   /**
    * Notificar a un usuario por todos los medios disponibles
    */
-  async notify({ receptorId, emisorId, tipo, contenido, referencia = {}, metadata = {} }) {
+  async notify({ receptorId, emisorId, tipo, contenido, referencia = {}, metadata = {}, persist = true }) {
     const startTime = Date.now();
     try {
-      // 1. Guardar en Base de Datos (Persistencia)
-      
-      // --- Lógica de Idempotencia (TRUE GOD MODE) ---
+      let notification = null;
+
+      // 1. Guardar en Base de Datos (Solo si persist es true)
+      if (persist) {
       const eventId = metadata.eventId || `${tipo}:${emisorId}:${referencia.id || 'system'}`;
       
       // Chequeo preventivo (Read-heavy optimization)
@@ -48,26 +49,27 @@ class NotificationService {
       // Enriquecer metadata con el eventId para persistencia
       const enrichedMetadata = { ...metadata, eventId };
 
-      const notification = new Notification({
-        receptor: receptorId,
-        emisor: emisorId,
-        tipo,
-        contenido,
-        referencia,
-        metadata: enrichedMetadata,
-        expiresAt
-      });
+        const notificationObj = new Notification({
+          receptor: receptorId,
+          emisor: emisorId,
+          tipo,
+          contenido,
+          referencia,
+          metadata: enrichedMetadata,
+          expiresAt
+        });
 
-      await notification.save();
+        notification = await notificationObj.save();
 
-      const duration = Date.now() - startTime;
-      logger.info(`[METRIC] notif_created | type: ${tipo} | duration: ${duration}ms`);
-      
-      // Poblar emisor con data mínima para performance V1 PRO PLUS
-      await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil');
+        const duration = Date.now() - startTime;
+        logger.info(`[METRIC] notif_created | type: ${tipo} | duration: ${duration}ms`);
+        
+        // Poblar emisor con data mínima para performance V1 PRO PLUS
+        await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil');
 
-      // 2. Entrega en Tiempo Real (WebSocket)
-      this.emitToSocket(receptorId, notification);
+        // 2. Entrega en Tiempo Real (WebSocket)
+        this.emitToSocket(receptorId, notification);
+      }
 
       // 3. Entrega Push Inteligente (Smart Push)
       const isCritical = ['sistema', 'mensaje', 'solicitud_amistad', 'solicitud_iglesia', 'solicitud_fundacion', 'solicitud_grupo'].includes(tipo) || tipo.startsWith('solicitud_');
@@ -75,15 +77,15 @@ class NotificationService {
 
       if (!isOnline || isCritical) {
         this.sendPushNotification(receptorId, {
-          title: isCritical ? 'Notificación Importante' : 'Nueva notificación',
+          title: isCritical ? (tipo === 'mensaje' ? 'Nuevo mensaje' : 'Notificación Importante') : 'Nueva notificación',
           body: contenido,
           data: {
             tipo,
             referenciaId: referencia.id?.toString() || '',
             referenciaTipo: referencia.tipo || '',
-            notificationId: notification._id.toString()
+            notificationId: notification?._id?.toString() || ''
           }
-        }, notification._id).catch(err => logger.error(`Error en flujo Push: ${err.message}`));
+        }, notification?._id).catch(err => logger.error(`Error en flujo Push: ${err.message}`));
       } else {
         logger.debug(`[SMART PUSH] Omitiendo push para ${receptorId} (Online y tipo no crítico: ${tipo})`);
       }
@@ -133,6 +135,8 @@ class NotificationService {
         data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' }, // Compatibilidad móvil
         tokens: registrationTokens
       };
+
+      console.log('🚀 [FCM_PAYLOAD] Enviando:', JSON.stringify(message, null, 2));
 
       const response = await admin.messaging().sendEachForMulticast(message);
       

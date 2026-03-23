@@ -367,7 +367,8 @@ class SocketService {
             tipo: 'mensaje',
             contenido: message.contenido || 'Te envió un archivo',
             referencia: { tipo: 'Conversation', id: conversationId },
-            metadata: { sound: true, icon: 'message', messageId: message._id.toString() }
+            metadata: { sound: true, icon: 'message', messageId: message._id.toString() },
+            persist: false // 🔥 No guardar en DB (evita duplicados en la campanita)
           });
         } else {
           console.log(`🔔 Usuario ${userId} está activo en el chat. Push omitido.`);

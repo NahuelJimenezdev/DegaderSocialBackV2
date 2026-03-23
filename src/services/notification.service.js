@@ -25,6 +25,7 @@ class NotificationService {
    * Notificar a un usuario por todos los medios disponibles
    */
   async notify({ receptorId, emisorId, tipo, contenido, referencia = {}, metadata = {}, persist = true }) {
+    console.log(`🔔 [NotificationService] notify llamado: tipo=${tipo}, receptor=${receptorId}`);
     const startTime = Date.now();
     try {
       let notification = null;
@@ -119,6 +120,7 @@ class NotificationService {
    * Envío de Notificaciones Push vía Firebase
    */
   async sendPushNotification(userId, { title, body, data = {} }, notificationId = null) {
+    console.log(`🚀 [NotificationService] sendPushNotification entrando para user=${userId}, tipo=${data.tipo}`);
     try {
       // Obtener tokens registrados para el usuario
       const mongoose = require('mongoose');

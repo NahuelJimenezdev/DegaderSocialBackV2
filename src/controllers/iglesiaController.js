@@ -39,6 +39,28 @@ const crearIglesia = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Nombre y ubicación (país, ciudad) son obligatorios'));
     }
 
+    // 1. Verificar si el usuario ya es pastor principal de una iglesia activa
+    const iglesiaExistentePastor = await Iglesia.findOne({ 
+      pastorPrincipal: req.userId,
+      activo: true 
+    });
+
+    if (iglesiaExistentePastor) {
+      return res.status(400).json(formatErrorResponse(`Ya tienes una iglesia registrada: "${iglesiaExistentePastor.nombre}". No puedes crear múltiples iglesias.`));
+    }
+
+    // 2. Verificar si ya existe una iglesia con el mismo nombre en la misma ciudad (opcional pero recomendado)
+    const iglesiaDuplicadaNombre = await Iglesia.findOne({
+      nombre: { $regex: new RegExp(`^${nombre}$`, 'i') },
+      'ubicacion.pais': ubicacion.pais,
+      'ubicacion.ciudad': ubicacion.ciudad,
+      activo: true
+    });
+
+    if (iglesiaDuplicadaNombre) {
+      return res.status(400).json(formatErrorResponse(`Ya existe una iglesia registrada con el nombre "${nombre}" en ${ubicacion.ciudad}.`));
+    }
+
     const nuevaIglesia = new Iglesia({
       nombre,
       ubicacion,

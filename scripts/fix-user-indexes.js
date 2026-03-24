@@ -8,7 +8,9 @@ const uri = process.env.MONGODB_URI;
 async function fixIndexes() {
   try {
     console.log(`📡 [INDEX] Conectando a MongoDB...`);
-    await mongoose.connect(uri);
+    // Limpiar URI si tiene opciones duplicadas (bug común con Mongoose options)
+    const sanitizedUri = uri.split('?')[0] + '?' + [...new Set(uri.split('?')[1]?.split('&') || [])].join('&');
+    await mongoose.connect(sanitizedUri);
     console.log(`✅ [INDEX] Conectado.`);
 
     console.log(`🔍 [INDEX] Listando índices actuales de la colección 'users'...`);

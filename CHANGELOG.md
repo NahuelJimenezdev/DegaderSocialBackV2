@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.31.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.30.4...v1.31.0) (2026-03-24)
+
+
+### Features
+
+* **debug:** add script to check founder tokens ([ebecf5a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ebecf5afd047aec307063e3194fa8a9328b1719c))
+* **debug:** add script to check specific user tokens ([914ac76](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/914ac765613bba78a32b6d46f954ed363a345af5))
+* **fundacion:** agregar script de diagnóstico para datos de hijos ([8785c13](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/8785c1305aada696c3cc93d2d2a011fb705d3986))
+* **iglesia:** hardening avanzado - idempotencia, transacciones, error handler global y normalización ([0687bee](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0687beedf7ec6f99110f120320a70ccb2c7c826a))
+* **iglesia:** hardening de producción - índices únicos, rate limiting y logging estructurado ([a1f7aba](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a1f7abac29972207183a07434f7171c2cef5be48))
+* **messaging:** deep audit fixes, idempotency, extreme pagination, and push notification sync ([814d7b0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/814d7b028ba95a6a4bcd291248fd239b59edda73))
+* **messaging:** PWA install button and notification deduplication by deviceId ([865c9c7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/865c9c7479cda073005ee75014582e27e2a6b10b))
+* **test:** add bypass script for prerequisite documents ([a588810](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a5888104876ff873f155a2a52d69c70d369a1376))
+* **test:** make bypass script accept dynamic email arguments ([790f2c3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/790f2c3e17e0516fa6220a7c45f39d923afbda76))
+* **test:** revert bypass script to manual array management ([417c5ba](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/417c5ba24dcca828f5b138e15ee27acbb07f8ad2))
+
+
+### Bug Fixes
+
+* **debug:** add extra logs to userController for enrollment tracing ([e8a26da](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e8a26da52ec4bb9eb9ac6ccb92b760092bc9eed6))
+* **debug:** add verbose logs to notification service entry points ([456f3e9](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/456f3e951f8a6eeaafb2f8209252f8914967a674))
+* **debug:** fix relative paths in check-user-tokens script ([0a34aea](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0a34aea06f9fc0cb068d96d155e26a87ce3c256a))
+* **deploy:** update docker-compose to pass Firebase build args to frontend ([58818db](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/58818db54b78cbbc210a642992b5ed2b9979fbd1))
+* **fundacion:** fix founders undefined error and improve enrollment notifications ([d3cc9da](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/d3cc9dab2c21333866e0b21ffc65c03136508c01))
+* **fundacion:** fix TypeError on missing area and enable Push notifications in utility ([250f911](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/250f91126787d04faed52ba3659ae66ef9994824))
+* **fundacion:** restore missing query filter and enhance debug logging ([05b3860](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/05b3860cb0a6777edc850a3cbe291d6a0d5af8d8))
+* **iglesia:** corregir duplicación de iglesias, añadir validaciones de backend y cleanup scripts ([7f29c63](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7f29c63b95170443de65a8141f1266ec8b5d3d9f))
+* **messaging:** bypass idempotency for foundation per-retry and add dynamic deep-linking ([a1dbdfd](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a1dbdfdb56841c698377d346182bcd28c0121c4e))
+* **messaging:** disable bell notification for messages and add verbose FCM logs ([75d7ecd](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/75d7ecdd45b9f49d4433ec4d25fc297d4ab531eb))
+* **messaging:** remove outdated mensajes field access in getOrCreateConversation to fix 500 error ([ddf4783](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ddf4783e8df5bbc325579b2f7f52a11094f7213b))
+* **messaging:** restore clean utility and keep idempotency/deep-link fixes ([0030917](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/00309177edc5d04eac279f0c22e906808cfd7dea))
+* move mongoose to top level to resolve IDE warnings ([ecdd7a4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ecdd7a432d86956cbd75962311c02f3ace837d66))
+* **push:** avoid top-level mongoose require to resolve IDE error ([2840084](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/28400843f92c3063de09a27700c673b698f44f1d))
+* **push:** emergency diagnostic logs and data audit scripts ([e185bd3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e185bd36521aaa849c8663a174ff5b85c196ec7b))
+* **push:** ensure userId is ObjectId for token query and add more logs ([21aa8e2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/21aa8e2038e33dd2f3b15b1bff7e966877e94aef))
+* **push:** optimize FCM payload for Web and add foreground logging ([64b6dcc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/64b6dccf9a7633dceb2b251e450601228806289b))
+* **test:** use updateOne to bypass Mongoose validation in test script ([a661694](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a66169485993999c81b3cae69b123af8762999fb))
+
 ## [1.30.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.30.4...v1.30.0) (2026-03-24)
 
 

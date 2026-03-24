@@ -148,9 +148,27 @@ const IglesiaSchema = new Schema({
 });
 
 // Índices
-IglesiaSchema.index({ 'ubicacion.ciudad': 1, 'ubicacion.pais': 1 });
+// 1. Unicidad de Nombre + Ciudad + País (Case Insensitive con Collation)
+IglesiaSchema.index(
+  { nombre: 1, 'ubicacion.ciudad': 1, 'ubicacion.pais': 1 },
+  { 
+    unique: true, 
+    collation: { locale: 'es', strength: 2 }, // strength: 2 ignora acentos y mayúsculas
+    name: 'idx_church_unique_name_city'
+  }
+);
+
+// 2. Unicidad de Pastor Principal (Un pastor, una iglesia)
+IglesiaSchema.index(
+  { pastorPrincipal: 1 }, 
+  { 
+    unique: true,
+    name: 'idx_church_unique_pastor'
+  }
+);
+
+// 3. Índice de búsqueda de texto
 IglesiaSchema.index({ nombre: 'text' });
-IglesiaSchema.index({ pastorPrincipal: 1 });
 
 const Iglesia = model('Iglesia', IglesiaSchema);
 

@@ -53,10 +53,12 @@ const uploadMiddleware = (req, res, next) => {
   });
 };
 
+const { crearIglesiaLimiter } = require('../middlewares/rateLimitMiddleware');
+
 // Todas las rutas requieren autenticación
 router.use(authenticate);
 
-router.post('/', iglesiaController.crearIglesia);
+router.post('/', crearIglesiaLimiter, iglesiaController.crearIglesia);
 router.get('/', iglesiaController.obtenerIglesias);
 router.get('/stats/global', iglesiaController.getGlobalStats); // Antes de /:id para evitar conflicto
 router.get('/:id', iglesiaController.obtenerIglesia);

@@ -206,13 +206,16 @@ app.use(globalErrorHandler);
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Configuración de conexión con opciones de robustez y alto rendimiento
+// Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.2)
 const options = {
   autoIndex: process.env.NODE_ENV !== 'production',
-  connectTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 50,   // Soportar alta concurrencia sin colas (~10x default)
-  minPoolSize: 10,   // Pool caliente siempre listo
+  connectTimeoutMS: 30000,      // Aumentado a 30s para soportar picos de latencia
+  socketTimeoutMS: 60000,       // Aumentado a 60s para operaciones pesadas
+  serverSelectionTimeoutMS: 30000, // Tiempo máximo de espera para seleccionar el servidor de Atlas
+  heartbeatFrequencyMS: 10000,   // Verificar salud del servidor cada 10s
+  maxPoolSize: 50,              // Soportar alta concurrencia
+  minPoolSize: 10,              // Pool caliente siempre listo
+  retryWrites: true,            // Intentar re-escribir ante fallos temporales
 };
 
 /**
@@ -294,10 +297,27 @@ mongoose.connect(uri, options)
     process.exit(1);
   });
 
-// Eventos de conexión para monitoreo
-mongoose.connection.on('disconnected', () => console.log('⚠️ MongoDB desconectado. Reintentando...'));
-mongoose.connection.on('reconnected', () => console.log('❇️ MongoDB reconectado'));
-mongoose.connection.on('error', (err) => console.error('🔴 Error en conexión MongoDB:', err));
+// Eventos de conexión para monitoreo detallado
+mongoose.connection.on('connected', () => console.log('❇️ [DB] Conexión establecida con MongoDB Atlas'));
+mongoose.connection.on('disconnected', () => console.warn('⚠️ [DB] MongoDB desconectado. Intentando reconexión automática...'));
+mongoose.connection.on('reconnected', () => console.log('✅ [DB] MongoDB reconectado exitosamente'));
+mongoose.connection.on('error', (err) => {
+  console.error('🔴 [DB ERROR] Error en conexión MongoDB:', err);
+  if (err.name === 'MongoNetworkTimeoutError') {
+    console.error('🚨 [DB CRITICAL] Se detectó un timeout de red. Verificando latencia con Atlas...');
+  }
+});
+
+// Monitoreo de comandos lentos (opcional, útil para debugging)
+mongoose.set('debug', (collectionName, method, query, doc) => {
+  const start = Date.now();
+  return (err, result) => {
+    const duration = Date.now() - start;
+    if (duration > 1000) { // Loguear solo si tarda más de 1s
+      console.warn(`🐢 [DB SLOW] ${collectionName}.${method} tardó ${duration}ms`);
+    }
+  };
+});
 
 // Manejo de cierre graceful
 process.on('SIGINT', async () => {

@@ -98,50 +98,39 @@ const getAllUsers = async (req, res) => {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Agregación Atómica con Facet para obtener todo en un solo viaje a la DB
-        const result = await User.aggregate([
-            { $match: filter },
-            {
-                $facet: {
-                    // Resultados paginados
-                    users: [
-                        { $sort: { createdAt: -1 } },
-                        { $skip: skip },
-                        { $limit: parseInt(limit) },
-                        { 
-                            $addFields: { 
-                                // Inyectar 'rol' en la raíz para compatibilidad con el frontend
-                                // ya que el frontend espera user.rol
-                                rol: "$seguridad.rolSistema" 
-                            } 
-                        },
-                        { $project: { password: 0, __v: 0 } }
-                    ],
-                    // Conteo total filtrado
-                    totalCount: [
-                        { $count: 'count' }
-                    ],
+        // Ejecutar consultas en paralelo para máxima velocidad y menor consumo de RAM
+        const [usersRaw, total, statsResult] = await Promise.all([
+            // 1. Obtener usuarios con proyección temprana y .lean()
+            User.find(filter)
+                .select('nombres apellidos email username seguridad.rolSistema seguridad.estadoCuenta createdAt')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean(),
+
+            // 2. Conteo total para paginación (O(1) si no hay filtro, rápido con índice si lo hay)
+            User.countDocuments(filter),
+
+            // 3. Estadísticas Globales (Calculadas en paralelo)
+            User.aggregate([
+                {
+                    $facet: {
+                        moderadores: [{ $match: { 'seguridad.rolSistema': 'moderador' } }, { $count: 'count' }],
+                        admins: [{ $match: { 'seguridad.rolSistema': 'admin' } }, { $count: 'count' }],
+                        suspendidos: [{ $match: { 'seguridad.estadoCuenta': 'suspendido' } }, { $count: 'count' }]
+                    }
                 }
-            }
+            ])
         ]);
 
-        const users = result[0].users;
-        const total = result[0].totalCount[0]?.count || 0;
-
-        // Calcular estadísticas con una consulta paralela optimizada (solo 1 adicional)
-        const statsResult = await User.aggregate([
-            {
-                $facet: {
-                    total: [{ $count: 'count' }],
-                    moderadores: [{ $match: { 'seguridad.rolSistema': 'moderador' } }, { $count: 'count' }],
-                    admins: [{ $match: { 'seguridad.rolSistema': 'admin' } }, { $count: 'count' }],
-                    suspendidos: [{ $match: { 'seguridad.estadoCuenta': 'suspendido' } }, { $count: 'count' }]
-                }
-            }
-        ]);
+        // Mapear 'rol' para compatibilidad con el frontend
+        const users = usersRaw.map(u => ({
+            ...u,
+            rol: u.seguridad?.rolSistema || 'usuario'
+        }));
 
         const stats = {
-            total: statsResult[0].total[0]?.count || 0,
+            total: await User.estimatedDocumentCount(), // Más rápido que countDocuments para el total global
             moderadores: statsResult[0].moderadores[0]?.count || 0,
             admins: statsResult[0].admins[0]?.count || 0,
             suspendidos: statsResult[0].suspendidos[0]?.count || 0

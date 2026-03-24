@@ -641,8 +641,6 @@ UserV2Schema.index({ "arena.level": 1 });
 UserV2Schema.index({ "seguridad.rolSistema": 1 });
 UserV2Schema.index({ "seguridad.estadoCuenta": 1 });
 UserV2Schema.index({ "createdAt": -1 });
-UserV2Schema.index({ "username": 1 }, { unique: true });
-UserV2Schema.index({ "email": 1 }, { unique: true });
 
 const UserV2 = model('UserV2', UserV2Schema);
 

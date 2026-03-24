@@ -216,13 +216,8 @@ app.use((req, res) => {
 });
 
 // Manejador de errores global
-app.use((err, req, res, next) => {
-  logger.error(`${err.status || 500} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
-  res.status(err.status || 500).json({
-    error: err.message || 'Error interno del servidor',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+const globalErrorHandler = require('./middlewares/errorHandler.middleware');
+app.use(globalErrorHandler);
 
 // Conexión a MongoDB
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';

@@ -1,0 +1,28 @@
+﻿[dotenv@17.3.1] injecting env (22) from .env -- tip: ÔÜí´©Å secrets for agents: https://dotenvx.com/as2
+{
+  "ubicacion": {
+    "pais": "Argentina",
+    "ciudad": "Ingeniero Guillermo N. Ju├írez",
+    "direccion": "Lavalle s/n"
+  },
+  "_id": "69c20c664ce8c1f0587e6f9a",
+  "nombre": "Iglesia Emanuel",
+  "denominacion": "Pentecostal",
+  "pastorPrincipal": "69c1da3cb27ea87efdf09828",
+  "miembros": [
+    "69c1da3cb27ea87efdf09828"
+  ],
+  "reuniones": [],
+  "galeria": [],
+  "activo": true,
+  "solicitudes": [],
+  "historialSalidas": [],
+  "horarios": [],
+  "galeriaObjs": [],
+  "multimedia": [],
+  "fechaCreacion": "2026-03-24T04:00:38.593Z",
+  "createdAt": "2026-03-24T04:00:38.594Z",
+  "updatedAt": "2026-03-24T04:00:38.594Z",
+  "__v": 0,
+  "id": "69c20c664ce8c1f0587e6f9a"
+}

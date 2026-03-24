@@ -5,7 +5,8 @@ const IglesiaSchema = new Schema({
   nombre: {
     type: String,
     required: [true, 'El nombre de la iglesia es obligatorio'],
-    trim: true
+    trim: true,
+    lowercase: true
   },
   denominacion: {
     type: String,

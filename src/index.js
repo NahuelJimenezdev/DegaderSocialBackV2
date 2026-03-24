@@ -55,18 +55,6 @@ app.get('/metrics', async (req, res) => {
   res.end(await metrics.getMetrics());
 });
 
-// Middleware para trackear tiempo de respuesta de la API (Prometheus Metrics)
-app.use((req, res, next) => {
-  const end = metrics.startTimer();
-  res.on('finish', () => {
-    end({
-      method: req.method,
-      route: req.route?.path || req.path,
-      status_code: res.statusCode
-    });
-  });
-  next();
-});
 
 // Configurar Socket.IO con CORS
 const io = new Server(httpServer, {

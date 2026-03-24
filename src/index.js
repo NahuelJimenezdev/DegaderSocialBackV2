@@ -148,7 +148,7 @@ const searchRoutes = require('./routes/search.routes');
 const folderRoutes = require('./routes/folder.routes');
 const meetingRoutes = require('./routes/meeting.routes.js');
 const fundacionRoutes = require('./routes/fundacion.routes');
-const churchRoutes = require('./routes/iglesia.routes');
+const iglesiaRoutes = require('./routes/iglesia.routes');
 const healthRoutes = require('./routes/health.routes');
 const Iglesia = require('./models/Iglesia.model');
 const adRoutes = require('./routes/ad.routes');
@@ -171,15 +171,6 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '2.1.0',
     socketio: 'enabled'
-  });
-});
-
-// Ruta para verificar salud del servidor
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-    uptime: process.uptime()
   });
 });
 

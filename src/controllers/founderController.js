@@ -82,7 +82,7 @@ const getAllUsers = async (req, res) => {
 
         // Construir filtros
         const filter = {};
-        if (rol) filter.rol = rol;
+        if (rol) filter['seguridad.rolSistema'] = rol;
         if (estado) filter['seguridad.estadoCuenta'] = estado;
         if (verificado !== undefined) filter['seguridad.verificado'] = verificado === 'true';
 
@@ -108,15 +108,19 @@ const getAllUsers = async (req, res) => {
                         { $sort: { createdAt: -1 } },
                         { $skip: skip },
                         { $limit: parseInt(limit) },
+                        { 
+                            $addFields: { 
+                                // Inyectar 'rol' en la raíz para compatibilidad con el frontend
+                                // ya que el frontend espera user.rol
+                                rol: "$seguridad.rolSistema" 
+                            } 
+                        },
                         { $project: { password: 0, __v: 0 } }
                     ],
                     // Conteo total filtrado
                     totalCount: [
                         { $count: 'count' }
                     ],
-                    // Estadísticas globales (usando una segunda faceta o pipeline alternativo)
-                    // Nota: Las estadísticas globales no dependen del filtro de búsqueda
-                    // pero para mantener consistencia y rendimiento, las calculamos aquí o aparte si son pesadas.
                 }
             }
         ]);
@@ -125,13 +129,12 @@ const getAllUsers = async (req, res) => {
         const total = result[0].totalCount[0]?.count || 0;
 
         // Calcular estadísticas con una consulta paralela optimizada (solo 1 adicional)
-        // Esto es mejor que 4 conteos seriales.
         const statsResult = await User.aggregate([
             {
                 $facet: {
                     total: [{ $count: 'count' }],
-                    moderadores: [{ $match: { rol: 'moderador' } }, { $count: 'count' }],
-                    admins: [{ $match: { rol: 'admin' } }, { $count: 'count' }],
+                    moderadores: [{ $match: { 'seguridad.rolSistema': 'moderador' } }, { $count: 'count' }],
+                    admins: [{ $match: { 'seguridad.rolSistema': 'admin' } }, { $count: 'count' }],
                     suspendidos: [{ $match: { 'seguridad.estadoCuenta': 'suspendido' } }, { $count: 'count' }]
                 }
             }
@@ -209,24 +212,24 @@ const createUserWithRole = async (req, res) => {
 
         // Crear usuario con el rol especificado
         // NOTA: No hasheamos la contraseña aquí porque el modelo User tiene un pre-save hook que lo hace automáticamente
+        // Crear usuario con el rol especificado
         const newUser = new User({
             email,
             username,
             password, // Pasar contraseña en texto plano para que el modelo la hashee
             nombres: nombres || { primero: 'Usuario', segundo: '' },
             apellidos: apellidos || { primero: 'Sistema', segundo: '' },
-            rol: rol || 'usuario',
             seguridad: {
-                rolSistema: rol === 'moderador' ? 'moderador' : 'Usuario',
+                rolSistema: rol || 'usuario',
                 estadoCuenta: 'activo',
                 verificado: true,
                 permisos: permisos || {
                     crearEventos: false,
-                    gestionarUsuarios: rol === 'moderador' || rol === 'admin',
+                    gestionarUsuarios: rol === 'moderador' || rol === 'admin' || rol === 'Founder',
                     gestionarFinanzas: false,
                     publicarNoticias: false,
-                    accesoPanelAdmin: rol === 'moderador' || rol === 'admin',
-                    moderarContenido: rol === 'moderador' || rol === 'admin'
+                    accesoPanelAdmin: rol === 'moderador' || rol === 'admin' || rol === 'Founder',
+                    moderarContenido: rol === 'moderador' || rol === 'admin' || rol === 'Founder'
                 }
             }
         });

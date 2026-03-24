@@ -572,6 +572,11 @@ UserV2Schema.virtual('nombreCompleto').get(function () {
   return `${this.nombres.primero} ${this.apellidos.primero}`;
 });
 
+// Virtual para compatibilidad con el frontend (mapea seguridad.rolSistema a rol)
+UserV2Schema.virtual('rol').get(function () {
+  return this.seguridad?.rolSistema || 'usuario';
+});
+
 // Método para limpiar respuesta JSON
 UserV2Schema.methods.toJSON = function () {
   const user = this.toObject();
@@ -633,7 +638,7 @@ UserV2Schema.index({ "arena.country": 1, "arena.rankPoints": -1 });
 UserV2Schema.index({ "arena.level": 1 });
 
 // Índices para Dashboard Founder y Filtros
-UserV2Schema.index({ "rol": 1 });
+UserV2Schema.index({ "seguridad.rolSistema": 1 });
 UserV2Schema.index({ "seguridad.estadoCuenta": 1 });
 UserV2Schema.index({ "createdAt": -1 });
 UserV2Schema.index({ "username": 1 }, { unique: true });

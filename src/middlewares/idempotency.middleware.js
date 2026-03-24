@@ -16,7 +16,8 @@ const idempotencia = (prefix = 'idempotency') => {
             return next();
         }
 
-        const idempotencyKey = `${prefix}:${key}:${req.userId || req.ip}`;
+        try {
+            let cachedResponse = null;
 
             if (redisService.isConnected) {
                 cachedResponse = await redisService.get(idempotencyKey);

@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 /**
  * Limitador específico para la creación de iglesias
@@ -8,7 +8,7 @@ const crearIglesiaLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minuto
     max: 3, // Limitar a 3 peticiones por minuto por entidad
     keyGenerator: (req) => {
-        return req.userId || req.ip; // Priorizar ID de usuario para evitar bloqueos por IP compartida
+        return req.userId || ipKeyGenerator(req); // Priorizar ID de usuario para evitar bloqueos por IP compartida
     },
     message: {
         success: false,

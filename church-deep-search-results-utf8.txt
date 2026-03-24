@@ -1,0 +1,11 @@
+﻿[dotenv@17.3.1] injecting env (22) from .env -- tip: ­ƒøí´©Å auth for agents: https://vestauth.com
+Searching for churches related to "Guillermo" in ANY field...
+Found 8 churches:
+ID: 69c20c664ce8c1f0587e6f9a | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c20c6c4ce8c1f0587e6faf | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c20c774ce8c1f0587e6fc8 | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c20ca24ce8c1f0587e702c | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c20cbe4ce8c1f0587e7049 | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c210edad748b59403e8226 | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c210fcad748b59403e8242 | Nombre: "Iglesia Emanuel" | Direccion: "Lavalle s/n"
+ID: 69c2111cad748b59403e8260 | Nombre: "Emanuel" | Direccion: "Lavalle s/n"

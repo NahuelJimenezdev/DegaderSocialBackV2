@@ -6,7 +6,10 @@ const rateLimit = require('express-rate-limit');
  */
 const crearIglesiaLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minuto
-    max: 3, // Limitar a 3 peticiones por minuto por IP
+    max: 3, // Limitar a 3 peticiones por minuto por entidad
+    keyGenerator: (req) => {
+        return req.userId || req.ip; // Priorizar ID de usuario para evitar bloqueos por IP compartida
+    },
     message: {
         success: false,
         message: 'Demasiadas peticiones de creación. Por favor, intenta de nuevo en un minuto.',

@@ -30,42 +30,38 @@ const calculateDuration = (startDate, endDate = new Date()) => {
   return parts.join(', ') || 'Menos de 1 mes';
 };
 
-const crearIglesia = async (req, res) => {
+const logger = require('../config/logger');
+
+const crearIglesia = async (req, res, next) => {
   const { nombre, ubicacion, denominacion, descripcion, contacto, reuniones } = req.body;
-  const correlationId = `iglesia-create-${Date.now()}-${req.userId}`;
+  const correlationId = req.headers['x-correlation-id'] || `iglesia-create-${Date.now()}-${req.userId}`;
+
+  // 1. Iniciar Sesión para Transacción Atómica
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    // 1. Validar campos requeridos básicos
+    // 2. Validar campos requeridos básicos
     if (!nombre || !ubicacion || !ubicacion.pais || !ubicacion.ciudad) {
       return res.status(400).json(formatErrorResponse('Nombre y ubicación (país, ciudad) son obligatorios'));
     }
 
-    console.log(`[${correlationId}] 🆕 Iniciando creación de iglesia: "${nombre}" para usuario: ${req.userId}`);
+    logger.info(`[${correlationId}] 🆕 Intentando crear iglesia: "${nombre}" para usuario: ${req.userId}`);
 
-    // 2. Verificar si el usuario ya es pastor principal de una iglesia activa (Validación lógica redundante para mejor feedback)
+    // 3. Verificar si el usuario ya es pastor principal (Validación lógica redundante para mejor UX)
     const iglesiaExistentePastor = await Iglesia.findOne({ 
       pastorPrincipal: req.userId,
       activo: true 
-    });
+    }).session(session);
 
     if (iglesiaExistentePastor) {
-      console.warn(`[${correlationId}] ⚠️ Intento de creación duplicada por pastor: ${req.userId}`);
-      return res.status(400).json(formatErrorResponse(`Ya tienes una iglesia registrada: "${iglesiaExistentePastor.nombre}". No puedes crear múltiples iglesias.`));
+      logger.warn(`[${correlationId}] ⚠️ Usuario ${req.userId} ya tiene una iglesia activa.`);
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json(formatErrorResponse(`Ya tienes una iglesia registrada: "${iglesiaExistentePastor.nombre}".`));
     }
 
-    // 3. Verificar si ya existe una iglesia con el mismo nombre en la misma ciudad (Validación lógica redundante)
-    const iglesiaDuplicadaNombre = await Iglesia.findOne({
-      nombre: { $regex: new RegExp(`^${nombre}$`, 'i') },
-      'ubicacion.pais': ubicacion.pais,
-      'ubicacion.ciudad': ubicacion.ciudad,
-      activo: true
-    });
-
-    if (iglesiaDuplicadaNombre) {
-      console.warn(`[${correlationId}] ⚠️ Intento de creación con nombre duplicado en ciudad: "${nombre}" en ${ubicacion.ciudad}`);
-      return res.status(400).json(formatErrorResponse(`Ya existe una iglesia registrada con el nombre "${nombre}" en ${ubicacion.ciudad}.`));
-    }
-
+    // 4. Crear la Iglesia
     const nuevaIglesia = new Iglesia({
       nombre,
       ubicacion,
@@ -74,14 +70,12 @@ const crearIglesia = async (req, res) => {
       contacto,
       reuniones,
       pastorPrincipal: req.userId,
-      miembros: [req.userId] // El creador es el primer miembro
+      miembros: [req.userId]
     });
 
-    await nuevaIglesia.save();
+    await nuevaIglesia.save({ session });
 
-    console.log(`[${correlationId}] ✅ Iglesia creada exitosamente ID: ${nuevaIglesia._id}`);
-
-    // Actualizar usuario para indicar que es miembro de iglesia
+    // 5. Actualizar Usuario (Dentro de la misma transacción)
     await UserV2.findByIdAndUpdate(req.userId, {
       esMiembroIglesia: true,
       eclesiastico: {
@@ -89,25 +83,22 @@ const crearIglesia = async (req, res) => {
         iglesia: nuevaIglesia._id,
         rolPrincipal: 'pastor_principal'
       }
-    });
+    }, { session });
+
+    // 6. Confirmar Transacción
+    await session.commitTransaction();
+    session.endSession();
+
+    logger.info(`[${correlationId}] ✅ Iglesia creada y perfil de usuario actualizado. ID: ${nuevaIglesia._id}`);
 
     res.status(201).json(formatSuccessResponse('Iglesia creada exitosamente', nuevaIglesia));
   } catch (error) {
-    // 4. Manejo específico de errores de MongoDB (E11000 - Llave duplicada)
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      console.error(`[${correlationId}] ❌ Error de llave duplicada en DB: ${field}`, error.keyValue);
-
-      let message = 'Esta iglesia ya se encuentra registrada.';
-      if (field === 'pastorPrincipal') {
-        message = 'Ya eres pastor principal de otra iglesia.';
-      }
-
-      return res.status(409).json(formatErrorResponse(message));
-    }
-
-    console.error(`[${correlationId}] ❌ Error crítico al crear iglesia:`, error);
-    res.status(500).json(formatErrorResponse('Error interno al procesar la creación de la iglesia', [error.message]));
+    // 7. Revertir cambios si algo falla
+    await session.abortTransaction();
+    session.endSession();
+    
+    // Delegar al manejador de errores global
+    next(error);
   }
 };
 

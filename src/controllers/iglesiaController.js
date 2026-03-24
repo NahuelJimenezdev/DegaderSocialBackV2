@@ -6,6 +6,8 @@ const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 const imageOptimizationService = require('../services/imageOptimizationService');
+const { invalidateUserCache } = require('../utils/userCache');
+
 
 /**
  * Crear una nueva iglesia
@@ -88,6 +90,9 @@ const crearIglesia = async (req, res, next) => {
     // 6. Confirmar Transacción
     await session.commitTransaction();
     session.endSession();
+
+    // 6.5. Invalidar caché del usuario activo para forzar recarga en el próximo request
+    await invalidateUserCache(req.userId);
 
     logger.info(`[${correlationId}] ✅ Iglesia creada y perfil de usuario actualizado. ID: ${nuevaIglesia._id}`);
 
@@ -1038,8 +1043,16 @@ const eliminarIglesia = async (req, res) => {
 
     await Iglesia.findByIdAndDelete(id);
 
+    // Invalidar caché de todos los miembros afectados para evitar estado fantasma
+    if (iglesia.miembros && iglesia.miembros.length > 0) {
+      for (const miembroId of iglesia.miembros) {
+        await invalidateUserCache(miembroId);
+      }
+    }
+
     res.json(formatSuccessResponse('Iglesia eliminada exitosamente'));
   } catch (error) {
+
     console.error('Error al eliminar iglesia:', error);
     res.status(500).json(formatErrorResponse('Error al eliminar iglesia', [error.message]));
   }
@@ -1081,6 +1094,10 @@ const transferirLiderazgo = async (req, res) => {
 
     iglesia.pastorPrincipal = nuevoPastorId;
     await iglesia.save();
+
+    // Invalidar caché de ambos usuarios
+    await invalidateUserCache(req.userId);
+    await invalidateUserCache(nuevoPastorId);
 
     res.json(formatSuccessResponse('Liderazgo transferido exitosamente'));
   } catch (error) {

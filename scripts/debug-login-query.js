@@ -18,7 +18,9 @@ async function debugQuery() {
   try {
     console.log(`📡 [DEBUG] Conectando a MongoDB para probar query de email: ${email}...`);
     const startConn = Date.now();
-    await mongoose.connect(uri);
+    // Limpiar URI si tiene opciones duplicadas (bug común con Mongoose options)
+    const sanitizedUri = uri.split('?')[0] + '?' + [...new Set(uri.split('?')[1]?.split('&') || [])].join('&');
+    await mongoose.connect(sanitizedUri);
     console.log(`✅ [DEBUG] Conectado en ${Date.now() - startConn}ms`);
 
     console.log(`🔍 [DEBUG] Buscando usuario (con .select('+password'))...`);

@@ -84,6 +84,16 @@ class RedisService {
         if (!this.isConnected) return null;
         return await this.client.zscore(key, member);
     }
+
+    async del(key) {
+        if (!this.isConnected) return 0;
+        return await this.client.del(key);
+    }
+
+    async exists(key) {
+        if (!this.isConnected) return 0;
+        return await this.client.exists(key);
+    }
 }
 
 module.exports = new RedisService();

@@ -56,8 +56,13 @@ app.get('/metrics', async (req, res) => {
 
 // Middleware para trackear tiempo de respuesta de la API
 app.use((req, res, next) => {
+  const start = process.hrtime();
   const end = metrics.startTimer();
   res.on('finish', () => {
+    const duration = process.hrtime(start);
+    const ms = (duration[0] * 1000 + duration[1] / 1e6).toFixed(2);
+    res.set('X-Response-Time', `${ms}ms`);
+    
     end({
       method: req.method,
       route: req.route?.path || req.path,
@@ -217,11 +222,13 @@ app.use(globalErrorHandler);
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Configuración de conexión con opciones de robustez
+// Configuración de conexión con opciones de robustez y alto rendimiento
 const options = {
   autoIndex: process.env.NODE_ENV !== 'production',
   connectTimeoutMS: 10000,
   socketTimeoutMS: 45000,
+  maxPoolSize: 50,   // Soportar alta concurrencia sin colas (~10x default)
+  minPoolSize: 10,   // Pool caliente siempre listo
 };
 
 /**

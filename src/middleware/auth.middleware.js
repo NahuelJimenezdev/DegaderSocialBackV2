@@ -1,18 +1,17 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
+const cacheService = require('../services/cache.service');
+const logger = require('../config/logger');
 
 /**
  * Calcular días restantes de suspensión
  */
 const calcularDiasRestantes = (fechaFin) => {
-  if (!fechaFin) return null; // Suspensión permanente
-
+  if (!fechaFin) return null;
   const ahora = new Date();
   const fin = new Date(fechaFin);
   const diff = fin - ahora;
-
-  if (diff <= 0) return 0; // Suspensión ya expiró
-
+  if (diff <= 0) return 0;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 };
 
@@ -24,7 +23,6 @@ const checkSuspended = (req, res, next) => {
 
   // 1. Bloqueo TOTAL para usuarios eliminados
   if (user.seguridad?.estadoCuenta === 'eliminado') {
-    console.log('⛔ checkSuspended - Acceso denegado: Usuario ELIMINADO');
     return res.status(403).json({
       success: false,
       message: 'Cuenta eliminada permanentemente. Contacte a soporte si cree que es un error.',
@@ -34,34 +32,22 @@ const checkSuspended = (req, res, next) => {
 
   // 2. Bloqueo PARCIAL para suspendidos/inactivos
   if (user.seguridad?.estadoCuenta === 'suspendido' || user.seguridad?.estadoCuenta === 'inactivo') {
-    console.log('⚠️ checkSuspended - Usuario suspendido detectado');
-    console.log('⚠️ checkSuspended - URL completa:', req.url);
-    console.log('⚠️ checkSuspended - Path:', req.path);
-    console.log('⚠️ checkSuspended - OriginalUrl:', req.originalUrl);
-
-    //Rutas permitidas para usuarios suspendidos
     const allowedRoutes = [
       /^\/api\/auth\/logout$/,
       /^\/api\/auth\/me$/,
       /^\/api\/auth\/suspension-info$/,
       /^\/api\/notificaciones$/,
-      /^\/api\/notificaciones\/[a-fA-F0-9]{24}$/,  // ID de notificación
-      /^\/api\/notificaciones\/[a-fA-F0-9]{24}\/read$/,  // Marcar como leída
-      // Rutas de tickets (para apelaciones)
-      /^\/api\/tickets$/,  // Crear y listar tickets
-      /^\/api\/tickets\/[a-fA-F0-9]{24}$/,  // Ver ticket específico
-      /^\/api\/tickets\/[a-fA-F0-9]{24}\/responses$/  // Responder a ticket
+      /^\/api\/notificaciones\/[a-fA-F0-9]{24}$/,
+      /^\/api\/notificaciones\/[a-fA-F0-9]{24}\/read$/,
+      /^\/api\/tickets$/,
+      /^\/api\/tickets\/[a-fA-F0-9]{24}$/,
+      /^\/api\/tickets\/[a-fA-F0-9]{24}\/responses$/
     ];
 
-    // Usar req.originalUrl que contiene el path completo
-    const urlToCheck = req.originalUrl.split('?')[0]; // Remover query params
+    const urlToCheck = req.originalUrl.split('?')[0];
     const isAllowed = allowedRoutes.some(pattern => pattern.test(urlToCheck));
 
-    console.log('⚠️ checkSuspended - Checking:', urlToCheck);
-    console.log('⚠️ checkSuspended - Is allowed?:', isAllowed);
-
     if (!isAllowed) {
-      console.log(`❌ checkSuspended - Ruta no permitida: ${urlToCheck}`);
       return res.status(403).json({
         success: false,
         message: 'Cuenta suspendida',
@@ -76,80 +62,113 @@ const checkSuspended = (req, res, next) => {
       });
     }
 
-    // Marcar request como suspendido para filtros posteriores
     req.userSuspended = true;
-    console.log(`✅ checkSuspended - Ruta permitida para usuario suspendido: ${urlToCheck}`);
   }
 
   next();
 };
 
 /**
- * Middleware para verificar el token JWT
+ * Cargar usuario desde Mongo y guardar en cache.
+ * Siempre usa .select('-password -firebase').lean() para mínimo overhead.
+ */
+async function loadUserFromMongo(userId) {
+  const user = await User.findById(userId)
+    .select('-password -firebase')
+    .lean();
+  if (user) {
+    await cacheService.setUser(userId, user);
+  }
+  return user;
+}
+
+/**
+ * ============================================================
+ * Middleware principal de autenticación — Híbrido JWT + Redis
+ * ============================================================
+ *
+ * Flujo:
+ *  1. Verificar JWT
+ *  2. Extraer userId + v (version) del payload
+ *  3. Buscar en Redis cache (user:{userId})
+ *     - HIT válido (versiones coinciden) → req.user = cached → next()
+ *     - HIT inválido (versión JWT ≠ cache) → invalidar cache → ir a Mongo
+ *     - MISS → ir a Mongo → cachear → next()
+ *  4. Fallback: si Redis falla → Mongo directo (auth nunca se rompe)
+ *  5. Si Mongo falla → 401
  */
 const authenticate = async (req, res, next) => {
   try {
-    console.log(`🔐 authenticate - Procesando: ${req.method} ${req.originalUrl}`);
-    console.log('🔐 authenticate - Headers:', req.headers.authorization ? 'Token presente' : 'NO TOKEN');
-    console.log('🔐 authenticate - Content-Type:', req.headers['content-type']);
-    console.log('🔐 authenticate - Body:', JSON.stringify(req.body));
-
-    // Obtener token del header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ authenticate - Token no proporcionado');
-      return res.status(401).json({
-        success: false,
-        message: 'Token no proporcionado'
-      });
+      return res.status(401).json({ success: false, message: 'Token no proporcionado' });
     }
 
-    const token = authHeader.substring(7); // Remover 'Bearer '
+    const token = authHeader.substring(7);
 
-    // Verificar token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ authenticate - Token decodificado, userId:', decoded.userId);
+    // 1. Verificar JWT
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ success: false, message: 'Token expirado' });
+      }
+      return res.status(401).json({ success: false, message: 'Token inválido' });
+    }
 
-    // Buscar usuario
-    const user = await User.findById(decoded.userId);
+    const userId = decoded.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Token inválido: falta userId' });
+    }
 
+    const jwtVersion = decoded.v ?? null;
+
+    let user = null;
+
+    // 2. Intentar cache Redis
+    try {
+      const cached = await cacheService.getUser(userId);
+
+      if (cached) {
+        const cacheVersion = cached.__v ?? null;
+
+        // Validar consistencia de versión
+        if (jwtVersion !== null && cacheVersion !== null && jwtVersion !== cacheVersion) {
+          logger.info(`[AUTH-CACHE] ⚠️  Version mismatch for ${userId} — JWT:${jwtVersion} Cache:${cacheVersion} → invalidating`);
+          await cacheService.invalidateUser(userId);
+          // Forzar carga desde Mongo abajo
+        } else {
+          logger.info(`[AUTH-CACHE] ✅ HIT for ${userId}`);
+          user = cached;
+        }
+      } else {
+        logger.info(`[AUTH-CACHE] ❌ MISS for ${userId} — loading from Mongo`);
+      }
+    } catch (redisErr) {
+      // Redis falla → continuar sin cache (fallback a Mongo)
+      logger.warn(`[AUTH-CACHE] Redis error (fallback to Mongo): ${redisErr.message}`);
+    }
+
+    // 3. Si no hay usuario del cache, cargar desde Mongo
     if (!user) {
-      console.log('❌ authenticate - Usuario no encontrado en DB');
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
+      user = await loadUserFromMongo(userId);
+
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
+      }
     }
 
-    console.log('✅ authenticate - Usuario autenticado:', user._id);
-    // Agregar usuario al request
+    // 4. Asignar al request (misma interfaz que antes)
     req.user = user;
     req.userId = user._id;
 
-    // Verificar suspensión con acceso limitado
     return checkSuspended(req, res, next);
+
   } catch (error) {
-    console.log('❌ authenticate - Error:', error.message);
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token inválido'
-      });
-    }
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token expirado'
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Error al verificar autenticación',
-      error: error.message
-    });
+    logger.error(`[AUTH] Error inesperado: ${error.message}`);
+    return res.status(500).json({ success: false, message: 'Error al verificar autenticación' });
   }
 };
 
@@ -185,38 +204,38 @@ const isModerator = (req, res, next) => {
 const optionalAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId);
-
-      if (user && (user.seguridad?.estadoCuenta === 'activo' || !user.seguridad?.estadoCuenta)) {
-        req.user = user;
-        req.userId = user._id;
+      const userId = decoded.userId;
+      if (userId) {
+        let user = await cacheService.getUser(userId);
+        if (!user) {
+          user = await User.findById(userId).select('-password -firebase').lean();
+          if (user) await cacheService.setUser(userId, user);
+        }
+        if (user && (user.seguridad?.estadoCuenta === 'activo' || !user.seguridad?.estadoCuenta)) {
+          req.user = user;
+          req.userId = user._id;
+        }
       }
     }
-
     next();
-  } catch (error) {
-    // Continuar sin autenticación
+  } catch {
     next();
   }
 };
 
 /**
  * Middleware para verificar rol Trust & Safety
- * Permite: moderador o usuarios con permiso moderarContenido
  */
 const isTrustAndSafety = (req, res, next) => {
-  // Verificar múltiples fuentes de permisos de moderación
   const isModeratorRole = req.user.seguridad?.rolSistema === 'moderador';
   const isFounder = req.user.seguridad?.rolSistema === 'Founder';
-  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com'; // FIX: Acceso por email
+  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com';
   const hasModeratorPermission = req.user.seguridad?.permisos?.moderarContenido === true;
   const hasNewRolField = req.user.rol === 'moderador' || req.user.rol === 'admin';
 
-  // Permitir acceso si cumple cualquiera de estas condiciones
   if (!isModeratorRole && !hasModeratorPermission && !isFounder && !hasNewRolField && !isFounderEmail) {
     return res.status(403).json({
       success: false,
@@ -230,7 +249,7 @@ const isTrustAndSafety = (req, res, next) => {
  * Middleware para verificar rol Founder
  */
 const isFounder = (req, res, next) => {
-  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com'; // FIX: Acceso por email
+  const isFounderEmail = req.user.email === 'founderdegader@degadersocial.com';
   if (req.user.seguridad?.rolSistema !== 'Founder' && !isFounderEmail) {
     return res.status(403).json({
       success: false,

@@ -5,11 +5,16 @@ const { validateRegisterData, formatErrorResponse, formatSuccessResponse } = req
 const { sendWelcomeEmail } = require('../services/emailService');
 
 /**
- * Generar JWT token
+ * Generar JWT token enriquecido con role y versión para cache de auth
+ * @param {Object} user - Documento del usuario (debe tener _id, seguridad.rolSistema, __v)
  */
-const generateToken = (userId) => {
+const generateToken = (user) => {
   return jwt.sign(
-    { userId },
+    {
+      userId: user._id.toString(),
+      role: user.seguridad?.rolSistema || 'usuario',
+      v: user.__v ?? 0
+    },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -152,7 +157,7 @@ const register = async (req, res) => {
     sendWelcomeEmail(user).catch(err => console.error('📧 [EMAIL] Error enviando bienvenida:', err));
 
     // Generar token
-    const token = generateToken(user._id);
+    const token = generateToken(user);
 
     // Remover password de la respuesta
     const userResponse = user.toObject();
@@ -265,7 +270,7 @@ const login = async (req, res) => {
 
     // Generar token
     console.log('🎫 Generando token JWT...');
-    const token = generateToken(user._id);
+    const token = generateToken(user);
     console.log('✅ Token generado');
 
     // Remover password de la respuesta

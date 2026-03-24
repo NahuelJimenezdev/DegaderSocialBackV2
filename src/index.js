@@ -54,15 +54,10 @@ app.get('/metrics', async (req, res) => {
   res.end(await metrics.getMetrics());
 });
 
-// Middleware para trackear tiempo de respuesta de la API
+// Middleware para trackear tiempo de respuesta de la API (Prometheus Metrics)
 app.use((req, res, next) => {
-  const start = process.hrtime();
   const end = metrics.startTimer();
   res.on('finish', () => {
-    const duration = process.hrtime(start);
-    const ms = (duration[0] * 1000 + duration[1] / 1e6).toFixed(2);
-    res.set('X-Response-Time', `${ms}ms`);
-    
     end({
       method: req.method,
       route: req.route?.path || req.path,

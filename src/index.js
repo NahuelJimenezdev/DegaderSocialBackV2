@@ -148,7 +148,9 @@ const searchRoutes = require('./routes/search.routes');
 const folderRoutes = require('./routes/folder.routes');
 const meetingRoutes = require('./routes/meeting.routes.js');
 const fundacionRoutes = require('./routes/fundacion.routes');
-const iglesiaRoutes = require('./routes/iglesia.routes');
+const churchRoutes = require('./routes/iglesia.routes');
+const healthRoutes = require('./routes/health.routes');
+const Iglesia = require('./models/Iglesia.model');
 const adRoutes = require('./routes/ad.routes');
 const favoritosRoutes = require('./routes/favoritos.routes');
 const reportRoutes = require('./routes/report.routes');
@@ -190,6 +192,7 @@ app.use('/api/amistades', amistadCompatRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/grupos', groupRoutes);
 app.use('/api/notificaciones', notificationRoutes);
+app.use('/health', healthRoutes);
 app.use('/api/conversaciones', conversationRoutes);
 app.use('/api/buscar', searchRoutes);
 app.use('/api/folders', folderRoutes);
@@ -230,12 +233,38 @@ const options = {
   socketTimeoutMS: 45000,
 };
 
+/**
+ * Inicialización Autónoma de Infraestructura
+ */
+const initializeInfrastructure = async () => {
+    try {
+        logger.info('🤖 Iniciando Auto-Blindaje de Infraestructura...');
+
+        // 1. Sincronización de Índices
+        const result = await Iglesia.syncIndexes();
+        logger.info('✅ Índices de Iglesia sincronizados automáticamente:', result);
+
+        // 2. Verificación de Salud Inicial
+        if (redisService.isConnected) {
+            logger.info('✅ Redis está disponible para Idempotencia.');
+        } else {
+            logger.warn('⚠️ Redis no disponible al inicio. Se usará Fallback de Memoria para Idempotencia.');
+        }
+
+    } catch (error) {
+        logger.error('❌ Error crítico en inicialización autónoma:', error.message);
+    }
+};
+
 mongoose.connect(uri, options)
-  .then(() => {
+  .then(async () => {
     console.log('✅ Conectado a MongoDB');
 
     // Conectar a Redis
     redisService.connect();
+
+    // Inicializar Infraestructura Autónoma
+    await initializeInfrastructure();
 
     // Inicializar Socket.IO después de la DB para evitar MongoNotConnectedError
     socketService.initialize(io);

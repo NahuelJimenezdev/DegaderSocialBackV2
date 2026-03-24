@@ -20,13 +20,27 @@ class RedisService {
             });
 
             this.client.on('connect', () => {
+                logger.info('🔌 Conectando a Redis...');
+            });
+
+            this.client.on('ready', () => {
                 this.isConnected = true;
-                console.log('✅ Conectado a Redis');
+                logger.info('✅ Redis está LISTO');
             });
 
             this.client.on('error', (err) => {
                 this.isConnected = false;
-                console.error('❌ Error en Redis:', err.message);
+                logger.error(`❌ Error en Redis: ${err.message}`);
+            });
+
+            this.client.on('reconnecting', () => {
+                this.isConnected = false;
+                logger.warn('🔄 Reconectando a Redis...');
+            });
+
+            this.client.on('end', () => {
+                this.isConnected = false;
+                logger.error('🛑 Conexión a Redis finalizada');
             });
 
         } catch (error) {

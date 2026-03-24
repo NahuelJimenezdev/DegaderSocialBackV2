@@ -1,6 +1,6 @@
 {
   "name": "degadersocialbackv2",
-  "version": "1.29.3",
+  "version": "1.30.0",
   "main": "index.js",
   "scripts": {
     "start": "node src/index.js",

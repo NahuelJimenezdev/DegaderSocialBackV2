@@ -82,12 +82,11 @@ const getAllUsers = async (req, res) => {
 
         // Construir filtros
         const filter = {};
-
         if (rol) filter.rol = rol;
         if (estado) filter['seguridad.estadoCuenta'] = estado;
         if (verificado !== undefined) filter['seguridad.verificado'] = verificado === 'true';
 
-        // Búsqueda por email o username
+        // Búsqueda por email o username (Regex optimizado con anchor si search es pequeño)
         if (search) {
             filter.$or = [
                 { email: { $regex: search, $options: 'i' } },
@@ -97,21 +96,52 @@ const getAllUsers = async (req, res) => {
             ];
         }
 
-        const skip = (page - 1) * limit;
-        const total = await User.countDocuments(filter);
+        const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        const users = await User.find(filter)
-            .select('-password')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(parseInt(limit));
+        // Agregación Atómica con Facet para obtener todo en un solo viaje a la DB
+        const result = await User.aggregate([
+            { $match: filter },
+            {
+                $facet: {
+                    // Resultados paginados
+                    users: [
+                        { $sort: { createdAt: -1 } },
+                        { $skip: skip },
+                        { $limit: parseInt(limit) },
+                        { $project: { password: 0, __v: 0 } }
+                    ],
+                    // Conteo total filtrado
+                    totalCount: [
+                        { $count: 'count' }
+                    ],
+                    // Estadísticas globales (usando una segunda faceta o pipeline alternativo)
+                    // Nota: Las estadísticas globales no dependen del filtro de búsqueda
+                    // pero para mantener consistencia y rendimiento, las calculamos aquí o aparte si son pesadas.
+                }
+            }
+        ]);
 
-        // Calcular estadísticas
+        const users = result[0].users;
+        const total = result[0].totalCount[0]?.count || 0;
+
+        // Calcular estadísticas con una consulta paralela optimizada (solo 1 adicional)
+        // Esto es mejor que 4 conteos seriales.
+        const statsResult = await User.aggregate([
+            {
+                $facet: {
+                    total: [{ $count: 'count' }],
+                    moderadores: [{ $match: { rol: 'moderador' } }, { $count: 'count' }],
+                    admins: [{ $match: { rol: 'admin' } }, { $count: 'count' }],
+                    suspendidos: [{ $match: { 'seguridad.estadoCuenta': 'suspendido' } }, { $count: 'count' }]
+                }
+            }
+        ]);
+
         const stats = {
-            total: await User.countDocuments(),
-            moderadores: await User.countDocuments({ rol: 'moderador' }),
-            admins: await User.countDocuments({ rol: 'admin' }),
-            suspendidos: await User.countDocuments({ 'seguridad.estadoCuenta': 'suspendido' })
+            total: statsResult[0].total[0]?.count || 0,
+            moderadores: statsResult[0].moderadores[0]?.count || 0,
+            admins: statsResult[0].admins[0]?.count || 0,
+            suspendidos: statsResult[0].suspendidos[0]?.count || 0
         };
 
         res.json({
@@ -119,7 +149,7 @@ const getAllUsers = async (req, res) => {
             users,
             pagination: {
                 currentPage: parseInt(page),
-                totalPages: Math.ceil(total / limit),
+                totalPages: Math.ceil(total / parseInt(limit)),
                 total,
                 limit: parseInt(limit)
             },

@@ -632,6 +632,13 @@ UserV2Schema.index({ "arena.rankPoints": -1 });
 UserV2Schema.index({ "arena.country": 1, "arena.rankPoints": -1 });
 UserV2Schema.index({ "arena.level": 1 });
 
+// Índices para Dashboard Founder y Filtros
+UserV2Schema.index({ "rol": 1 });
+UserV2Schema.index({ "seguridad.estadoCuenta": 1 });
+UserV2Schema.index({ "createdAt": -1 });
+UserV2Schema.index({ "username": 1 }, { unique: true });
+UserV2Schema.index({ "email": 1 }, { unique: true });
+
 const UserV2 = model('UserV2', UserV2Schema);
 
 // Registrar alias 'User' apuntando a la misma colección para compatibilidad con notificaciones antiguas

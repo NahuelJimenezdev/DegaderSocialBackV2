@@ -126,7 +126,18 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       const esGlobal = nivelesGlobales.includes(nivelDirector);
       
       const cargoDirector = director.fundacion?.cargo ? director.fundacion.cargo.trim() : '';
-      const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoDirector);
+    const esDirectorGeneral = [
+      'Director General (Pastor)', 
+      'Director General', 
+      'Sub-Director General', 
+      'secretario Director General', 
+      'secretario Sub-Director General',
+      'Secretario Ejecutivo',
+      'Director Nacional',
+      'Director Regional',
+      'Director Departamental',
+      'Coordinador Municipal'
+    ].includes(cargoDirector);
 
       if (!esGlobal && !esDirectorGeneral && areaDirector) {
         query['fundacion.area'] = areaDirector;

@@ -1,5 +1,6 @@
 const redis = require('../services/redis.service');
 const metrics = require('../infrastructure/metrics/metrics.service');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 /**
  * Sliding Window Rate Limit Middleware
@@ -8,7 +9,7 @@ const distributedRateLimit = ({ maxPerMinute, windowSeconds = 60, type = 'api' }
     return async (req, res, next) => {
         if (!redis.isConnected) return next();
 
-        const identifier = type === 'game' ? (req.user?.id || req.ip) : req.ip;
+        const identifier = type === 'game' ? (req.user?.id || ipKeyGenerator(req)) : ipKeyGenerator(req);
         const key = `arena:ratelimit:${type}:${identifier}`;
         const now = Date.now();
         const windowStart = now - (windowSeconds * 1000);

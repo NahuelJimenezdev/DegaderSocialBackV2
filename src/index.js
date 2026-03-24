@@ -9,7 +9,7 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const logger = require('./config/logger');
 const redisService = require('./services/redis.service');
 const metrics = require('./infrastructure/metrics/metrics.service');
@@ -36,6 +36,7 @@ const limiter = rateLimit({
   max: 1000, // Relaxed limit for development: 1000 requests per 15 minutes
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: (req) => ipKeyGenerator(req),
   message: {
     status: 429,
     error: 'Too many requests, please try again later.'

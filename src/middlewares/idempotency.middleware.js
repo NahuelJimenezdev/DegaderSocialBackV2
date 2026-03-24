@@ -18,15 +18,14 @@ const idempotencia = (prefix = 'idempotency') => {
 
         const idempotencyKey = `${prefix}:${key}:${req.userId || req.ip}`;
 
-        try {
-            let cachedResponse = null;
-
             if (redisService.isConnected) {
                 cachedResponse = await redisService.get(idempotencyKey);
             } else {
-                // FALLBACK: Usar Memoria si Redis falla
+                // FALLBACK: Usar Memoria si Redis falla (MODO DEGRADADO)
                 cachedResponse = memoryCache.get(idempotencyKey);
-                if (cachedResponse) logger.warn(`[Idempotency] 🧠 Usando FALLBACK de MEMORIA para key: ${key}`);
+                if (cachedResponse) {
+                    logger.warn(`[Idempotency] ⚠️ MODO DEGRADADO ACTIVADO: Reutilizando respuesta desde MEMORIA LOCAL para key: ${key}. No apto para clusters distribuidos.`);
+                }
             }
             
             if (cachedResponse) {

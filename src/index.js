@@ -234,27 +234,50 @@ const options = {
 };
 
 /**
- * Inicialización Autónoma de Infraestructura
+ * Inicialización Autónoma de Infraestructura (Safe for Distributed Environments)
  */
+let isReady = false;
+
 const initializeInfrastructure = async () => {
     try {
-        logger.info('🤖 Iniciando Auto-Blindaje de Infraestructura...');
+        logger.info('🌐 Iniciando Verificación de Infraestructura Distribuida...');
 
-        // 1. Sincronización de Índices
-        const result = await Iglesia.syncIndexes();
-        logger.info('✅ Índices de Iglesia sincronizados automáticamente:', result);
+        const collection = mongoose.connection.db.collection('iglesias');
+        const indexes = await collection.indexes();
+        const requiredIndexes = ['idx_church_unique_pastor', 'idx_church_unique_name_city'];
+        const missing = requiredIndexes.filter(name => !indexes.some(idx => idx.name === name));
+
+        if (missing.length > 0) {
+            if (process.env.NODE_ENV === 'production') {
+                logger.error(`❌ CRITICAL: Faltan índices obligatorios en DB: ${missing.join(', ')}`);
+                logger.error('🛑 En modo producción, los índices deben crearse mediante scripts de migración, no automáticamente en caliente.');
+                isReady = false;
+            } else {
+                logger.warn(`🔄 Faltan índices: ${missing.join(', ')}. Sincronizando automáticamente (Modo Dev)...`);
+                await Iglesia.syncIndexes();
+                logger.info('✅ Índices sincronizados automáticamente.');
+                isReady = true;
+            }
+        } else {
+            logger.info('✅ Todos los índices críticos están presentes en la DB.');
+            isReady = true;
+        }
 
         // 2. Verificación de Salud Inicial
         if (redisService.isConnected) {
-            logger.info('✅ Redis está disponible para Idempotencia.');
+            logger.info('✅ Redis está operativo para Idempotencia Distribuida.');
         } else {
-            logger.warn('⚠️ Redis no disponible al inicio. Se usará Fallback de Memoria para Idempotencia.');
+            logger.warn('⚠️ Redis no disponible. Idempotencia en MODO DEGRADADO (Memoria Local).');
         }
 
     } catch (error) {
         logger.error('❌ Error crítico en inicialización autónoma:', error.message);
+        isReady = false;
     }
 };
+
+// Exponer estado de readiness para el health check
+app.set('isReady', () => isReady);
 
 mongoose.connect(uri, options)
   .then(async () => {

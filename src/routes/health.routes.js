@@ -7,50 +7,53 @@ const Iglesia = require('../models/Iglesia.model');
 /**
  * Endpoint de Salud (Autonomous Health Check)
  */
-router.get('/', async (req, res) => {
-    const healthInfo = {
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
+/**
+ * GET /health
+ * Liveness Check: ¿El proceso está vivo?
+ */
+router.get('/', (req, res) => {
+    res.json({
         status: 'ok',
-        services: {
-            database: 'down',
-            redis: 'down',
-            indexes: 'unknown'
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+/**
+ * GET /ready
+ * Readiness Check: ¿La instancia está lista para recibir tráfico?
+ */
+router.get('/ready', async (req, res) => {
+    const isReady = req.app.get('isReady') ? req.app.get('isReady')() : false;
+
+    const readinessInfo = {
+        timestamp: new Date().toISOString(),
+        status: isReady ? 'ok' : 'not_ready',
+        checks: {
+            database: mongoose.connection.readyState === 1 ? 'ok' : 'down',
+            redis: redisService.isConnected ? 'ok' : 'down',
+            indexes: 'pending'
         }
     };
 
     try {
-        // 1. Verificar MongoDB
-        if (mongoose.connection.readyState === 1) {
-            healthInfo.services.database = 'ok';
-        }
-
-        // 2. Verificar Redis
-        healthInfo.services.redis = redisService.isConnected ? 'ok' : 'down';
-
-        // 3. Verificar Índices Críticos
+        // Verificar índices rápidamente
         const collection = mongoose.connection.db.collection('iglesias');
         const indexes = await collection.indexes();
         const hasPastorIndex = indexes.some(idx => idx.name === 'idx_church_unique_pastor');
         const hasNameCityIndex = indexes.some(idx => idx.name === 'idx_church_unique_name_city');
         
-        healthInfo.services.indexes = (hasPastorIndex && hasNameCityIndex) ? 'ok' : 'missing';
+        readinessInfo.checks.indexes = (hasPastorIndex && hasNameCityIndex) ? 'ok' : 'missing';
 
-        // Determinar status global
-        if (healthInfo.services.database !== 'ok' || healthInfo.services.indexes !== 'ok') {
-            healthInfo.status = 'critical';
-            return res.status(500).json(healthInfo);
+        if (isReady && readinessInfo.checks.database === 'ok' && readinessInfo.checks.indexes === 'ok') {
+            return res.json(readinessInfo);
         }
 
-        if (healthInfo.services.redis !== 'ok') {
-            healthInfo.status = 'degraded';
-        }
-
-        res.json(healthInfo);
+        res.status(503).json(readinessInfo);
     } catch (error) {
-        healthInfo.status = 'error';
-        healthInfo.error = error.message;
-        res.status(500).json(healthInfo);
+        readinessInfo.status = 'error';
+        readinessInfo.error = error.message;
+        res.status(500).json(readinessInfo);
     }
 });
 

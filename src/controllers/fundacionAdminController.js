@@ -149,10 +149,11 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     
     const [usuarios, total] = await Promise.all([
       User.find(query)
-        .select('nombres apellidos email social.fotoPerfil fundacion createdAt')
+        .select('nombres apellidos email social.fotoPerfil fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio fundacion.estadoAprobacion fundacion.activo fundacion.fechaAprobacion createdAt')
         .sort({ 'nombres.primero': 1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(parseInt(limit))
+        .lean(),
       User.countDocuments(query)
     ]);
     

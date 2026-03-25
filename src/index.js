@@ -187,12 +187,12 @@ const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${p
 // Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.2)
 const options = {
   autoIndex: false,             // DESACTIVADO: Evita bloqueos y 502 en el arranque con colecciones grandes. Los índices deben crearse manualmente.
-  connectTimeoutMS: 30000,      // Aumentado a 30s para soportar picos de latencia
-  socketTimeoutMS: 60000,       // Aumentado a 60s para operaciones pesadas
-  serverSelectionTimeoutMS: 30000, // Tiempo máximo de espera para seleccionar el servidor de Atlas
+  connectTimeoutMS: 15000,      // 15s para conexión inicial
+  socketTimeoutMS: 30000,       // 30s máximo por query (falla rápido vs colgar 60s)
+  serverSelectionTimeoutMS: 15000, // Tiempo máximo de espera para seleccionar el servidor de Atlas
   heartbeatFrequencyMS: 10000,   // Verificar salud del servidor cada 10s
-  maxPoolSize: 50,              // Soportar alta concurrencia
-  minPoolSize: 10,              // Pool caliente siempre listo
+  maxPoolSize: 10,              // Atlas M0 Free Tier: mantener pool bajo
+  minPoolSize: 2,               // Pool mínimo caliente
 };
 
 /**

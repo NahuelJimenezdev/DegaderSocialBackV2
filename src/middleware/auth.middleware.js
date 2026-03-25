@@ -68,21 +68,41 @@ const checkSuspended = (req, res, next) => {
   next();
 };
 
+// Cola de promesas para evitar consultas duplicadas a Mongo (Thundering Herd)
+const pendingLoads = new Map();
+
 /**
  * Cargar usuario desde Mongo y guardar en cache.
  * Siempre usa .select('-password -firebase').lean() para mínimo overhead.
+ * Implementa deduplicación de consultas simultáneas.
  */
 async function loadUserFromMongo(userId) {
-  const user = await User.findById(userId)
-    .select('-password -firebase')
-    .lean();
-  if (user) {
-    // Inyectar virtual 'rol' manualmente para compatibilidad con lean()
-    user.id = user._id?.toString() || userId;
-    user.rol = user.seguridad?.rolSistema || 'usuario';
-    await cacheService.setUser(userId, user);
+  // Si ya hay una consulta en curso para este usuario, esperar a esa
+  if (pendingLoads.has(userId)) {
+    return pendingLoads.get(userId);
   }
-  return user;
+
+  const loadPromise = (async () => {
+    try {
+      const user = await User.findById(userId)
+        .select('-password -firebase')
+        .lean();
+
+      if (user) {
+        // Inyectar virtual 'rol' manualmente para compatibilidad con lean()
+        user.id = user._id?.toString() || userId;
+        user.rol = user.seguridad?.rolSistema || 'usuario';
+        await cacheService.setUser(userId, user);
+      }
+      return user;
+    } finally {
+      // Limpiar la promesa de la cola al terminar (éxito o error)
+      pendingLoads.delete(userId);
+    }
+  })();
+
+  pendingLoads.set(userId, loadPromise);
+  return loadPromise;
 }
 
 /**

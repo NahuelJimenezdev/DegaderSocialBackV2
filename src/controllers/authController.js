@@ -236,54 +236,45 @@ const login = async (req, res) => {
     }
 
     // Verificar contraseña con argon2
+    logger.info(`[LOGIN-AUDIT] 🔑 Verificando password con Argon2...`);
+    const argonStart = Date.now();
     const isPasswordValid = await argon2.verify(authUser.password, password);
+    logger.info(`[LOGIN-AUDIT] 🛡️ Argon2 completado en ${Date.now() - argonStart}ms`);
 
     if (!isPasswordValid) {
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
     }
 
-    // FASE 2: Password válido — ahora sí traer el usuario completo para la respuesta
-    const user = await User.findById(authUser._id).lean();
-
-    // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos
+    // FASE 2: Password válido — ahora sí traer el usuario completo via Driver Directo (Evita cuelgues de Mongoose)
+    logger.info(`[LOGIN-AUDIT] 📦 Cargando perfil completo (Direct Driver)...`);
+    const fullUser = await User.collection.findOne({ _id: authUser._id });
+    
+    // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo
     if (email?.trim()?.toLowerCase() === 'founderdegader@degadersocial.com') {
-      let changed = false;
-
-      if (user.seguridad?.estadoCuenta !== 'activo') {
-        if (!user.seguridad) user.seguridad = {};
-        user.seguridad.estadoCuenta = 'activo';
-        changed = true;
-      }
-      if (user.seguridad?.rolSistema !== 'Founder') {
-        if (!user.seguridad) user.seguridad = {};
-        user.seguridad.rolSistema = 'Founder';
-        changed = true;
-      }
-      if (!user.seguridad?.permisos?.accesoPanelAdmin) {
-        user.seguridad.permisos = {
-          ...user.seguridad?.permisos,
-          crearEventos: true,
-          gestionarUsuarios: true,
-          gestionarFinanzas: true,
-          publicarNoticias: true,
-          accesoPanelAdmin: true,
-          moderarContenido: true
-        };
-        changed = true;
-      }
-
-      if (changed) {
-        await user.save();
-        logger.info('[LOGIN] Auto-repair Founder completado');
+      if (fullUser.seguridad?.estadoCuenta !== 'activo' || fullUser.seguridad?.rolSistema !== 'Founder') {
+         await User.collection.updateOne(
+           { _id: fullUser._id },
+           { $set: { 'seguridad.estadoCuenta': 'activo', 'seguridad.rolSistema': 'Founder' } }
+         );
+         logger.info('[LOGIN-AUDIT] ✅ Auto-repair Founder completado');
       }
     }
 
-    // Generar token (usa authUser que tiene __v y seguridad)
-    const token = generateToken(user);
+    // Generar token
+    const token = generateToken(fullUser);
 
-    // Remover password de la respuesta
-    const userResponse = user.toObject();
+    // Preparar respuesta (Inyectar virtuals manuales ya que no usamos Mongoose hydrate)
+    const userResponse = {
+      ...fullUser,
+      id: fullUser._id.toString(),
+      rol: fullUser.seguridad?.rolSistema || 'usuario',
+      nombreCompleto: `${fullUser.nombres?.primero || ''} ${fullUser.apellidos?.primero || ''}`.trim()
+    };
+    
     delete userResponse.password;
+    delete userResponse.__v;
+
+    logger.info(`[LOGIN-AUDIT] 🏁 Login exitoso para ${email}`);
 
     res.json({
       success: true,

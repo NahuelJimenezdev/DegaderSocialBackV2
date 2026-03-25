@@ -5,6 +5,7 @@ const { enviarNotificacionesJerarquicas } = require('../utils/fundacionNotificat
 const path = require('path');
 const fs = require('fs');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
+const { processFormImages } = require('../utils/storageHelpers');
 /**
  * Obtener todos los usuarios (con paginación)
  * GET /api/usuarios
@@ -694,7 +695,10 @@ const getSavedPosts = async (req, res) => {
 const actualizarDocumentacionFHSYL = async (req, res) => {
   try {
     const userId = req.userId;
-    const documentacionData = req.body;
+    let documentacionData = req.body;
+
+    // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
+    documentacionData = await processFormImages(documentacionData, 'fhsyl');
 
     const user = await User.findById(userId);
     if (!user) {
@@ -741,7 +745,10 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
 const actualizarEntrevistaFundacion = async (req, res) => {
   try {
     const userId = req.userId;
-    const { respuestas } = req.body;
+    let { respuestas } = req.body;
+
+    // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
+    respuestas = await processFormImages(respuestas, 'entrevista');
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
@@ -783,7 +790,11 @@ const actualizarEntrevistaFundacion = async (req, res) => {
 const actualizarHojaDeVida = async (req, res) => {
   try {
     const userId = req.userId;
-    const { datos } = req.body;
+    let { datos } = req.body;
+
+    // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
+    // Además aplica transparencia a firmas si detecta campos con nombre 'firma'
+    datos = await processFormImages(datos, 'hojaDeVida');
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));

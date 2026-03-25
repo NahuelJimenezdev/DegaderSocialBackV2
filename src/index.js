@@ -204,18 +204,17 @@ app.use(globalErrorHandler);
 
 // Conexión a MongoDB
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.2)
 const options = {
-  autoIndex: process.env.NODE_ENV !== 'production',
+  autoIndex: true,              // Habilitado temporalmente para asegurar la creación de índices en producción
   connectTimeoutMS: 30000,      // Aumentado a 30s para soportar picos de latencia
   socketTimeoutMS: 60000,       // Aumentado a 60s para operaciones pesadas
   serverSelectionTimeoutMS: 30000, // Tiempo máximo de espera para seleccionar el servidor de Atlas
   heartbeatFrequencyMS: 10000,   // Verificar salud del servidor cada 10s
   maxPoolSize: 50,              // Soportar alta concurrencia
   minPoolSize: 10,              // Pool caliente siempre listo
-  retryWrites: true,            // Intentar re-escribir ante fallos temporales
 };
 
 /**

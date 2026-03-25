@@ -9,7 +9,10 @@ const {
   obtenerMiEstado,
   getAllSolicitudesAdmin
 } = require('../controllers/fundacionController');
-const { getUsuariosBajoJurisdiccion } = require('../controllers/fundacionAdminController');
+const { 
+  getUsuariosBajoJurisdiccion,
+  getUsuarioJurisdiccionDetalle 
+} = require('../controllers/fundacionAdminController');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
@@ -52,8 +55,14 @@ router.get('/admin/todas-solicitudes', getAllSolicitudesAdmin);
 
 /**
  * GET /api/fundacion/admin/usuarios-jurisdiccion
- * Listar usuarios aceptados bajo jurisdicción del director
+ * Listar usuarios aceptados bajo jurisdicción del director (Optimizado/Ligero)
  */
 router.get('/admin/usuarios-jurisdiccion', getUsuariosBajoJurisdiccion);
+
+/**
+ * GET /api/fundacion/admin/usuario/:targetUserId
+ * Obtener detalle completo para ver formularios/documentos (Bajo Demanda)
+ */
+router.get('/admin/usuario/:targetUserId', getUsuarioJurisdiccionDetalle);
 
 module.exports = router;

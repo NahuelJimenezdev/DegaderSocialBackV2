@@ -179,6 +179,67 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
   }
 };
 
+/**
+ * Obtener detalle completo de un usuario bajo jurisdicción
+ * GET /api/fundacion/admin/usuario/:targetUserId
+ * Se usa para ver los formularios (Hoja de Vida, Entrevista, etc.) bajo demanda
+ */
+const getUsuarioJurisdiccionDetalle = async (req, res) => {
+  try {
+    const directorId = req.userId;
+    const { targetUserId } = req.params;
+
+    // 1. Obtener Director y validar permisos básicos
+    const director = await User.findById(directorId);
+    if (!director || !director.esMiembroFundacion || director.fundacion?.estadoAprobacion !== 'aprobado') {
+      return res.status(403).json(formatErrorResponse('No tienes permisos de acceso'));
+    }
+
+    // 2. Obtener Usuario Objetivo
+    const targetUser = await User.findById(targetUserId).select('-password');
+    if (!targetUser || !targetUser.esMiembroFundacion) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado o no es miembro de la fundación'));
+    }
+
+    // 3. VALIDAR JURISDICCIÓN (Misma lógica que el listado)
+    const esFounder = director.seguridad?.rolSistema === 'Founder';
+    if (!esFounder) {
+      const { nivel: nivelDir, territorio: terrDir, area: areaDir } = director.fundacion || {};
+      const { nivel: nivelTar, territorio: terrTar, area: areaTar } = targetUser.fundacion || {};
+
+      // A. Validación Territorial (País)
+      if (terrDir?.pais && terrTar?.pais && terrDir.pais !== terrTar.pais) {
+         return res.status(403).json(formatErrorResponse('Sin jurisdicción en este país'));
+      }
+
+      // B. Validación de Nivel (No puede ver niveles superiores)
+      const nivelesOrdenados = ["local", "barrial", "municipal", "departamental", "regional", "nacional", "organismo_internacional", "organo_control", "directivo_general"];
+      const idxDir = nivelesOrdenados.indexOf(nivelDir?.toLowerCase());
+      const idxTar = nivelesOrdenados.indexOf(nivelTar?.toLowerCase());
+
+      if (idxDir < idxTar) {
+        return res.status(403).json(formatErrorResponse('No tienes rango suficiente para ver este perfil'));
+      }
+
+      // C. Validación de Área (Si no es Director General/Global)
+      const esDirectorGral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'Secretario Ejecutivo'].includes(director.fundacion?.cargo);
+      const esGlobal = ['directivo_general', 'organo_control', 'organismo_internacional'].includes(nivelDir);
+
+      if (!esGlobal && !esDirectorGral && areaDir !== areaTar) {
+         return res.status(403).json(formatErrorResponse('Solo puedes ver usuarios de tu misma área'));
+      }
+    }
+
+    // Si pasó todas las validaciones, entregar el documento COMPLETO
+    res.json(formatSuccessResponse('Detalle de usuario obtenido', targetUser));
+
+  } catch (error) {
+    logger.error(`[FundacionAdmin] Error detalle: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error al obtener detalle del usuario'));
+  }
+};
+
 module.exports = {
-  getUsuariosBajoJurisdiccion
+  getUsuariosBajoJurisdiccion,
+  getUsuarioJurisdiccionDetalle
 };

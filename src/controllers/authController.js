@@ -317,7 +317,10 @@ const login = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId);
+    // OPTIMIZACIÓN QUIRÚRGICA: Solo traer datos básicos + banderas de estado
+    const user = await User.findById(req.userId)
+      .select('nombres apellidos email username esMiembroFundacion fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio fundacion.estadoAprobacion onboarding seguridad.rolSistema seguridad.versionTerminos seguridad.estadoCuenta personal.fechaNacimiento personal.genero personal.ubicacion social.fotoPerfil social.biografia')
+      .lean();
 
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));

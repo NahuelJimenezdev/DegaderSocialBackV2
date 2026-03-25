@@ -190,8 +190,8 @@ const getUsuarioJurisdiccionDetalle = async (req, res) => {
     const directorId = req.userId;
     const { targetUserId } = req.params;
 
-    // 1. Obtener Director y validar permisos básicos
-    const director = await User.findById(directorId);
+    // 1. Obtener Director y validar permisos básicos (Optimizado: Solo jerarquía)
+    const director = await User.findById(directorId).select('seguridad fundacion esMiembroFundacion').lean();
     if (!director || !director.esMiembroFundacion || director.fundacion?.estadoAprobacion !== 'aprobado') {
       return res.status(403).json(formatErrorResponse('No tienes permisos de acceso'));
     }

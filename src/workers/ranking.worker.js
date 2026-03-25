@@ -87,26 +87,28 @@ async function handleGameResult(data) {
 
     // 2. Si NO es shadowBanned, actualizar rankings en Redis
     if (!isShadowBanned) {
-        const user = await User.findById(userId);
+        // OPTIMIZACIÓN: Solo lo necesario para Arena (Evita fetch de 23KB)
+        const user = await User.findById(userId).select('arena personal.ubicacion');
         if (user) {
-            // Sincronizar país y estado si no están cacheados en arena (Muy importante para Ranking Regional/Provincial)
-            if (!user.arena) user.arena = {}; // Ensure arena object exists
-            if (user.personal?.ubicacion?.pais) {
+            // Sincronizar país y estado si no están cacheados en arena
+            if (!user.arena) user.arena = {}; 
+            
+            let needsSave = false;
+            if (user.personal?.ubicacion?.pais && user.arena.country !== user.personal.ubicacion.pais) {
                 user.arena.country = user.personal.ubicacion.pais;
+                needsSave = true;
             }
-            const userState = user.personal?.ubicacion?.estado;
 
-            // Only save if country/state were updated and need persistence
-            if (user.isModified('arena.country') || user.isModified('arena.state')) {
+            // Only save if country/state were updated
+            if (needsSave) {
                 await user.save();
             }
 
             // Actualizar Redis (Ranking Jerárquico: Global, País, Estado)
             const userCountry = user.arena.country;
-            const rankPoints = Number(user.arena.rankPoints) || 0; // Use existing rankPoints from user document
+            const rankPoints = Number(user.arena.rankPoints) || 0; 
 
-            await rankingService.updateRank(userId, rankPoints, userCountry, userState);
-
+            await rankingService.updateRank(userId, rankPoints, userCountry, user.personal?.ubicacion?.estado);
             metrics.incRankUpdate();
         }
     } else {

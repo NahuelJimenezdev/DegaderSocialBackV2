@@ -254,8 +254,15 @@ const optionalAuth = async (req, res, next) => {
       if (userId) {
         let user = await cacheService.getUser(userId);
         if (!user) {
-          user = await User.findById(userId).select('-password -firebase').lean();
-          if (user) await cacheService.setUser(userId, user);
+          // OPTIMIZACIÓN: Proyección ultra-lite para auth opcional
+          user = await User.findById(userId)
+            .select('seguridad.rolSistema seguridad.estadoCuenta email fundacion.nivel fundacion.area fundacion.territorio')
+            .lean();
+          if (user) {
+            user.id = user._id.toString();
+            user.rol = user.seguridad?.rolSistema || 'usuario';
+            await cacheService.setUser(userId, user);
+          }
         }
         if (user && (user.seguridad?.estadoCuenta === 'activo' || !user.seguridad?.estadoCuenta)) {
           req.user = user;

@@ -31,8 +31,24 @@ async function getUser(userId) {
  */
 async function setUser(userId, userObject) {
     try {
-        // Store sanitized version (no password, no firebase credentials)
-        const { password, firebase, ...safeUser } = userObject;
+        // Store sanitized version (Bare minimum for AUTH logic)
+        // This ensures Redis stays tiny (<0.5KB) regardless of the source object size
+        const safeUser = {
+            _id: userObject._id || userObject.id,
+            email: userObject.email,
+            rol: userObject.rol || userObject.seguridad?.rolSistema,
+            seguridad: {
+                rolSistema: userObject.rol || userObject.seguridad?.rolSistema,
+                estadoCuenta: userObject.seguridad?.estadoCuenta || 'activo',
+                fechaFinSuspension: userObject.seguridad?.fechaFinSuspension
+            },
+            fundacion: {
+                nivel: userObject.fundacion?.nivel,
+                area: userObject.fundacion?.area,
+                territorio: userObject.fundacion?.territorio
+            },
+            __v: userObject.__v
+        };
         await redis.set(cacheKey(userId), safeUser, USER_CACHE_TTL);
     } catch (err) {
         logger.warn(`[AUTH-CACHE] Error writing cache for ${userId}: ${err.message}`);

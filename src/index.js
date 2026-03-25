@@ -187,17 +187,17 @@ const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${p
 // Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.3)
 const options = {
   autoIndex: false,
-  connectTimeoutMS: 10000,
+  connectTimeoutMS: 15000,
   socketTimeoutMS: 20000,
-  serverSelectionTimeoutMS: 10000,
+  serverSelectionTimeoutMS: 15000,
   heartbeatFrequencyMS: 5000,
-  maxPoolSize: 20,
-  minPoolSize: 3,
-  family: 4,                    // FORZAR IPv4: Evita cuelgues de DNS/IPv6 en ciertos VPS
+  maxPoolSize: 10,              // Reducido de 20 a 10 para evitar saturar Atlas M0
+  minPoolSize: 1,               // Mínimo 1 para mantener viva la ruta
+  family: 4,
   retryReads: true,
   retryWrites: true,
-  maxIdleTimeMS: 30000,
-  waitQueueTimeoutMS: 5000,      // No esperar más de 5s en la cola del pool
+  maxIdleTimeMS: 15000,         // Limpiar más rápido conexiones viejas
+  waitQueueTimeoutMS: 8000,     // Esperar un poco más en la cola antes de explotar
 };
 
 /**

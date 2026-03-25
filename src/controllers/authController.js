@@ -189,6 +189,8 @@ const login = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Email y contraseña son obligatorios'));
     }
 
+    logger.info(`[LOGIN-AUDIT] 🚀 Iniciando proceso para email: ${email}`);
+
     // FASE 1: Query rápida vía Driver Directo (Bypasses Mongoose overhead)
     let authUser;
     const MAX_RETRIES = 2;
@@ -196,11 +198,17 @@ const login = async (req, res) => {
     
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        logger.info(`[LOGIN-AUDIT] 🔍 Intentando query Mongo directo (Intento ${attempt})...`);
+        const startTime = Date.now();
+        
         // Usar .collection.findOne bypasses Mongoose hydration/logic (vuela en Atlas M0)
         authUser = await User.collection.findOne(
           { email: email.toLowerCase() },
           { projection: PROJECTION, maxTimeMS: 8000 }
         );
+        
+        const duration = Date.now() - startTime;
+        logger.info(`[LOGIN-AUDIT] ✅ Query completada en ${duration}ms. Encontrado: ${!!authUser}`);
         break;
       } catch (dbError) {
         if (attempt < MAX_RETRIES && (dbError.message?.includes('timed out') || dbError.name === 'MongoNetworkTimeoutError' || dbError.name === 'MongoServerSelectionError')) {

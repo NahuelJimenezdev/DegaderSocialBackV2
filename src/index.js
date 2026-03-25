@@ -263,8 +263,16 @@ const initializeInfrastructure = async () => {
 // Exponer estado de readiness para el health check
 app.set('isReady', () => isReady);
 
+console.log('🔌 Intentando conectar a MongoDB...');
+
+// Heartbeat de diagnóstico para evitar logs vacíos en cuelgues
+const connectionHeartbeat = setInterval(() => {
+    console.log(`⏳ ...esperando respuesta de MongoDB (Estado: ${mongoose.connection.readyState})`);
+}, 5000);
+
 mongoose.connect(uri, options)
   .then(async () => {
+    clearInterval(connectionHeartbeat);
     console.log('✅ Conectado a MongoDB');
 
     // Conectar a Redis

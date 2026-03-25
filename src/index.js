@@ -191,13 +191,13 @@ const options = {
   socketTimeoutMS: 20000,
   serverSelectionTimeoutMS: 15000,
   heartbeatFrequencyMS: 5000,
-  maxPoolSize: 10,              // Reducido de 20 a 10 para evitar saturar Atlas M0
-  minPoolSize: 1,               // Mínimo 1 para mantener viva la ruta
+  maxPoolSize: 25,              // Aumentado para manejar ráfagas de Dashboards
+  minPoolSize: 2,               // Mínimo 2 para redundancia inmediata
   family: 4,
   retryReads: true,
   retryWrites: true,
-  maxIdleTimeMS: 15000,         // Limpiar más rápido conexiones viejas
-  waitQueueTimeoutMS: 8000,     // Esperar un poco más en la cola antes de explotar
+  maxIdleTimeMS: 20000,         // Limpiar más rápido conexiones viejas
+  waitQueueTimeoutMS: 10000,     // 10s máximo en cola antes de fallar
 };
 
 /**

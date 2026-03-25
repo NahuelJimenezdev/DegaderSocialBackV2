@@ -26,7 +26,8 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     } = req.query;
 
     const tDirectorStart = Date.now();
-    const director = await User.findById(directorId);
+    // OPTIMIZACIÓN: Solo traer seguridad y jerarquía del director (Evita 23KB download)
+    const director = await User.findById(directorId).select('seguridad fundacion esMiembroFundacion').lean();
     logger.info(`[Perf] [ID: ${reqStart}] ⏳ findById(director) tardó ${Date.now() - tDirectorStart}ms`);
     
     if (!director || !director.esMiembroFundacion || director.fundacion?.estadoAprobacion !== 'aprobado') {

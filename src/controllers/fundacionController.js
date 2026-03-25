@@ -18,8 +18,8 @@ const solicitarUnirse = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Nivel, área y cargo son obligatorios'));
     }
 
-    // Buscar usuario
-    const user = await User.findById(userId);
+    // Buscar usuario (Optimizado: Solo campos necesarios)
+    const user = await User.findById(userId).select('esMiembroFundacion fundacion.estadoAprobacion fundacion.territorio nombres apellidos').lean();
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
@@ -197,8 +197,11 @@ const listarSolicitudes = async (req, res) => {
   try {
     const userId = req.userId;
 
-    // Obtener usuario actual
-    const currentUser = await User.findById(userId);
+    // Obtener usuario actual (Optimizado: Solo seguridad y jerarquía)
+    const currentUser = await User.findById(userId)
+      .select('seguridad fundacion.nivel fundacion.area fundacion.territorio fundacion.estadoAprobacion esMiembroFundacion')
+      .lean();
+    
     if (!currentUser || !currentUser.esMiembroFundacion || currentUser.fundacion?.estadoAprobacion !== 'aprobado') {
       return res.status(403).json(formatErrorResponse('No tienes permisos para ver solicitudes'));
     }
@@ -272,10 +275,13 @@ const listarSolicitudes = async (req, res) => {
 
 
 
-    // Buscar solicitudes pendientes
+    // Buscar solicitudes pendientes (Optimizado: Proyección quirúrgica)
     const solicitudes = await User.find(query)
       .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio createdAt')
-      .sort({ createdAt: -1 });
+      // Excluir campos pesados (por si acaso query trae el doc entero)
+      .select('-fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
+      .sort({ createdAt: -1 })
+      .lean();
 
 
 
@@ -298,8 +304,8 @@ const aprobarSolicitud = async (req, res) => {
     const aprobadorId = req.userId;
     const { userId } = req.params;
 
-    // Obtener aprobador
-    const aprobador = await User.findById(aprobadorId);
+    // Obtener aprobador (Optimizado: Solo seguridad y jerarquía)
+    const aprobador = await User.findById(aprobadorId).select('seguridad fundacion email').lean();
     if (!aprobador) {
       return res.status(404).json(formatErrorResponse('Aprobador no encontrado'));
     }
@@ -311,8 +317,9 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permisos para aprobar solicitudes'));
     }
 
-    // Obtener solicitante
-    const solicitante = await User.findById(userId);
+    // Obtener solicitante (Optimizado: Excluir binarios/textos pesados)
+    const solicitante = await User.findById(userId)
+      .select('-password -fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas');
     if (!solicitante) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }

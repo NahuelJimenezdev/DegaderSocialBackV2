@@ -189,32 +189,48 @@ const login = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Email y contraseña son obligatorios'));
     }
 
-    // Buscar usuario con retry automático (Atlas M0 puede tener timeouts esporádicos)
-    let user;
+    // FASE 1: Query rápida — solo campos de autenticación (~1KB vs ~23KB del doc completo)
+    let authUser;
     const MAX_RETRIES = 2;
+    const AUTH_FIELDS = '+password email seguridad __v';
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        user = await User.findOne({ email: email.toLowerCase() }).select('+password').maxTimeMS(8000);
-        break; // Query exitosa, salir del loop
+        authUser = await User.findOne({ email: email.toLowerCase() }).select(AUTH_FIELDS).maxTimeMS(8000);
+        break;
       } catch (dbError) {
         if (attempt < MAX_RETRIES && (dbError.message?.includes('timed out') || dbError.name === 'MongoNetworkTimeoutError' || dbError.name === 'MongoServerSelectionError')) {
           logger.warn(`[LOGIN] ⚠️ Intento ${attempt}/${MAX_RETRIES} falló (timeout), reintentando en 1s...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;
         }
-        throw dbError; // Último intento o error no-retry → propagar
+        throw dbError;
       }
     }
 
-    if (!user) {
+    if (!authUser) {
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
     }
 
     // Validar que el usuario tiene password hasheado (protección contra datos corruptos)
-    if (!user.password) {
-      logger.error(`[LOGIN] Usuario ${user._id} sin password hasheado — posible dato corrupto`);
+    if (!authUser.password) {
+      logger.error(`[LOGIN] Usuario ${authUser._id} sin password hasheado — posible dato corrupto`);
       return res.status(500).json(formatErrorResponse('Error en la cuenta. Contacte a soporte.'));
     }
+
+    // Verificar si el usuario está eliminado (antes de verificar password para ahorrar CPU de argon2)
+    if (authUser.seguridad?.estadoCuenta === 'eliminado') {
+      return res.status(403).json(formatErrorResponse('Tu cuenta ha sido eliminada permanentemente.'));
+    }
+
+    // Verificar contraseña con argon2
+    const isPasswordValid = await argon2.verify(authUser.password, password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
+    }
+
+    // FASE 2: Password válido — ahora sí traer el usuario completo para la respuesta
+    const user = await User.findById(authUser._id);
 
     // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos
     if (email?.trim()?.toLowerCase() === 'founderdegader@degadersocial.com') {
@@ -249,19 +265,7 @@ const login = async (req, res) => {
       }
     }
 
-    // Verificar si el usuario está eliminado
-    if (user.seguridad?.estadoCuenta === 'eliminado') {
-      return res.status(403).json(formatErrorResponse('Tu cuenta ha sido eliminada permanentemente.'));
-    }
-
-    // Verificar contraseña con argon2
-    const isPasswordValid = await argon2.verify(user.password, password);
-
-    if (!isPasswordValid) {
-      return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
-    }
-
-    // Generar token
+    // Generar token (usa authUser que tiene __v y seguridad)
     const token = generateToken(user);
 
     // Remover password de la respuesta

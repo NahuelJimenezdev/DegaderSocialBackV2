@@ -189,8 +189,22 @@ const login = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Email y contraseña son obligatorios'));
     }
 
-    // Buscar usuario (incluir password)
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    // Buscar usuario con retry automático (Atlas M0 puede tener timeouts esporádicos)
+    let user;
+    const MAX_RETRIES = 2;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        user = await User.findOne({ email: email.toLowerCase() }).select('+password').maxTimeMS(8000);
+        break; // Query exitosa, salir del loop
+      } catch (dbError) {
+        if (attempt < MAX_RETRIES && (dbError.message?.includes('timed out') || dbError.name === 'MongoNetworkTimeoutError' || dbError.name === 'MongoServerSelectionError')) {
+          logger.warn(`[LOGIN] ⚠️ Intento ${attempt}/${MAX_RETRIES} falló (timeout), reintentando en 1s...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+        throw dbError; // Último intento o error no-retry → propagar
+      }
+    }
 
     if (!user) {
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));

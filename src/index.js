@@ -184,15 +184,18 @@ app.use(globalErrorHandler);
 const DB_CLUSTER = process.env.DB_CLUSTER || 'cluster0.pcisms7.mongodb.net';
 const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@${DB_CLUSTER}/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.2)
+// Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.3)
 const options = {
-  autoIndex: false,             // DESACTIVADO: Evita bloqueos y 502 en el arranque con colecciones grandes. Los índices deben crearse manualmente.
-  connectTimeoutMS: 15000,      // 15s para conexión inicial
-  socketTimeoutMS: 30000,       // 30s máximo por query (falla rápido vs colgar 60s)
-  serverSelectionTimeoutMS: 15000, // Tiempo máximo de espera para seleccionar el servidor de Atlas
-  heartbeatFrequencyMS: 10000,   // Verificar salud del servidor cada 10s
-  maxPoolSize: 10,              // Atlas M0 Free Tier: mantener pool bajo
-  minPoolSize: 2,               // Pool mínimo caliente
+  autoIndex: false,             // DESACTIVADO: Evita bloqueos y 502 en el arranque con colecciones grandes
+  connectTimeoutMS: 10000,      // 10s conexión inicial (failover más rápido)
+  socketTimeoutMS: 20000,       // 20s máximo por query (era 30s, ahora falla más rápido)
+  serverSelectionTimeoutMS: 10000, // 10s para seleccionar servidor (failover más rápido)
+  heartbeatFrequencyMS: 5000,   // 5s heartbeat (detectar nodos caídos el doble de rápido)
+  maxPoolSize: 20,              // Pool más grande para absorber picos de login
+  minPoolSize: 3,               // 3 conexiones calientes siempre disponibles
+  retryReads: true,             // Reintentar lecturas automáticamente en otro nodo
+  retryWrites: true,            // Reintentar escrituras automáticamente en otro nodo
+  maxIdleTimeMS: 30000,         // Cerrar conexiones idle después de 30s (evita zombis)
 };
 
 /**

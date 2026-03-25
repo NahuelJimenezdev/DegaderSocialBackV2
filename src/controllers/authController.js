@@ -264,7 +264,12 @@ const login = async (req, res) => {
     });
   } catch (error) {
     logger.error(`[LOGIN] Error: ${error.message}`);
-    res.status(500).json(formatErrorResponse('Error al iniciar sesión', [error.message]));
+    // Diferenciar timeout de red de otros errores
+    if (error.name === 'MongoNetworkTimeoutError' || error.name === 'MongoServerSelectionError' || error.message?.includes('timed out')) {
+      logger.error('[LOGIN] ⚠️ Timeout de base de datos detectado — la DB podría estar bajo presión');
+      return res.status(503).json(formatErrorResponse('Servicio temporalmente no disponible. Intenta nuevamente en unos segundos.'));
+    }
+    res.status(500).json(formatErrorResponse('Error al iniciar sesión'));
   }
 };
 

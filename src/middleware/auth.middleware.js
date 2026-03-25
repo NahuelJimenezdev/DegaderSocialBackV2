@@ -195,7 +195,8 @@ const authenticate = async (req, res, next) => {
  * Middleware para verificar si el usuario es administrador
  */
 const isAdmin = (req, res, next) => {
-  if (req.user.rol !== 'admin') {
+  const rol = req.user?.rol || req.user?.seguridad?.rolSistema;
+  if (rol !== 'admin' && rol !== 'Founder') {
     return res.status(403).json({
       success: false,
       message: 'Acceso denegado. Se requieren permisos de administrador'
@@ -208,7 +209,8 @@ const isAdmin = (req, res, next) => {
  * Middleware para verificar si el usuario es moderador o administrador
  */
 const isModerator = (req, res, next) => {
-  if (req.user.rol !== 'admin' && req.user.rol !== 'moderador') {
+  const rol = req.user?.rol || req.user?.seguridad?.rolSistema;
+  if (rol !== 'admin' && rol !== 'Founder' && rol !== 'moderador') {
     return res.status(403).json({
       success: false,
       message: 'Acceso denegado. Se requieren permisos de moderador'

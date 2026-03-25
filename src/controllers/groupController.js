@@ -1,5 +1,6 @@
 const Group = require('../models/Group.model');
 const GroupMessage = require('../models/GroupMessage.model');
+const Notification = require('../models/Notification.model');
 const notificationService = require('../services/notification.service');
 const User = require('../models/User.model');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
@@ -1243,6 +1244,12 @@ const approveJoinRequest = async (req, res) => {
 
     await group.save();
 
+    // Marcar notificación original como accionada (preciso por grupo + emisor)
+    Notification.updateOne(
+      { tipo: 'solicitud_grupo', 'referencia.id': group._id, emisor: requestId },
+      { $set: { accionada: true, estadoAccion: 'aceptado', read: true } }
+    ).catch(err => console.error('⚠️ [APPROVE] Error marcando notif:', err.message));
+
     // 🏆 Notificación V1 PRO
     notificationService.notify({
       receptorId: requestId,
@@ -1300,6 +1307,12 @@ const rejectJoinRequest = async (req, res) => {
     group.solicitudesPendientes.splice(requestIndex, 1);
 
     await group.save();
+
+    // Marcar notificación original como accionada (preciso por grupo + emisor)
+    Notification.updateOne(
+      { tipo: 'solicitud_grupo', 'referencia.id': group._id, emisor: requestId },
+      { $set: { accionada: true, estadoAccion: 'rechazado', read: true } }
+    ).catch(err => console.error('⚠️ [REJECT] Error marcando notif:', err.message));
 
     // 🏆 Notificación V1 PRO
     notificationService.notify({

@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const Notification = require('../models/Notification.model');
 const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
 const logger = require('../config/logger');
@@ -386,6 +387,12 @@ const aprobarSolicitud = async (req, res) => {
 
     await solicitante.save();
 
+    // Marcar notificaciones originales de solicitud como accionadas
+    Notification.updateMany(
+      { tipo: 'solicitud_fundacion', 'referencia.id': solicitante._id },
+      { $set: { accionada: true, estadoAccion: 'aceptado', read: true } }
+    ).catch(err => logger.error(`[Fundación] Error marcando notif aprobada: ${err.message}`));
+
     // ========================================
     // 🔔 CREAR NOTIFICACIÓN PARA EL SOLICITANTE
     // ========================================
@@ -546,6 +553,12 @@ const rechazarSolicitud = async (req, res) => {
     solicitante.fundacion.motivoRechazo = motivo || 'No especificado';
 
     await solicitante.save();
+
+    // Marcar notificaciones originales de solicitud como accionadas
+    Notification.updateMany(
+      { tipo: 'solicitud_fundacion', 'referencia.id': solicitante._id },
+      { $set: { accionada: true, estadoAccion: 'rechazado', read: true } }
+    ).catch(err => logger.error(`[Fundación] Error marcando notif rechazada: ${err.message}`));
 
     // ========================================
     // 🔔 CREAR NOTIFICACIÓN PARA EL SOLICITANTE

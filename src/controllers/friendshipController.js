@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Friendship = require('../models/Friendship.model');
 const User = require('../models/User.model');
+const Notification = require('../models/Notification.model');
 const notificationService = require('../services/notification.service'); // Nuevo Servicio V1 PRO
 const logger = require('../config/logger');
 const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
@@ -52,13 +53,13 @@ const sendFriendRequest = async (req, res) => {
 
     await friendship.save();
 
-    // 🏆 Notificación V1 PRO Centralizada
+    // 🏆 Notificación V1 PRO Centralizada — referencia precisa al Friendship
     notificationService.notify({
       receptorId: receptorId,
       emisorId: req.userId,
       tipo: 'solicitud_amistad',
       contenido: 'te envió una solicitud de amistad',
-      referencia: { tipo: 'UserV2', id: req.userId }
+      referencia: { tipo: 'Friendship', id: friendship._id }
     }).catch(err => logger.error(`⚠️ [REQUEST] Error notificación service: ${err.message}`));
 
     await friendship.populate([
@@ -159,12 +160,18 @@ const acceptFriendRequest = async (req, res) => {
     logger.info(`✅ [ACCEPT FRIEND] Transacción Exitosa: ${id}`);
 
     // --- Efectos Secundarios (Desacoplados) ---
+    // Marcar notificación original como accionada (preciso por referencia.id)
+    Notification.updateOne(
+      { tipo: 'solicitud_amistad', 'referencia.id': friendship._id },
+      { $set: { accionada: true, estadoAccion: 'aceptado', read: true } }
+    ).catch(err => logger.error(`⚠️ [ACCEPT FRIEND] Error marcando notif: ${err.message}`));
+
     notificationService.notify({
       receptorId: friendship.solicitante,
       emisorId: req.userId,
       tipo: 'amistad_aceptada',
       contenido: 'aceptó tu solicitud de amistad',
-      referencia: { tipo: 'UserV2', id: req.userId }
+      referencia: { tipo: 'Friendship', id: friendship._id }
     }).catch(err => logger.error(`⚠️ [ACCEPT FRIEND] Error v1-pro-notify: ${err.message}`));
 
     // Emisión de estados adicionales para sincronización de UI
@@ -209,6 +216,12 @@ const rejectFriendRequest = async (req, res) => {
 
     friendship.estado = 'rechazada';
     await friendship.save();
+
+    // Marcar notificación original como accionada
+    Notification.updateOne(
+      { tipo: 'solicitud_amistad', 'referencia.id': friendship._id },
+      { $set: { accionada: true, estadoAccion: 'rechazado', read: true } }
+    ).catch(err => logger.error(`⚠️ [REJECT FRIEND] Error marcando notif: ${err.message}`));
 
     // Notificación de rechazo (Socket simple, opcional persistencia)
     if (global.emitNotification) {

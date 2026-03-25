@@ -26,7 +26,7 @@ const notificationSchema = new mongoose.Schema({
   referencia: {
     tipo: {
       type: String,
-      enum: ['Post', 'UserV2', 'Group', 'Conversation', 'Comment', 'Meeting', 'Iglesia', 'Ad', 'Ministerio']
+      enum: ['Post', 'UserV2', 'Group', 'Conversation', 'Comment', 'Meeting', 'Iglesia', 'Ad', 'Ministerio', 'Friendship']
     },
     id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -47,6 +47,15 @@ const notificationSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     index: true
+  },
+  accionada: {
+    type: Boolean,
+    default: false
+  },
+  estadoAccion: {
+    type: String,
+    enum: ['pendiente', 'aceptado', 'rechazado'],
+    default: 'pendiente'
   },
   fechaLeida: {
     type: Date
@@ -80,6 +89,8 @@ notificationSchema.virtual('leida').get(function() {
 notificationSchema.index({ receptor: 1, read: 1, createdAt: -1 });
 notificationSchema.index({ receptor: 1, tipo: 1 });
 notificationSchema.index({ 'metadata.eventId': 1 }, { unique: true, sparse: true }); // Idempotencia Estricta
+notificationSchema.index({ accionada: 1 });
+notificationSchema.index({ 'referencia.id': 1 });
 
 // Métodos
 notificationSchema.methods.marcarLeida = function () {

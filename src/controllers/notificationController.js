@@ -76,9 +76,12 @@ const getAllNotifications = async (req, res) => {
       return {
         _id: n._id,
         tipo: n.tipo === 'solicitud_amistad' || n.tipo === 'amistad_aceptada' ? 'amistad' : n.tipo,
+        tipoOriginal: n.tipo,
         mensaje: mensaje,
         contenido: n.contenido, // Agregar contenido original
-        leido: n.leida,
+        leido: n.leida || n.read,
+        accionada: n.accionada || false,
+        estadoAccion: n.estadoAccion || 'pendiente',
         fechaCreacion: n.createdAt,
         createdAt: n.createdAt, // Agregar createdAt para compatibilidad
         // Incluir objeto emisor completo para notificaciones de iglesia
@@ -177,9 +180,12 @@ const getUnreadNotifications = async (req, res) => {
       return {
         _id: n._id,
         tipo: n.tipo === 'solicitud_amistad' || n.tipo === 'amistad_aceptada' ? 'amistad' : n.tipo,
+        tipoOriginal: n.tipo,
         mensaje: mensaje,
         contenido: n.contenido, // Agregar contenido original
-        leido: n.leida,
+        leido: n.leida || n.read,
+        accionada: n.accionada || false,
+        estadoAccion: n.estadoAccion || 'pendiente',
         fechaCreacion: n.createdAt,
         createdAt: n.createdAt, // Agregar createdAt para compatibilidad
         // Incluir objeto emisor completo para notificaciones de iglesia

@@ -617,18 +617,22 @@ const gestionarSolicitud = async (req, res) => {
       }
     }
 
-    // 🧹 Limpieza: Eliminar la notificación original de solicitud para que no vuelva a aparecer
+    // 🔒 Marcar notificación original como accionada (consistencia con todos los controllers)
     try {
       const Notification = require('../models/Notification.model');
-      await Notification.deleteMany({
-        receptor: req.userId,
-        emisor: userId,
-        tipo: 'solicitud_iglesia',
-        'referencia.id': iglesia._id
-      });
-      console.log('🧹 gestionarSolicitud - Notificación original eliminada');
+      const estadoAccion = accion === 'aprobar' ? 'aceptado' : 'rechazado';
+      await Notification.updateMany(
+        {
+          receptor: req.userId,
+          emisor: userId,
+          tipo: 'solicitud_iglesia',
+          'referencia.id': iglesia._id
+        },
+        { $set: { accionada: true, estadoAccion, read: true } }
+      );
+      console.log(`🔒 gestionarSolicitud - Notificación original marcada como ${estadoAccion}`);
     } catch (cleanupErr) {
-      console.warn('⚠️ Error limpiando notificación original:', cleanupErr);
+      console.warn('⚠️ Error marcando notificación original:', cleanupErr);
     }
 
     console.log('🔄 gestionarSolicitud - Guardando iglesia...');

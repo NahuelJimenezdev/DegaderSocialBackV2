@@ -186,16 +186,18 @@ const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${p
 
 // Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.3)
 const options = {
-  autoIndex: false,             // DESACTIVADO: Evita bloqueos y 502 en el arranque con colecciones grandes
-  connectTimeoutMS: 10000,      // 10s conexión inicial (failover más rápido)
-  socketTimeoutMS: 20000,       // 20s máximo por query (era 30s, ahora falla más rápido)
-  serverSelectionTimeoutMS: 10000, // 10s para seleccionar servidor (failover más rápido)
-  heartbeatFrequencyMS: 5000,   // 5s heartbeat (detectar nodos caídos el doble de rápido)
-  maxPoolSize: 20,              // Pool más grande para absorber picos de login
-  minPoolSize: 3,               // 3 conexiones calientes siempre disponibles
-  retryReads: true,             // Reintentar lecturas automáticamente en otro nodo
-  retryWrites: true,            // Reintentar escrituras automáticamente en otro nodo
-  maxIdleTimeMS: 30000,         // Cerrar conexiones idle después de 30s (evita zombis)
+  autoIndex: false,
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 20000,
+  serverSelectionTimeoutMS: 10000,
+  heartbeatFrequencyMS: 5000,
+  maxPoolSize: 20,
+  minPoolSize: 3,
+  family: 4,                    // FORZAR IPv4: Evita cuelgues de DNS/IPv6 en ciertos VPS
+  retryReads: true,
+  retryWrites: true,
+  maxIdleTimeMS: 30000,
+  waitQueueTimeoutMS: 5000,      // No esperar más de 5s en la cola del pool
 };
 
 /**

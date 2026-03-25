@@ -1,5 +1,6 @@
 const User = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
+const logger = require('../config/logger');
 
 /**
  * Obtener usuarios bajo la jurisdicción del director actual
@@ -51,8 +52,7 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       'fundacion.estadoAprobacion': 'aprobado'
     };
 
-    // --- FILTROS OPCIONALES SOLICITADOS DEL FRONTEND ---
-    // (Iniciamos con todos, pero la jerarquía sobreescribirá lo que no tengan permiso de saltarse)
+    // --- FILTROS OPCIONALES DEL FRONTEND ---
     if (nivel) query['fundacion.nivel'] = nivel;
     if (area) query['fundacion.area'] = area;
     if (cargo) query['fundacion.cargo'] = cargo;
@@ -75,20 +75,18 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       });
     }
 
-    // --- RESTRICCIONES DURAS (INQUEBRANTABLES) ---
+    // --- RESTRICCIONES JERÁRQUICAS ---
     if (!esFounder) {
-      // 1. RESTRICCIÓN DE JERARQUÍA (NIVEL)
+      // 1. RESTRICCIÓN DE NIVEL
       if (nivel) {
-        // Validar que el nivel que se busca esté en su rango visible
         if (!nivelesVisibles.includes(nivel.toLowerCase())) {
-          query['fundacion.nivel'] = 'BLOQUEADO'; // Fuerza que la DB regrese vacío
+          query['fundacion.nivel'] = 'BLOQUEADO';
         }
       } else {
         query['fundacion.nivel'] = { $in: nivelesVisibles };
       }
 
       // 2. RESTRICCIÓN DE TERRITORIO
-      // El país es inamovible
       if (territorio?.pais) {
         query['fundacion.territorio.pais'] = { $regex: new RegExp(`^${territorio.pais.trim()}$`, 'i') };
       }
@@ -115,25 +113,23 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
         query['fundacion.territorio.municipio'] = { $regex: new RegExp(`^${territorio.municipio.trim()}$`, 'i') };
       }
 
-      // 3. RESTRICCIÓN DE ÁREA / SECCIÓN
-      // Los Directores Generales y Globales no tienen límite de área. Los demás (incluyendo Secretarios)
-      // solo pueden observar usuarios de SU MISMA área.
+      // 3. RESTRICCIÓN DE ÁREA
       const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
       const esGlobal = nivelesGlobales.includes(nivelDirector);
       
       const cargoDirector = director.fundacion?.cargo ? director.fundacion.cargo.trim() : '';
-    const esDirectorGeneral = [
-      'Director General (Pastor)', 
-      'Director General', 
-      'Sub-Director General', 
-      'secretario Director General', 
-      'secretario Sub-Director General',
-      'Secretario Ejecutivo',
-      'Director Nacional',
-      'Director Regional',
-      'Director Departamental',
-      'Coordinador Municipal'
-    ].includes(cargoDirector);
+      const esDirectorGeneral = [
+        'Director General (Pastor)', 
+        'Director General', 
+        'Sub-Director General', 
+        'secretario Director General', 
+        'secretario Sub-Director General',
+        'Secretario Ejecutivo',
+        'Director Nacional',
+        'Director Regional',
+        'Director Departamental',
+        'Coordinador Municipal'
+      ].includes(cargoDirector);
 
       if (!esGlobal && !esDirectorGeneral && areaDirector) {
         query['fundacion.area'] = areaDirector;
@@ -142,13 +138,14 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const usuarios = await User.find(query)
-      .select('nombres apellidos email social.fotoPerfil fundacion createdAt')
-      .sort({ 'nombres.primero': 1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await User.countDocuments(query);
+    const [usuarios, total] = await Promise.all([
+      User.find(query)
+        .select('nombres apellidos email social.fotoPerfil fundacion createdAt')
+        .sort({ 'nombres.primero': 1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(query)
+    ]);
 
     res.json(formatSuccessResponse('Usuarios obtenidos exitosamente', {
       usuarios,
@@ -161,7 +158,7 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     }));
 
   } catch (error) {
-    console.error('Error al obtener usuarios bajo jurisdicción:', error);
+    logger.error(`[FundacionAdmin] Error obtener usuarios: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al obtener usuarios', [error.message]));
   }
 };

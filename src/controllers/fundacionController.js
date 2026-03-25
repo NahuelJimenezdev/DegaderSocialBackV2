@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
+const logger = require('../config/logger');
 
 /**
  * Solicitar unirse a la Fundación Sol y Luna
@@ -63,17 +64,15 @@ const solicitarUnirse = async (req, res) => {
       const nivelSolicitante = nivel?.toLowerCase();
       const indexNivelSolicitante = nivelesOrdenados.indexOf(nivelSolicitante);
 
-      console.log(`🔍 [Fundación] Nivel Solicitante: ${nivelSolicitante} (Index: ${indexNivelSolicitante})`);
-
       if (indexNivelSolicitante === -1) {
-        console.warn(`⚠️ [Fundación] Nivel desconocido o inválido: ${nivel}. No se notificarán superiores.`);
+        logger.warn(`[Fundación] Nivel desconocido: ${nivel}. No se notificarán superiores.`);
       }
 
       // 2. Algoritmo de Escalada (Buscar superior inmediato)
       let notificacionEnviada = false;
       const territorioSolicitante = user.fundacion.territorio || {};
 
-      console.log('🔍 [Fundación] Iniciando búsqueda de superior inmediato...');
+
 
       // Iterar hacia arriba buscando el primer nivel que tenga usuarios
       // Solo iterar si el índice es válido (>= 0)
@@ -117,38 +116,23 @@ const solicitarUnirse = async (req, res) => {
         const areaRegex = new RegExp(areaCore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
         query.$or = [
-          { 'fundacion.area': { $regex: areaRegex } }, // Coincidencia inteligente del núcleo
-          { 'fundacion.cargo': { $in: ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'] } }, // Director General (Territorial variantes)
-          { 'seguridad.rolSistema': 'Founder' }, // Founder
-          { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } } // Niveles globales
+          { 'fundacion.area': { $regex: areaRegex } },
+          { 'fundacion.cargo': { $in: ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'] } },
+          { 'seguridad.rolSistema': 'Founder' },
+          { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } }
         ];
-
-        console.log(`🔎 [Fundación] Solicitante Area: "${area}" -> Core: "${areaCore}" -> Regex: ${areaRegex}`);
-        console.log(`🔎 [Fundación] Query Completa:`, JSON.stringify(query, null, 2));
 
         // Buscar usuarios en este nivel
         const superiores = await User.find(query).select('_id nombres apellidos fundacion seguridad');
 
-        console.log(`🔎 [Fundación] Resultados encontrados: ${superiores.length}`);
-        superiores.forEach(s => {
-          const matchArea = areaRegex.test(s.fundacion.area);
-          console.log(`   - Usuario: ${s.nombres.primero} ${s.apellidos.primero}`);
-          console.log(`     Área: "${s.fundacion.area}" (Match Regex? ${matchArea})`);
-          console.log(`     Cargo: "${s.fundacion.cargo}"`);
-          console.log(`     RolSis: "${s.seguridad?.rolSistema}"`);
-          console.log(`     Nivel: "${s.fundacion.nivel}"`);
-        });
-
         if (superiores.length > 0) {
-          console.log(`✅ [Fundación] Superior encontrado en nivel ${nivelObjetivo}: ${superiores.length} usuarios.`);
-
-          // 🏆 Notificaciones V1 PRO (Concurrentes)
+          // Notificaciones concurrentes
           const notificationPromises = superiores.map(superior => 
             notificationService.notify({
               receptorId: superior._id,
               emisorId: userId,
               tipo: 'solicitud_fundacion',
-              contenido: `${user.nombres.primero} ${user.apellidos.primero} solicita unirse a la fundación como ${cargo} en ${area}`,
+              contenido: `${user.nombres?.primero || ''} ${user.apellidos?.primero || ''} solicita unirse a la fundación como ${cargo} en ${area}`,
               referencia: { tipo: 'UserV2', id: user._id },
               metadata: {
                 nivel, area, subArea, programa, cargo, territorio
@@ -159,15 +143,14 @@ const solicitarUnirse = async (req, res) => {
           await Promise.allSettled(notificationPromises);
           notificacionEnviada = true;
 
-          // ✋ DETENER ESCALADA (Ya se notificó al nivel inmediato superior)
+          // Detener escalada
           break;
         }
       }
 
-      // 3. Fallback: Notificar al Founder si nadie más recibió
+      // Fallback: Notificar al Founder si nadie más recibió
       if (!notificacionEnviada) {
-        console.warn('⚠️ [Fundación] No se encontraron superiores jerárquicos en la cadena.');
-        console.log('🚨 Escalando notificación directamente al Founder.');
+        logger.warn('[Fundación] Sin superiores jerárquicos, escalando al Founder.');
 
         if (founders.length > 0) {
           const founderPromises = founders.map(founder => 
@@ -175,7 +158,7 @@ const solicitarUnirse = async (req, res) => {
               receptorId: founder._id,
               emisorId: userId,
               tipo: 'solicitud_fundacion',
-              contenido: `[ESCALADA] Solicitud de ${user.nombres.primero} (${cargo} - ${nivel}) sin superior inmediato. Requiere atención.`,
+              contenido: `[ESCALADA] Solicitud de ${user.nombres?.primero || ''} (${cargo} - ${nivel}) sin superior inmediato.`,
               metadata: {
                 nivel, area, subArea, programa, cargo, territorio,
                 esEscalada: true
@@ -184,12 +167,11 @@ const solicitarUnirse = async (req, res) => {
           );
 
           await Promise.allSettled(founderPromises);
-          console.log('✅ Notificación escalada al Founder exitosamente.');
         }
       }
 
     } catch (notifError) {
-      console.error('❌ Error creando notificaciones:', notifError);
+      logger.error(`[Fundación] Error notificaciones: ${notifError.message}`);
       // No fallar la solicitud si falla la notificación
     }
 
@@ -200,7 +182,7 @@ const solicitarUnirse = async (req, res) => {
       cargo
     }));
   } catch (error) {
-    console.error('Error al solicitar unirse a fundación:', error);
+    logger.error(`[Fundación] Error solicitar: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al procesar solicitud', [error.message]));
   }
 };
@@ -240,13 +222,7 @@ const listarSolicitudes = async (req, res) => {
     // Al ser orden ascendente, puede aprobar a los que tengan índice MENOR
     const nivelesAprobables = nivelesOrdenados.slice(0, indexNivelActual);
 
-    console.log('🔍 [Fundación] Usuario actual:', {
-      id: currentUser._id,
-      nivel: nivelActual,
-      area: currentUser.fundacion.area,
-      rolSistema: currentUser.seguridad?.rolSistema
-    });
-    console.log('📋 [Fundación] Niveles aprobables:', nivelesAprobables);
+
 
     // Construir query de búsqueda
     const query = {
@@ -293,21 +269,21 @@ const listarSolicitudes = async (req, res) => {
       query['fundacion.territorio.municipio'] = { $regex: new RegExp(`^${currentUser.fundacion.territorio.municipio.trim()}$`, 'i') };
     }
 
-    console.log('🔎 [Fundación] Query de búsqueda:', JSON.stringify(query, null, 2));
+
 
     // Buscar solicitudes pendientes
     const solicitudes = await User.find(query)
       .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio createdAt')
       .sort({ createdAt: -1 });
 
-    console.log(`✅ [Fundación] Solicitudes encontradas: ${solicitudes.length}`);
+
 
     res.json(formatSuccessResponse('Solicitudes pendientes obtenidas', {
       total: solicitudes.length,
       solicitudes
     }));
   } catch (error) {
-    console.error('Error al listar solicitudes:', error);
+    logger.error(`[Fundación] Error listar solicitudes: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al obtener solicitudes', [error.message]));
   }
 };
@@ -356,11 +332,10 @@ const aprobarSolicitud = async (req, res) => {
     // Si el aprobador es Founder, tiene el nivel máximo posible
     let indexAprobador = esFounder ? 999 : nivelesOrdenados.indexOf(aprobador.fundacion?.nivel?.toLowerCase());
 
-    console.log(`🛡️ [Aprobación] Validando Jerarquía: Aprobador (${aprobador.fundacion?.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
+
 
     // Debe ser estrictamente superior (índice mayor)
     if (indexAprobador <= indexSolicitante && !esFounder) {
-      console.warn(`⛔ [Aprobación] 403 Jerarquía Insuficiente`);
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden aprobar'));
     }
 
@@ -371,13 +346,12 @@ const aprobarSolicitud = async (req, res) => {
     const cargoAprobador = aprobador.fundacion?.cargo ? aprobador.fundacion.cargo.trim() : '';
     const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoAprobador);
 
-    console.log(`🛡️ [Aprobación] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);
+
 
     // Verificar misma área (con lógica Smart Match para ignorar prefijos) y TERRITORIO (excepto globales/founder)
     if (!esFounder && !esGlobal) {
       // Si llegamos aquí no es Founder ni Global, por lo tanto aprobador.fundacion DEBE existir
       if (!aprobador.fundacion) {
-        console.error('❌ [Aprobación] Error crítico: El aprobador no tiene perfil de fundación pero no es Global/Founder');
         return res.status(403).json(formatErrorResponse('No tienes perfil de fundación para aprobar'));
       }
 
@@ -391,7 +365,6 @@ const aprobarSolicitud = async (req, res) => {
 
         // Comparar núcleos (Case Insensitive)
         if (areaAprobadorCore.toLowerCase() !== areaSolicitanteCore.toLowerCase()) {
-          console.warn(`⛔ [Aprobación] 403 Área Diferente. AprobCore: "${areaAprobadorCore}" vs SolicCore: "${areaSolicitanteCore}"`);
           return res.status(403).json(formatErrorResponse('Solo puedes aprobar solicitudes de tu misma área'));
         }
       }
@@ -401,7 +374,6 @@ const aprobarSolicitud = async (req, res) => {
       const paisSolicitante = solicitante.fundacion.territorio?.pais;
 
       if (paisAprobador && paisSolicitante && paisAprobador !== paisSolicitante) {
-        console.warn(`⛔ [Aprobación] 403 País Diferente`);
         return res.status(403).json(formatErrorResponse('No tienes jurisdicción en este territorio (País diferente)'));
       }
     }
@@ -427,11 +399,9 @@ const aprobarSolicitud = async (req, res) => {
           nivel: solicitante.fundacion.nivel,
           area: solicitante.fundacion.area,
           cargo: solicitante.fundacion.cargo,
-          aprobadoPor: aprobador.nombreCompleto || `${aprobador.nombres.primero} ${aprobador.apellidos.primero}`
+          aprobadoPor: aprobador.nombreCompleto || `${aprobador.nombres?.primero || ''} ${aprobador.apellidos?.primero || ''}`
         }
-      }).catch(err => console.error('⚠️ [Fundación] Error notification:', err.message));
-
-      console.log('✅ [Fundación] Notificación de aprobación enviada (V1 PRO)');
+      }).catch(err => logger.error(`[Fundación] Error notification: ${err.message}`));
 
       // 📡 BROADCAST: Actualizar listas en tiempo real
       const io = req.app.get('io');
@@ -457,7 +427,7 @@ const aprobarSolicitud = async (req, res) => {
         });
       }
     } catch (notifError) {
-      console.error('❌ Error gestionando notificación de aprobación:', notifError);
+      logger.error(`[Fundación] Error notif aprobación: ${notifError.message}`);
     }
 
     res.json(formatSuccessResponse('Solicitud aprobada exitosamente', {
@@ -470,7 +440,7 @@ const aprobarSolicitud = async (req, res) => {
       }
     }));
   } catch (error) {
-    console.error('Error al aprobar solicitud:', error);
+    logger.error(`[Fundación] Error aprobar: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al aprobar solicitud', [error.message]));
   }
 };
@@ -520,10 +490,9 @@ const rechazarSolicitud = async (req, res) => {
     // Si el aprobador es Founder, tiene el nivel máximo posible
     let indexAprobador = esFounder ? 999 : nivelesOrdenados.indexOf(aprobador.fundacion?.nivel?.toLowerCase());
 
-    console.log(`🛡️ [Rechazo] Validando Jerarquía: Aprobador (${aprobador.fundacion?.nivel}:${indexAprobador}) vs Solicitante (${solicitante.fundacion.nivel}:${indexSolicitante})`);
+
 
     if (indexAprobador <= indexSolicitante && !esFounder) {
-      console.warn(`⛔ [Rechazo] 403 Jerarquía Insuficiente`);
       return res.status(403).json(formatErrorResponse('Solo superiores jerárquicos pueden rechazar'));
     }
 
@@ -534,12 +503,11 @@ const rechazarSolicitud = async (req, res) => {
     const cargoAprobador = aprobador.fundacion?.cargo ? aprobador.fundacion.cargo.trim() : '';
     const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoAprobador);
 
-    console.log(`🛡️ [Rechazo] Validando Área/Territorio: Global=${esGlobal}, Founder=${esFounder}, DG=${esDirectorGeneral}`);
+
 
     if (!esFounder && !esGlobal) {
       // Si llegamos aquí no es Founder ni Global, por lo tanto aprobador.fundacion DEBE existir
       if (!aprobador.fundacion) {
-        console.error('❌ [Rechazo] Error crítico: El rechazador no tiene perfil de fundación pero no es Global/Founder');
         return res.status(403).json(formatErrorResponse('No tienes perfil de fundación para rechazar'));
       }
 
@@ -554,7 +522,6 @@ const rechazarSolicitud = async (req, res) => {
 
         // Comparar núcleos (Case Insensitive)
         if (areaAprobadorCore.toLowerCase() !== areaSolicitanteCore.toLowerCase()) {
-          console.warn(`⛔ [Rechazo] 403 Área Diferente. AprobCore: "${areaAprobadorCore}" vs SolicCore: "${areaSolicitanteCore}"`);
           return res.status(403).json(formatErrorResponse('Solo puedes rechazar solicitudes de tu misma área'));
         }
       }
@@ -564,7 +531,6 @@ const rechazarSolicitud = async (req, res) => {
       const paisSolicitante = solicitante.fundacion.territorio?.pais;
 
       if (paisAprobador && paisSolicitante && paisAprobador !== paisSolicitante) {
-        console.warn(`⛔ [Rechazo] 403 País Diferente`);
         return res.status(403).json(formatErrorResponse('No tienes jurisdicción en este territorio (País diferente)'));
       }
     }
@@ -593,9 +559,7 @@ const rechazarSolicitud = async (req, res) => {
           cargo: solicitante.fundacion.cargo,
           motivo: solicitante.fundacion.motivoRechazo
         }
-      }).catch(err => console.error('⚠️ [Fundación] Error notification:', err.message));
-
-      console.log('✅ [Fundación] Notificación de rechazo enviada (V1 PRO)');
+      }).catch(err => logger.error(`[Fundación] Error notification rechazo: ${err.message}`));
 
       // 📡 BROADCAST: Actualizar listas en tiempo real
       const io = req.app.get('io');
@@ -622,7 +586,7 @@ const rechazarSolicitud = async (req, res) => {
         });
       }
     } catch (notifError) {
-      console.error('❌ Error gestionando notificación de rechazo:', notifError);
+      logger.error(`[Fundación] Error notif rechazo: ${notifError.message}`);
     }
 
     res.json(formatSuccessResponse('Solicitud rechazada', {
@@ -633,7 +597,7 @@ const rechazarSolicitud = async (req, res) => {
       motivo: solicitante.fundacion.motivoRechazo
     }));
   } catch (error) {
-    console.error('Error al rechazar solicitud:', error);
+    logger.error(`[Fundación] Error rechazar: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al rechazar solicitud', [error.message]));
   }
 };
@@ -707,7 +671,7 @@ const getAllSolicitudesAdmin = async (req, res) => {
     }));
 
   } catch (error) {
-    console.error('Error al obtener todas las solicitudes:', error);
+    logger.error(`[Fundación] Error obtener solicitudes: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al obtener solicitudes', [error.message]));
   }
 };
@@ -746,7 +710,7 @@ const obtenerMiEstado = async (req, res) => {
       motivoRechazo: user.fundacion.motivoRechazo
     }));
   } catch (error) {
-    console.error('Error al obtener estado:', error);
+    logger.error(`[Fundación] Error obtener estado: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al obtener estado', [error.message]));
   }
 };

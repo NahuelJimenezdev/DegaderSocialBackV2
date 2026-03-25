@@ -189,13 +189,18 @@ const login = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Email y contraseña son obligatorios'));
     }
 
-    // FASE 1: Query rápida — solo campos de autenticación (~1KB vs ~23KB del doc completo)
+    // FASE 1: Query rápida vía Driver Directo (Bypasses Mongoose overhead)
     let authUser;
     const MAX_RETRIES = 2;
-    const AUTH_FIELDS = '+password email seguridad __v';
+    const PROJECTION = { _id: 1, email: 1, seguridad: 1, password: 1, __v: 1 };
+    
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        authUser = await User.findOne({ email: email.toLowerCase() }).select(AUTH_FIELDS).maxTimeMS(8000);
+        // Usar .collection.findOne bypasses Mongoose hydration/logic (vuela en Atlas M0)
+        authUser = await User.collection.findOne(
+          { email: email.toLowerCase() },
+          { projection: PROJECTION, maxTimeMS: 8000 }
+        );
         break;
       } catch (dbError) {
         if (attempt < MAX_RETRIES && (dbError.message?.includes('timed out') || dbError.name === 'MongoNetworkTimeoutError' || dbError.name === 'MongoServerSelectionError')) {
@@ -230,7 +235,7 @@ const login = async (req, res) => {
     }
 
     // FASE 2: Password válido — ahora sí traer el usuario completo para la respuesta
-    const user = await User.findById(authUser._id);
+    const user = await User.findById(authUser._id).lean();
 
     // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos
     if (email?.trim()?.toLowerCase() === 'founderdegader@degadersocial.com') {

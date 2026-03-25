@@ -11,13 +11,9 @@ services:
       - uploads_data:/usr/src/app/uploads
     depends_on:
       - redis
-    extra_hosts:
-      - "ac-3ts5dmr-shard-00-00.pcisms7.mongodb.net:89.192.9.237"
-      - "ac-3ts5dmr-shard-00-01.pcisms7.mongodb.net:89.192.9.252"
-      - "ac-3ts5dmr-shard-00-02.pcisms7.mongodb.net:89.192.10.9"
-      - "mtm-aws-useast1-6-m0-16-shard-00-00.yfopi.mongodb.net:89.192.9.237"
-      - "mtm-aws-useast1-6-m0-16-shard-00-01.yfopi.mongodb.net:89.192.9.252"
-      - "mtm-aws-useast1-6-m0-16-shard-00-02.yfopi.mongodb.net:89.192.10.9"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - degader-network
 

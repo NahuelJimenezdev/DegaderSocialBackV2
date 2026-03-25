@@ -84,8 +84,10 @@ async function loadUserFromMongo(userId) {
 
   const loadPromise = (async () => {
     try {
+      // PROYECCIÓN MÍNIMA: Solo lo necesario para validar ROL y ESTADO
+      // Esto reduce el peso de 23KB a <0.2KB por cada petición de assets/API
       const user = await User.findById(userId)
-        .select('-password -firebase')
+        .select('seguridad.rolSistema seguridad.estadoCuenta seguridad.suspensionFin email fundacion.nivel fundacion.area fundacion.territorio')
         .lean();
 
       if (user) {

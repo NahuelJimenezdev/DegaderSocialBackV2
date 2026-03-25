@@ -255,8 +255,12 @@ const login = async (req, res) => {
       "fundacion.documentacionFHSYL.proyectoPsicosocial": 0,
       "fundacion.hojaDeVida.datos": 0, 
       "fundacion.entrevista.respuestas": 0,
+      // Se conservan banderas de estado (completado, activo, onboarding, terminos)
       arena: 0,
-      perfilPublicitario: 0
+      perfilPublicitario: 0,
+      amigos: 0,
+      solicitudesAmistad: 0,
+      grupos: 0
     };
     
     const fullUser = await User.collection.findOne({ _id: authUser._id }, { projection: FULL_PROJECTION });

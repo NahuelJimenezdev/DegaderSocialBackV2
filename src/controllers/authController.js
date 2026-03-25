@@ -258,7 +258,7 @@ const login = async (req, res) => {
       // Se conservan banderas de estado (completado, activo, onboarding, terminos)
       arena: 0,
       perfilPublicitario: 0,
-      amigos: 0,
+      // Se mantienen solo los IDs de relaciones para evitar crash del front (includes)
       solicitudesAmistad: 0,
       grupos: 0
     };
@@ -317,9 +317,9 @@ const login = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    // OPTIMIZACIÓN QUIRÚRGICA: Solo traer datos básicos + banderas de estado
+    // OPTIMIZACIÓN QUIRÚRGICA: Solo traer datos básicos + banderas de estado + arrays de relación (IDs)
     const user = await User.findById(req.userId)
-      .select('nombres apellidos email username esMiembroFundacion fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio fundacion.estadoAprobacion onboarding seguridad.rolSistema seguridad.versionTerminos seguridad.estadoCuenta personal.fechaNacimiento personal.genero personal.ubicacion social.fotoPerfil social.biografia')
+      .select('nombres apellidos email username esMiembroFundacion fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio fundacion.estadoAprobacion onboarding seguridad.rolSistema seguridad.versionTerminos seguridad.estadoCuenta personal.fechaNacimiento personal.genero personal.ubicacion social.fotoPerfil social.biografia amigos savedPosts favoritos usuariosFavoritos')
       .lean();
 
     if (!user) {

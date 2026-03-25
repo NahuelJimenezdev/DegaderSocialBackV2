@@ -304,8 +304,8 @@ const aprobarSolicitud = async (req, res) => {
     const aprobadorId = req.userId;
     const { userId } = req.params;
 
-    // Obtener aprobador (Optimizado: Solo seguridad y jerarquía)
-    const aprobador = await User.findById(aprobadorId).select('seguridad fundacion email').lean();
+    // Obtener aprobador (Optimizado: Solo seguridad, jerarquía e identidad)
+    const aprobador = await User.findById(aprobadorId).select('seguridad fundacion email esMiembroFundacion nombres apellidos').lean();
     if (!aprobador) {
       return res.status(404).json(formatErrorResponse('Aprobador no encontrado'));
     }

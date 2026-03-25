@@ -5,6 +5,7 @@ const notificationService = require('../services/notification.service');
 const Group = require('../models/Group.model');
 const Friendship = require('../models/Friendship.model'); // 🆕 Importar modelo de amistad
 const UserV2 = require('../models/User.model'); // 🆕 Importar modelo de usuario para verificar roles
+const Notification = require('../models/Notification.model'); // 🆕 Importar modelo de notificaciones
 const { validatePostData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 const { processAndUploadImage } = require('../services/imageOptimizationService');

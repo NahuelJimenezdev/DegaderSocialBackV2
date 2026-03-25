@@ -250,11 +250,8 @@ const login = async (req, res) => {
     logger.info(`[LOGIN-AUDIT] 📦 Cargando perfil optimizado (Direct Driver)...`);
     const FULL_PROJECTION = { 
       password: 0, 
-      "fundacion.documentacionFHSYL.testimonioConversion": 0,
-      "fundacion.documentacionFHSYL.llamadoPastoral": 0,
-      "fundacion.documentacionFHSYL.proyectoPsicosocial": 0,
-      "fundacion.hojaDeVida.datos": 0, 
-      "fundacion.entrevista.respuestas": 0,
+      // Las respuestas y textos de la fundación YA NO PESAN porque las imágenes están en Cloudflare R2
+      // Se elimina la exclusión de estos campos para que los formularios en el frontend funcionen y se puedan editar
       // Se conservan banderas de estado (completado, activo, onboarding, terminos)
       arena: 0,
       perfilPublicitario: 0,
@@ -319,7 +316,7 @@ const getProfile = async (req, res) => {
   try {
     // OPTIMIZACIÓN QUIRÚRGICA: Solo traer datos básicos + banderas de estado + arrays de relación (IDs)
     const user = await User.findById(req.userId)
-      .select('nombres apellidos email username esMiembroFundacion fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio fundacion.estadoAprobacion onboarding seguridad.rolSistema seguridad.versionTerminos seguridad.estadoCuenta personal.fechaNacimiento personal.genero personal.ubicacion social.fotoPerfil social.biografia amigos savedPosts favoritos usuariosFavoritos')
+      .select('-password -arena -perfilPublicitario -solicitudesAmistad -grupos')
       .lean();
 
     if (!user) {

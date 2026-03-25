@@ -267,7 +267,14 @@ console.log('🔌 Intentando conectar a MongoDB...');
 
 // Heartbeat de diagnóstico para evitar logs vacíos en cuelgues
 const connectionHeartbeat = setInterval(() => {
-    console.log(`⏳ ...esperando respuesta de MongoDB (Estado: ${mongoose.connection.readyState})`);
+    const state = mongoose.connection.readyState;
+    console.log(`⏳ ...esperando respuesta de MongoDB (Estado: ${state})`);
+    
+    // Si después de 20s sigue en conectando, mostrar info de topología si está disponible
+    if (state === 2 && mongoose.connection.client && mongoose.connection.client.topology) {
+        const topology = mongoose.connection.client.topology.description;
+        console.log(`🔍 Info de Topología: ${topology.type} - Shards detectados: ${topology.servers.size}`);
+    }
 }, 5000);
 
 mongoose.connect(uri, options)

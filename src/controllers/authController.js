@@ -2,6 +2,7 @@ const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 const { validateRegisterData, formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
+const logger = require('../config/logger');
 const { sendWelcomeEmail } = require('../services/emailService');
 
 /**
@@ -87,9 +88,7 @@ const register = async (req, res) => {
     // Generar username único
     const username = await generateUniqueUsername(nombre, apellido);
 
-    console.log('📝 Nombres divididos:', nombresObj);
-    console.log('📝 Apellidos divididos:', apellidosObj);
-    console.log('📝 Username generado:', username);
+
 
     // Lógica especial para el Founder (Super Admin Automático)
     let seguridadConfig = {
@@ -182,61 +181,44 @@ const register = async (req, res) => {
  * POST /api/auth/login
  */
 const login = async (req, res) => {
-  console.log('🔐 ===== INICIO LOGIN =====');
-  console.log('📥 Request recibido:', {
-    method: req.method,
-    url: req.url,
-    headers: req.headers,
-    body: { email: req.body.email, password: '***' }
-  });
-
   try {
     const { email, password } = req.body;
 
     // Validar campos
     if (!email || !password) {
-      console.log('❌ Validación fallida: Campos faltantes');
       return res.status(400).json(formatErrorResponse('Email y contraseña son obligatorios'));
     }
-
-    console.log('🔍 Buscando usuario con email:', email.toLowerCase());
 
     // Buscar usuario (incluir password)
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
     if (!user) {
-      console.log('❌ Usuario no encontrado para email:', email.toLowerCase());
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
     }
 
-    console.log('✅ Usuario encontrado:', {
-      id: user._id,
-      email: user.email,
-      nombre: `${user.nombres.primero} ${user.apellidos.primero}`,
-      rolSistema: user.seguridad?.rolSistema
-    });
+    // Validar que el usuario tiene password hasheado (protección contra datos corruptos)
+    if (!user.password) {
+      logger.error(`[LOGIN] Usuario ${user._id} sin password hasheado — posible dato corrupto`);
+      return res.status(500).json(formatErrorResponse('Error en la cuenta. Contacte a soporte.'));
+    }
 
-    // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos al loguear
-    // Esto corrige problemas si la cuenta fue creada antes de los parches de seguridad o si quedó en estado inválido
+    // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo y permisos correctos
     if (email?.trim()?.toLowerCase() === 'founderdegader@degadersocial.com') {
       let changed = false;
 
       if (user.seguridad?.estadoCuenta !== 'activo') {
-        console.log('👑 [AUTO-FIX] Reactivando cuenta de Founder (estaba: ' + (user.seguridad?.estadoCuenta || 'indefinido') + ')');
         if (!user.seguridad) user.seguridad = {};
         user.seguridad.estadoCuenta = 'activo';
         changed = true;
       }
       if (user.seguridad?.rolSistema !== 'Founder') {
-        console.log('👑 [AUTO-FIX] Reasignando rol Founder');
         if (!user.seguridad) user.seguridad = {};
         user.seguridad.rolSistema = 'Founder';
         changed = true;
       }
-      // Forzar permisos críticos
       if (!user.seguridad?.permisos?.accesoPanelAdmin) {
         user.seguridad.permisos = {
-          ...user.seguridad.permisos,
+          ...user.seguridad?.permisos,
           crearEventos: true,
           gestionarUsuarios: true,
           gestionarFinanzas: true,
@@ -249,38 +231,28 @@ const login = async (req, res) => {
 
       if (changed) {
         await user.save();
-        console.log('👑 [AUTO-FIX] Cuenta Founder reparada exitosamente.');
+        logger.info('[LOGIN] Auto-repair Founder completado');
       }
     }
 
     // Verificar si el usuario está eliminado
     if (user.seguridad?.estadoCuenta === 'eliminado') {
-      console.log('⛔ Usuario ELIMINADO intentó acceder:', email);
       return res.status(403).json(formatErrorResponse('Tu cuenta ha sido eliminada permanentemente.'));
     }
 
     // Verificar contraseña con argon2
-    console.log('🔑 Verificando contraseña...');
     const isPasswordValid = await argon2.verify(user.password, password);
 
     if (!isPasswordValid) {
-      console.log('❌ Contraseña inválida para usuario:', email);
       return res.status(401).json(formatErrorResponse('Credenciales inválidas'));
     }
 
-    console.log('✅ Contraseña válida');
-
     // Generar token
-    console.log('🎫 Generando token JWT...');
     const token = generateToken(user);
-    console.log('✅ Token generado');
 
     // Remover password de la respuesta
     const userResponse = user.toObject();
     delete userResponse.password;
-
-    console.log('📤 Enviando respuesta exitosa');
-    console.log('🔐 ===== FIN LOGIN EXITOSO =====\n');
 
     res.json({
       success: true,
@@ -291,9 +263,7 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('💥 ERROR EN LOGIN:', error);
-    console.error('Stack trace:', error.stack);
-    console.log('🔐 ===== FIN LOGIN CON ERROR =====\n');
+    logger.error(`[LOGIN] Error: ${error.message}`);
     res.status(500).json(formatErrorResponse('Error al iniciar sesión', [error.message]));
   }
 };
@@ -335,6 +305,10 @@ const changePassword = async (req, res) => {
 
     // Buscar usuario con contraseña
     const user = await User.findById(req.userId).select('+password');
+
+    if (!user || !user.password) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado o cuenta inválida'));
+    }
 
     // Verificar contraseña actual
     const isPasswordValid = await argon2.verify(user.password, currentPassword);

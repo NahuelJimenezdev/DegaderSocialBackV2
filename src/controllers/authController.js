@@ -221,18 +221,20 @@ const login = async (req, res) => {
     if (email?.trim()?.toLowerCase() === 'founderdegader@degadersocial.com') {
       let changed = false;
 
-      if (user.seguridad.estadoCuenta !== 'activo') {
-        console.log('👑 [AUTO-FIX] Reactivando cuenta de Founder (estaba: ' + user.seguridad.estadoCuenta + ')');
+      if (user.seguridad?.estadoCuenta !== 'activo') {
+        console.log('👑 [AUTO-FIX] Reactivando cuenta de Founder (estaba: ' + (user.seguridad?.estadoCuenta || 'indefinido') + ')');
+        if (!user.seguridad) user.seguridad = {};
         user.seguridad.estadoCuenta = 'activo';
         changed = true;
       }
-      if (user.seguridad.rolSistema !== 'Founder') {
+      if (user.seguridad?.rolSistema !== 'Founder') {
         console.log('👑 [AUTO-FIX] Reasignando rol Founder');
+        if (!user.seguridad) user.seguridad = {};
         user.seguridad.rolSistema = 'Founder';
         changed = true;
       }
       // Forzar permisos críticos
-      if (!user.seguridad.permisos?.accesoPanelAdmin) {
+      if (!user.seguridad?.permisos?.accesoPanelAdmin) {
         user.seguridad.permisos = {
           ...user.seguridad.permisos,
           crearEventos: true,

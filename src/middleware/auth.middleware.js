@@ -78,7 +78,7 @@ async function loadUserFromMongo(userId) {
     .lean();
   if (user) {
     // Inyectar virtual 'rol' manualmente para compatibilidad con lean()
-    user.id = user._id.toString();
+    user.id = user._id?.toString() || userId;
     user.rol = user.seguridad?.rolSistema || 'usuario';
     await cacheService.setUser(userId, user);
   }
@@ -144,11 +144,12 @@ const authenticate = async (req, res, next) => {
          * para evitar bypass masivo de cache y latencia 504 de Atlas.
          */
         if (jwtVersion !== null && cacheVersion !== null && jwtVersion !== cacheVersion) {
+            // Validar que tengamos los campos necesarios antes de comparar
             const roleInJwt = decoded.role;
             const roleInCache = cached.rol || cached.seguridad?.rolSistema;
             const statusInCache = cached.seguridad?.estadoCuenta;
 
-            if (roleInJwt === roleInCache && statusInCache === 'activo') {
+            if (roleInJwt && roleInJwt === roleInCache && statusInCache === 'activo') {
                 // Versión distinta pero seguridad idéntica: USAR CACHE (Silent hit)
                 user = cached;
             } else {

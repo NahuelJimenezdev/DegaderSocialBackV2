@@ -246,13 +246,15 @@ const login = async (req, res) => {
     }
 
     // FASE 2: Password válido — ahora sí traer el usuario completo via Driver Directo (Evita cuelgues de Mongoose)
-    // OPTIMIZACIÓN CRÍTICA: No traer el doc de 23KB entero, solo lo esencial para el frontend
+    // OPTIMIZACIÓN QUIRÚRGICA: Traer flags de estado pero excluir campos de texto masivo/binarios
     logger.info(`[LOGIN-AUDIT] 📦 Cargando perfil optimizado (Direct Driver)...`);
     const FULL_PROJECTION = { 
       password: 0, 
-      "fundacion.documentacionFHSYL": 0, 
-      "fundacion.hojaDeVida": 0, 
-      "fundacion.entrevista": 0,
+      "fundacion.documentacionFHSYL.testimonioConversion": 0,
+      "fundacion.documentacionFHSYL.llamadoPastoral": 0,
+      "fundacion.documentacionFHSYL.proyectoPsicosocial": 0,
+      "fundacion.hojaDeVida.datos": 0, 
+      "fundacion.entrevista.respuestas": 0,
       arena: 0,
       perfilPublicitario: 0
     };
@@ -261,7 +263,7 @@ const login = async (req, res) => {
     
     // AUTO-REPAIR: Asegurar que el Founder siempre tenga estado activo
     if (email?.trim()?.toLowerCase() === 'founderdegader@degadersocial.com') {
-      if (fullUser?.seguridad?.roleSistema !== 'Founder' || fullUser?.seguridad?.estadoCuenta !== 'activo') {
+      if (fullUser?.seguridad?.rolSistema !== 'Founder' || fullUser?.seguridad?.estadoCuenta !== 'activo') {
          await User.collection.updateOne(
            { _id: fullUser._id },
            { $set: { 'seguridad.estadoCuenta': 'activo', 'seguridad.rolSistema': 'Founder' } }

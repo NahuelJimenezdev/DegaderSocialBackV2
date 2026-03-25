@@ -446,19 +446,13 @@ class SocketService {
     try {
       console.log(`💾 [DB UPDATE] Actualizando estado para ${userId}:`, isOnline ? 'ONLINE' : 'OFFLINE');
 
-      const result = await UserV2.findByIdAndUpdate(userId, {
-        'seguridad.ultimaConexion': new Date()
-      }, { new: true });
+      // OPTIMIZACIÓN CRÍTICA: updateOne no hidrata ni descarga el documento entero (23KB)
+      await UserV2.collection.updateOne(
+        { _id: new (require('mongoose').Types.ObjectId)(userId) },
+        { $set: { 'seguridad.ultimaConexion': new Date() } }
+      );
 
-      if (result) {
-        console.log(`✅ [DB UPDATE] Estado actualizado exitosamente:`, {
-          userId,
-          ultimaConexion: result.seguridad?.ultimaConexion,
-          isOnline: isOnline ? 'ONLINE' : 'OFFLINE'
-        });
-      } else {
-        console.error(`❌ [DB UPDATE] Usuario no encontrado:`, userId);
-      }
+      console.log(`✅ [DB UPDATE] Estado actualizado (Direct Driver) para:`, userId);
     } catch (error) {
       console.error('❌ [DB UPDATE] Error actualizando estado online:', error);
     }

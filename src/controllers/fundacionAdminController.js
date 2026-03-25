@@ -150,6 +150,8 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     const [usuarios, total] = await Promise.all([
       User.find(query)
         .select('nombres apellidos email social.fotoPerfil fundacion.nivel fundacion.area fundacion.cargo fundacion.territorio fundacion.estadoAprobacion fundacion.activo fundacion.fechaAprobacion createdAt')
+        // Excluir campones pesados que no se usan en la LISTA general
+        .select('-fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
         .sort({ 'nombres.primero': 1 })
         .skip(skip)
         .limit(parseInt(limit))

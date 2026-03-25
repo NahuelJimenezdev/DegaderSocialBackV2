@@ -38,12 +38,13 @@ const getAllConversations = async (req, res) => {
     }
 
     const conversations = await Conversation.find(query)
-      .populate('participantes', 'nombres apellidos social ultimaConexion')
+      .populate('participantes', 'nombres apellidos social.fotoPerfil social.username ultimaConexion')
       .populate({
         path: 'ultimoMensaje',
-        populate: { path: 'sender', select: 'nombres apellidos social' }
+        populate: { path: 'sender', select: 'nombres apellidos social.fotoPerfil' }
       })
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean();
 
     res.json(formatSuccessResponse('Conversaciones obtenidas', conversations));
   } catch (error) {
@@ -382,7 +383,7 @@ const getUnreadCount = async (req, res) => {
       participantes: req.userId,
       activa: true,
       deletedBy: { $ne: req.userId }
-    });
+    }).select('mensajesNoLeidos').lean();
 
     let totalUnread = 0;
     conversations.forEach(conv => {

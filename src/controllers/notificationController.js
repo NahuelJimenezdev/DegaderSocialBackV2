@@ -22,10 +22,11 @@ const getAllNotifications = async (req, res) => {
 
     const notifications = await Notification.find(query)
       .populate('emisor', 'nombres apellidos social.fotoPerfil')
-      .populate('referencia.id')
+      .populate('referencia.id', 'nombre titulo')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
-      .skip(skip);
+      .skip(skip)
+      .lean();
 
     const total = await Notification.countDocuments({ receptor: req.userId });
 
@@ -133,9 +134,10 @@ const getUnreadNotifications = async (req, res) => {
       leida: false
     })
       .populate('emisor', 'nombres apellidos social.fotoPerfil')
-      .populate('referencia.id')
+      .populate('referencia.id', 'nombre titulo')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     // Transformar notificaciones al formato esperado por el frontend
     const transformedNotifications = notifications.map(n => {

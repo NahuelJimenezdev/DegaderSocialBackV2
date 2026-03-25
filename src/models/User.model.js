@@ -558,6 +558,7 @@ const UserV2Schema = new Schema({
   }
 
 }, {
+  collection: 'userv2',
   timestamps: true,
   toJSON: { virtuals: true, flattenMaps: true },
   toObject: { virtuals: true, flattenMaps: true }

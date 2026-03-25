@@ -7,6 +7,9 @@ const logger = require('../config/logger');
  * GET /api/fundacion/admin/usuarios-jurisdiccion
  */
 const getUsuariosBajoJurisdiccion = async (req, res) => {
+  const reqStart = Date.now();
+  logger.info(`\n\n================================`);
+  logger.info(`[Perf] 🚀 Iniciando getUsuariosBajoJurisdiccion. Request ID: ${reqStart}`);
   try {
     const directorId = req.userId;
     const { 
@@ -22,7 +25,10 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       limit = 20
     } = req.query;
 
+    const tDirectorStart = Date.now();
     const director = await User.findById(directorId);
+    logger.info(`[Perf] [ID: ${reqStart}] ⏳ findById(director) tardó ${Date.now() - tDirectorStart}ms`);
+    
     if (!director || !director.esMiembroFundacion || director.fundacion?.estadoAprobacion !== 'aprobado') {
       return res.status(403).json(formatErrorResponse('No tienes permisos de acceso al panel administrativo'));
     }
@@ -138,6 +144,9 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    logger.info(`[Perf] [ID: ${reqStart}] 🔍 Ejecutando Query a MongoDB: ${JSON.stringify(query)}`);
+    const tQueryStart = Date.now();
+    
     const [usuarios, total] = await Promise.all([
       User.find(query)
         .select('nombres apellidos email social.fotoPerfil fundacion createdAt')
@@ -146,6 +155,10 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
         .limit(parseInt(limit)),
       User.countDocuments(query)
     ]);
+    
+    logger.info(`[Perf] [ID: ${reqStart}] ⏳ Promise.all(find, count) MONGODB tardó: ${Date.now() - tQueryStart}ms. Registros: ${total}`);
+    logger.info(`[Perf] [ID: ${reqStart}] ✅ Fin de endpoint. TOTAL: ${Date.now() - reqStart}ms.`);
+    logger.info(`================================\n`);
 
     res.json(formatSuccessResponse('Usuarios obtenidos exitosamente', {
       usuarios,

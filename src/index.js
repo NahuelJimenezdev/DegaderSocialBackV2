@@ -89,32 +89,10 @@ app.use(cors({
   optionsSuccessStatus: 200 // Para navegadores legacy
 }));
 
-// Log de CORS
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    console.log('🔓 CORS request from:', origin);
-  }
-  next();
-});
-
 // Middlewares
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.http(message.trim()) } }));
-
-// Middleware de logging para debug
-app.use((req, res, next) => {
-  console.log(`\n🌐 [${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('📍 Origin:', req.headers.origin || 'No origin header');
-  console.log('🔑 Authorization:', req.headers.authorization ? 'Present' : 'Not present');
-  if (req.body && Object.keys(req.body).length > 0) {
-    const bodyLog = { ...req.body };
-    if (bodyLog.password) bodyLog.password = '***';
-    console.log('📦 Body:', bodyLog);
-  }
-  next();
-});
 
 // Servir archivos estáticos (uploads) con CORS
 app.use('/uploads', (req, res, next) => {
@@ -263,27 +241,8 @@ const initializeInfrastructure = async () => {
 // Exponer estado de readiness para el health check
 app.set('isReady', () => isReady);
 
-console.log('🔌 Intentando conectar a MongoDB...');
-
-// Heartbeat de diagnóstico para evitar logs vacíos en cuelgues
-const connectionHeartbeat = setInterval(() => {
-    const state = mongoose.connection.readyState;
-    console.log(`⏳ ...esperando respuesta de MongoDB (Estado: ${state})`);
-    
-    // Si después de 20s sigue en conectando, mostrar info de topología si está disponible
-    if (state === 2 && mongoose.connection.client && mongoose.connection.client.topology) {
-        const topology = mongoose.connection.client.topology.description;
-        console.log(`🔍 Topología: ${topology.type} - Shards detectados: ${topology.servers.size}`);
-        
-        topology.servers.forEach((server, address) => {
-            console.log(`📍 Nodo [${address}]: ${server.type} ${server.error ? '- ERROR: ' + server.error.message : '- OK'}`);
-        });
-    }
-}, 5000);
-
 mongoose.connect(uri, options)
   .then(async () => {
-    clearInterval(connectionHeartbeat);
     console.log('✅ Conectado a MongoDB');
 
     // Conectar a Redis
@@ -326,16 +285,7 @@ mongoose.connection.on('error', (err) => {
   }
 });
 
-// Monitoreo de comandos lentos (opcional, útil para debugging)
-mongoose.set('debug', (collectionName, method, query, doc) => {
-  const start = Date.now();
-  return (err, result) => {
-    const duration = Date.now() - start;
-    if (duration > 1000) { // Loguear solo si tarda más de 1s
-      console.warn(`🐢 [DB SLOW] ${collectionName}.${method} tardó ${duration}ms`);
-    }
-  };
-});
+
 
 // Manejo de cierre graceful
 process.on('SIGINT', async () => {

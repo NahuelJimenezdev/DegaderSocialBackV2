@@ -273,7 +273,11 @@ const connectionHeartbeat = setInterval(() => {
     // Si después de 20s sigue en conectando, mostrar info de topología si está disponible
     if (state === 2 && mongoose.connection.client && mongoose.connection.client.topology) {
         const topology = mongoose.connection.client.topology.description;
-        console.log(`🔍 Info de Topología: ${topology.type} - Shards detectados: ${topology.servers.size}`);
+        console.log(`🔍 Topología: ${topology.type} - Shards detectados: ${topology.servers.size}`);
+        
+        topology.servers.forEach((server, address) => {
+            console.log(`📍 Nodo [${address}]: ${server.type} ${server.error ? '- ERROR: ' + server.error.message : '- OK'}`);
+        });
     }
 }, 5000);
 

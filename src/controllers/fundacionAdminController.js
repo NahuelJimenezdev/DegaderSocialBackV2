@@ -90,33 +90,29 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       // 2. RESTRICCIÓN DE TERRITORIO
       // El país es inamovible
       if (territorio?.pais) {
-        query['fundacion.territorio.pais'] = territorio.pais;
+        query['fundacion.territorio.pais'] = { $regex: new RegExp(`^${territorio.pais.trim()}$`, 'i') };
       }
 
       // Escalera jerárquica territorial
       if (nivelDirector === 'regional') {
         const regionDelDirector = territorio?.region || '';
         
-        // Si el Director Regional tiene una región específica, busca esa región o a quienes no tengan ninguna.
-        // Si el Director Regional NO tiene región (ej: ""), simplemente abarca a todos en su país.
         if (regionDelDirector) {
             if (!query.$and) query.$and = [];
             query.$and.push({
                 $or: [
-                  { 'fundacion.territorio.region': regionDelDirector },
+                  { 'fundacion.territorio.region': { $regex: new RegExp(`^${regionDelDirector.trim()}$`, 'i') } },
                   { 'fundacion.territorio.region': { $exists: false } },
                   { 'fundacion.territorio.region': '' },
                   { 'fundacion.territorio.region': null }
                 ]
             });
         }
-        // Si `regionDelDirector` está vacío, la base de datos simplemente usará el `territorio.pais` (regla superior) 
-        // y le mostrará todos los departamentales/municipales del país entero.
         
       } else if (nivelDirector === 'departamental' && territorio?.departamento) {
-        query['fundacion.territorio.departamento'] = territorio.departamento;
+        query['fundacion.territorio.departamento'] = { $regex: new RegExp(`^${territorio.departamento.trim()}$`, 'i') };
       } else if (nivelDirector === 'municipal' && territorio?.municipio) {
-        query['fundacion.territorio.municipio'] = territorio.municipio;
+        query['fundacion.territorio.municipio'] = { $regex: new RegExp(`^${territorio.municipio.trim()}$`, 'i') };
       }
 
       // 3. RESTRICCIÓN DE ÁREA / SECCIÓN

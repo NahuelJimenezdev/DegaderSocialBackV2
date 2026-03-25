@@ -77,6 +77,9 @@ async function loadUserFromMongo(userId) {
     .select('-password -firebase')
     .lean();
   if (user) {
+    // Inyectar virtual 'rol' manualmente para compatibilidad con lean()
+    user.id = user._id.toString();
+    user.rol = user.seguridad?.rolSistema || 'usuario';
     await cacheService.setUser(userId, user);
   }
   return user;
@@ -134,14 +137,29 @@ const authenticate = async (req, res, next) => {
       if (cached) {
         const cacheVersion = cached.__v ?? null;
 
-        // Validar consistencia de versión
+        /**
+         * LÓGICA DE CONSISTENCIA DE VERSIÓN (Anti-Bucle)
+         * Si hay mismatch, solo invalidamos y recargamos de DB si el ROL ha cambiado.
+         * De lo contrario, usamos el cache (aunque la versión sea mayor en Mongo por un post/foto)
+         * para evitar bypass masivo de cache y latencia 504 de Atlas.
+         */
         if (jwtVersion !== null && cacheVersion !== null && jwtVersion !== cacheVersion) {
-          logger.info(`[AUTH-CACHE] ⚠️  Version mismatch for ${userId} — JWT:${jwtVersion} Cache:${cacheVersion} → invalidating`);
-          await cacheService.invalidateUser(userId);
-          // Forzar carga desde Mongo abajo
+            const roleInJwt = decoded.role;
+            const roleInCache = cached.rol || cached.seguridad?.rolSistema;
+            const statusInCache = cached.seguridad?.estadoCuenta;
+
+            if (roleInJwt === roleInCache && statusInCache === 'activo') {
+                // Versión distinta pero seguridad idéntica: USAR CACHE (Silent hit)
+                user = cached;
+            } else {
+                // Cambio crítico de seguridad detected: INVALIDAR
+                logger.info(`[AUTH-CACHE] ⚠️  Security mismatch for ${userId} (JWT Role: ${roleInJwt} vs Cache: ${roleInCache}) → invalidating`);
+                await cacheService.invalidateUser(userId);
+                // Forzar carga desde Mongo abajo
+            }
         } else {
-          logger.info(`[AUTH-CACHE] ✅ HIT for ${userId}`);
-          user = cached;
+            // HIT perfecto
+            user = cached;
         }
       } else {
         logger.info(`[AUTH-CACHE] ❌ MISS for ${userId} — loading from Mongo`);

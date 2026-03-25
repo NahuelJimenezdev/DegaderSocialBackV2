@@ -94,18 +94,18 @@ const solicitarUnirse = async (req, res) => {
         };
 
         if (territorioSolicitante.pais) {
-          query['fundacion.territorio.pais'] = territorioSolicitante.pais;
+          query['fundacion.territorio.pais'] = { $regex: new RegExp(`^${territorioSolicitante.pais.trim()}$`, 'i') };
         }
 
         // Filtros adicionales según el nivel objetivo
         if (nivelObjetivo === 'regional' && territorioSolicitante.region) {
-          query['fundacion.territorio.region'] = territorioSolicitante.region;
+          query['fundacion.territorio.region'] = { $regex: new RegExp(`^${territorioSolicitante.region.trim()}$`, 'i') };
         }
         if (nivelObjetivo === 'departamental' && territorioSolicitante.departamento) {
-          query['fundacion.territorio.departamento'] = territorioSolicitante.departamento;
+          query['fundacion.territorio.departamento'] = { $regex: new RegExp(`^${territorioSolicitante.departamento.trim()}$`, 'i') };
         }
         if (nivelObjetivo === 'municipal' && territorioSolicitante.municipio) {
-          query['fundacion.territorio.municipio'] = territorioSolicitante.municipio;
+          query['fundacion.territorio.municipio'] = { $regex: new RegExp(`^${territorioSolicitante.municipio.trim()}$`, 'i') };
         }
 
         // 🔒 REGLA DE NIVEL + TERRITORIO + ÁREA (Nueva restricción crítica)
@@ -278,23 +278,19 @@ const listarSolicitudes = async (req, res) => {
       const regionDelDirector = currentUser.fundacion.territorio?.region || '';
       
       if (regionDelDirector) {
-        // Como un supervisor Regional abarca múltiples departamentos, los aplicantes de niveles inferiores
-        // podrían no incluir la palabra "Región" explícitamente en sus peticiones.
         query['$or'] = [
-          { 'fundacion.territorio.region': regionDelDirector },
+          { 'fundacion.territorio.region': { $regex: new RegExp(`^${regionDelDirector.trim()}$`, 'i') } },
           { 'fundacion.territorio.region': { $exists: false } },
           { 'fundacion.territorio.region': '' },
           { 'fundacion.territorio.region': null }
         ];
       }
-      // Si el Regional tiene la región vacía (""), la query se salta este bloque y
-      // usa `territorio.pais` forzando la vista de todo el país.
     }
     if (nivelActual === 'departamental' && currentUser.fundacion.territorio?.departamento) {
-      query['fundacion.territorio.departamento'] = currentUser.fundacion.territorio.departamento;
+      query['fundacion.territorio.departamento'] = { $regex: new RegExp(`^${currentUser.fundacion.territorio.departamento.trim()}$`, 'i') };
     }
     if (nivelActual === 'municipal' && currentUser.fundacion.territorio?.municipio) {
-      query['fundacion.territorio.municipio'] = currentUser.fundacion.territorio.municipio;
+      query['fundacion.territorio.municipio'] = { $regex: new RegExp(`^${currentUser.fundacion.territorio.municipio.trim()}$`, 'i') };
     }
 
     console.log('🔎 [Fundación] Query de búsqueda:', JSON.stringify(query, null, 2));

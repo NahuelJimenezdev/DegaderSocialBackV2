@@ -638,7 +638,7 @@ UserV2Schema.index({ "arena.country": 1, "arena.rankPoints": -1 });
 UserV2Schema.index({ "arena.level": 1 });
 
 // Índices para Dashboard Founder y Filtros
-UserV2Schema.index({ "esMiembroFundacion": 1, "fundacion.estadoAprobacion": 1 });
+UserV2Schema.index({ "esMiembroFundacion": 1, "fundacion.estadoAprobacion": 1, "createdAt": -1 });
 UserV2Schema.index({ "seguridad.rolSistema": 1 });
 UserV2Schema.index({ "seguridad.estadoCuenta": 1 });
 UserV2Schema.index({ "createdAt": -1 });

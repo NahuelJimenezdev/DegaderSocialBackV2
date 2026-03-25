@@ -382,6 +382,7 @@ const aprobarSolicitud = async (req, res) => {
     solicitante.fundacion.estadoAprobacion = 'aprobado';
     solicitante.fundacion.aprobadoPor = aprobadorId;
     solicitante.fundacion.fechaAprobacion = new Date();
+    solicitante.fundacion.activo = true;
 
     await solicitante.save();
 
@@ -390,6 +391,8 @@ const aprobarSolicitud = async (req, res) => {
     // ========================================
     // 🏆 Notificación V1 PRO
     try {
+      const { notificationService } = require('../services/notificationService');
+      
       notificationService.notify({
         receptorId: solicitante._id,
         emisorId: aprobadorId,
@@ -420,6 +423,7 @@ const aprobarSolicitud = async (req, res) => {
               cargo: solicitante.fundacion.cargo,
               territorio: solicitante.fundacion.territorio,
               estadoAprobacion: 'aprobado',
+              activo: true,
               fechaAprobacion: solicitante.fundacion.fechaAprobacion,
               aprobadoPor: aprobadorId
             }

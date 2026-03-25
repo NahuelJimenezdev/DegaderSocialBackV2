@@ -208,7 +208,7 @@ const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${p
 
 // Configuración de conexión con opciones de robustez y alto rendimiento mejorada (v2.2)
 const options = {
-  autoIndex: true,              // Habilitado temporalmente para asegurar la creación de índices en producción
+  autoIndex: false,             // DESACTIVADO: Evita bloqueos y 502 en el arranque con colecciones grandes. Los índices deben crearse manualmente.
   connectTimeoutMS: 30000,      // Aumentado a 30s para soportar picos de latencia
   socketTimeoutMS: 60000,       // Aumentado a 60s para operaciones pesadas
   serverSelectionTimeoutMS: 30000, // Tiempo máximo de espera para seleccionar el servidor de Atlas

@@ -179,7 +179,11 @@ const PerfilFundacionSchema = new Schema({
         'Director General',
         'Sub-Director General',
         'secretario Director General',
-        'secretario Sub-Director General'
+        'secretario Sub-Director General',
+        'Director Nacional',
+        'Director Regional',
+        'Director Departamental',
+        'Coordinador Municipal'
       ];
       return this.activo && !cargosDirectivosTerritoriales.includes(this.cargo);
     }

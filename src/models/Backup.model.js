@@ -12,7 +12,7 @@ const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 const NIVELES_FUNDACION = [
   "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial"
 ];
-
+  
 const AREAS_FUNDACION = [
   // Directivo General
   "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",

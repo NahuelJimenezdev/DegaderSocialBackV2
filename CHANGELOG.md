@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.32.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.31.0...v1.32.0) (2026-03-27)
+
+
+### Features
+
+* add getUsuarioJurisdiccionDetalle endpoint for on-demand form access ([c9d5d98](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c9d5d9864ab021f0cf2cb213d24d64d3284cccdb))
+* **audit:** corrección de bucle de caché híbrida, optimización de login y flexibilización de filtros de fundación ([04a57a2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/04a57a2412e1035f386b6049ec8f2996d7017ee5))
+* **auth:** Implementar sistema híbrido JWT + Redis Cache para eliminar cuello de botella de MongoDB ([5c3506c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5c3506c1adabc6da89d7bf3b74e6bb139737a563))
+* **fundacion:** Reestructuración jerárquica y territorial ([451aeeb](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/451aeebd69830056bbcd4d5c6c08903fa283b495))
+* **infra:** auto-blindaje - auto-sync índices, health check y fallback idempotencia ([ad5ac39](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ad5ac39bbecab61a2d015a83ca830a7f434049c3))
+* **infra:** hardening distribuido - liveness, readiness y safe index verification ([fab4ce2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/fab4ce27ef0c4b81e0e2a25578d62b7e476d4eda))
+* notification action state (accionada/estadoAccion) - prevent double actions + consistent behavior across all controllers ([4ee42b1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/4ee42b11238ea1a49a886ece7d92e2d5bff69e66))
+
+
+### Bug Fixes
+
+* add app-level retry for login query (handles Atlas M0 timeouts) ([43387a7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/43387a7d4f6c9421fa51da3ee4a2e609c4e9b3be))
+* añadir script para forzar creación de índices de usuario ([1b6af84](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/1b6af8421351c9e810a8c229597b6666d0fe0fd1))
+* audit logs for login + reduced pool size to 10 to prevent Atlas M0 exhaustion ([0407984](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/04079840cf11527b3a26cf0542655ee565ad05a3))
+* **auth:** agregar validaciones de seguridad para prevenir crashes (502) ([b8420da](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/b8420da2f5f6a7b04dba9c465192f5fddf9b2a5d))
+* **auth:** blindar login contra datos corruptos y eliminar logs de debug - Validar password antes de argon2.verify (previene crash) - Eliminar 15+ console.log que exponen headers/tokens - Agregar null-check en changePassword - Usar logger en lugar de console para puntos críticos ([3a8ea38](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/3a8ea38a34540d1fdd849466bc465a65f5b27d18))
+* **core:** Purgar COMPLETAMENTE el middleware de métricas en index.js para eliminar ERR_HTTP_HEADERS_SENT ([17360f6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/17360f6cba935605659a4e6b97fd488fcfe18b16))
+* **core:** Remover header de latencia experimental en index.js que causaba ERR_HTTP_HEADERS_SENT y 502 Bad Gateway ([392cbef](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/392cbef46354f6018c874a1e2d80c53d8a671983))
+* **db:** desactivar autoIndex para evitar 502 en arranque ([1f378b7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/1f378b7556987f203e45e3b07382274b73cc3e24))
+* **db:** mejorar resiliencia de conexión y timeouts para evitar 504 Gateway Time-out ([954c382](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/954c3821277a37dc2d58cc88d997fb4a4e2443c8))
+* **docker:** agregar extra_hosts para resolución de Atlas dentro del contenedor ([a74c2b1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a74c2b1b32ce60a97bd807d3cc37f2420891b284))
+* explicitly set collection name to 'userv2' to match DB ([a58dfab](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a58dfab188b434344f4e9d32e58f326282aa6e77))
+* force IPv4 (family:4) and set waitQueueTimeoutMS to resolve VPS-to-Atlas freezes ([6e4d64a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/6e4d64a9ca69ec516a6ea69cd8792ea684d12c81))
+* **founder:** Corregido mapeo de campo rol en dashboard y estadísticas ([ec53d94](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ec53d94a2f41abd25e206d6752ecc13eefed2d21))
+* **fundacion:** establecer fundacion.activo = true al aprobar solicitud ([18953b3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/18953b32e0f80a7ca833623e8acb51652d9292eb))
+* harden MongoDB connection (v2.3) - faster failover, retryReads/retryWrites, 503 on timeouts ([5fe78fd](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5fe78fd0a5e808da9640eccb44150cf132f37616))
+* **iglesia:** Inyectar invalidación de caché de usuario en operaciones transaccionales (crear, eliminar, transferir). Limpiar referencia legacy de base de datos ([b3a8406](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/b3a840671c1d96b1dd7ea6d15c5e0440404d80f3))
+* **infra:** remover extra_hosts hardcodes y habilitar dns dinámico de google para mongodb ([79f35b6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/79f35b65543067cb0a819625e7d403efe058f7cb))
+* **middleware:** blindar role guards con optional chaining y permitir Founder - isAdmin: usar ?.rol con fallback a seguridad.rolSistema - isModerator: misma protección + permitir Founder ([be57f61](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/be57f612527fcc73b3934e9c503cc720e8b5b165))
+* restaurar campos críticos en perfil, corregir permisos de aprobación e importar Notificación ([99fd432](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/99fd4321bca2f550fb5ca7ff96b7bacd9195b93e))
+* restore critical user arrays for UI and fix approval logic + missing notification import ([5e6ba4d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5e6ba4d4804da9b9541954631b7100a3967c273f))
+* sanitizar URI en script de arreglo de índices ([f291ec3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/f291ec345efc1f7e0c2b3445b7a12464261de55c))
+* sanitizar URI en script de diagnóstico ([2b893b2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2b893b2961ed013022cfedf4b00c84e32d1928c1))
+* **security:** Actualizar ipKeyGenerator en express-rate-limit para prevenir evasión por IPv6 ([f3c116a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/f3c116a731189fad8088932dc8770fa0fe14975d))
+* **security:** Aplicar ipKeyGenerator en todos los limitadores (global, distributed y creación) para prevenir evasión IPv6 ([077580b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/077580b6a1343364de309bc4026478c8eca04794))
+* stable connection and enable production indexing ([c933364](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c933364ad04a2213e5c6d742a8fff5df6409e5b5))
+* syntax error in idempotency middleware (restored try block) ([58d4cb9](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/58d4cb9987f298b18cf1c8ddac5eeef29c97f411))
+* total Mongoose bypass for login flow - uses direct driver for all queries + argon2 timing logs ([e1fe402](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e1fe40220106734fe2cf9d8c02cd0db938c09ea6))
+* visibilidad de jurisdicción y limpieza de MONGODB_URI ([fcbe195](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/fcbe19531816b9d43dca3e56c58177a266732a17))
+
 ## [1.31.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.30.4...v1.31.0) (2026-03-24)
 
 

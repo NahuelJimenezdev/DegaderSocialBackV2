@@ -407,8 +407,6 @@ const aprobarSolicitud = async (req, res) => {
     // ========================================
     // 🏆 Notificación V1 PRO
     try {
-      const { notificationService } = require('../services/notificationService');
-      
       notificationService.notify({
         receptorId: solicitante._id,
         emisorId: aprobadorId,

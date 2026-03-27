@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
+const recommendationController = require('../controllers/recommendationController');
 const { authenticate } = require('../middleware/auth.middleware');
 const { uploadAvatar, uploadBanner, handleUploadError } = require('../middleware/upload.middleware');
 
@@ -8,6 +9,7 @@ const { uploadAvatar, uploadBanner, handleUploadError } = require('../middleware
 router.use(authenticate);
 
 // Rutas específicas (deben ir ANTES de las rutas con parámetros dinámicos)
+router.get('/recommendations', recommendationController.getRecommendations);
 router.get('/search', userController.searchUsers);
 router.put('/profile', userController.updateProfile);
 router.put('/documentacionFHSYL', userController.actualizarDocumentacionFHSYL);

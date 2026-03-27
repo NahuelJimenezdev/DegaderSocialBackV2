@@ -14,6 +14,7 @@ const NIVELES_FUNDACION = [
 ];
 
 const AREAS_FUNDACION = [
+  "Ejecutivo/a",
   // Directivo General
   "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
   // Nuevas Áreas Directivo General
@@ -173,14 +174,7 @@ const PerfilFundacionSchema = new Schema({
     type: String,
     enum: AREAS_FUNDACION,
     required: function () {
-      // Área es opcional para directores territoriales generales (cúpula)
-      const cargosDirectivosTerritoriales = [
-        'Director General',
-        'Sub-Director General',
-        'secretario Director General',
-        'secretario Sub-Director General'
-      ];
-      return this.activo && !cargosDirectivosTerritoriales.includes(this.cargo);
+      return this.activo;
     }
   },
 

@@ -11,7 +11,8 @@ const logger = require('../config/logger');
 const solicitarUnirse = async (req, res) => {
   try {
     const userId = req.userId;
-    const { nivel, area, subArea, programa, cargo, territorio } = req.body;
+    const { nivel, subArea, programa, cargo, territorio } = req.body;
+    const area = req.body.area || 'Ejecutivo/a';
 
     // Validar campos requeridos
     if (!nivel || !area || !cargo) {
@@ -19,7 +20,7 @@ const solicitarUnirse = async (req, res) => {
     }
 
     // Buscar usuario (Optimizado: Solo campos necesarios)
-    const user = await User.findById(userId).select('esMiembroFundacion fundacion.estadoAprobacion fundacion.territorio nombres apellidos').lean();
+    const user = await User.findById(userId).select('esMiembroFundacion fundacion.estadoAprobacion fundacion.territorio nombres apellidos');
     if (!user) {
       return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
     }
@@ -128,15 +129,16 @@ const solicitarUnirse = async (req, res) => {
 
         if (superiores.length > 0) {
           // Notificaciones concurrentes
+          const areaDisplay = area || 'Dirección General / Institucional';
           const notificationPromises = superiores.map(superior => 
             notificationService.notify({
               receptorId: superior._id,
               emisorId: userId,
               tipo: 'solicitud_fundacion',
-              contenido: `${user.nombres?.primero || ''} ${user.apellidos?.primero || ''} solicita unirse a la fundación como ${cargo} en ${area}`,
+              contenido: `${user.nombres?.primero || ''} ${user.apellidos?.primero || ''} solicita unirse a la fundación como ${cargo} en ${areaDisplay}`,
               referencia: { tipo: 'UserV2', id: user._id },
               metadata: {
-                nivel, area, subArea, programa, cargo, territorio
+                nivel, area: areaDisplay, subArea, programa, cargo, territorio
               }
             })
           );
@@ -411,10 +413,10 @@ const aprobarSolicitud = async (req, res) => {
         receptorId: solicitante._id,
         emisorId: aprobadorId,
         tipo: 'solicitud_fundacion_aprobada',
-        contenido: `¡Felicidades! Tu solicitud para unirte a la fundación como ${solicitante.fundacion.cargo} ha sido aprobada`,
+        contenido: `¡Felicidades! Tu solicitud para unirte a la fundación como ${solicitante.fundacion.cargo} ${solicitante.fundacion.area ? `en ${solicitante.fundacion.area}` : ''} ha sido aprobada`,
         metadata: {
           nivel: solicitante.fundacion.nivel,
-          area: solicitante.fundacion.area,
+          area: solicitante.fundacion.area || 'Dirección General',
           cargo: solicitante.fundacion.cargo,
           aprobadoPor: aprobador.nombreCompleto || `${aprobador.nombres?.primero || ''} ${aprobador.apellidos?.primero || ''}`
         }
@@ -576,10 +578,10 @@ const rechazarSolicitud = async (req, res) => {
         receptorId: solicitante._id,
         emisorId: aprobadorId,
         tipo: 'solicitud_fundacion_rechazada',
-        contenido: `Tu solicitud para unirte a la fundación como ${solicitante.fundacion.cargo} no fue aceptada. Motivo: ${solicitante.fundacion.motivoRechazo}`,
+        contenido: `Tu solicitud para unirte a la fundación como ${solicitante.fundacion.cargo} ${solicitante.fundacion.area ? `en ${solicitante.fundacion.area}` : ''} no fue aceptada. Motivo: ${solicitante.fundacion.motivoRechazo}`,
         metadata: {
           nivel: solicitante.fundacion.nivel,
-          area: solicitante.fundacion.area,
+          area: solicitante.fundacion.area || 'Dirección General',
           cargo: solicitante.fundacion.cargo,
           motivo: solicitante.fundacion.motivoRechazo
         }

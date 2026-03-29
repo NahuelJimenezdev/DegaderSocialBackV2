@@ -448,6 +448,10 @@ const getFeed = async (req, res) => {
         path: 'comentariosRecientes.usuario',
         select: 'nombres.primero apellidos.primero social.fotoPerfil username'
       })
+      .populate({
+        path: 'comentarios.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
+      })
       .sort(sort)
       .limit(isCursorMode ? safeLimit + 1 : safeLimit) // 🆕 Traer 1 extra en modo cursor para hasMore real
       .skip(skipValue);
@@ -520,6 +524,10 @@ const getUserPosts = async (req, res) => {
       .populate('grupo', 'nombre tipo')
       .populate({
         path: 'comentariosRecientes.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
+      })
+      .populate({
+        path: 'comentarios.usuario',
         select: 'nombres.primero apellidos.primero social.fotoPerfil username'
       })
       .sort({ createdAt: -1 })
@@ -596,6 +604,10 @@ const getGroupPosts = async (req, res) => {
         path: 'comentariosRecientes.usuario',
         select: 'nombres.primero apellidos.primero social.fotoPerfil'
       })
+      .populate({
+        path: 'comentarios.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
+      })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
@@ -638,6 +650,10 @@ const getPostById = async (req, res) => {
       .populate('postOriginal')
       .populate({
         path: 'comentariosRecientes.usuario',
+        select: 'nombres.primero apellidos.primero social.fotoPerfil username'
+      })
+      .populate({
+        path: 'comentarios.usuario',
         select: 'nombres.primero apellidos.primero social.fotoPerfil username'
       });
 

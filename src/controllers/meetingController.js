@@ -312,33 +312,43 @@ const getMyMeetings = async (req, res) => {
 // PUT /api/reuniones/:id/request — Pedir asistir
 // ─────────────────────────────────────────────
 const requestAttendance = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.userId || req.user?._id || req.user?.id;
   const { id } = req.params;
+  console.log('\x1b[35m%s\x1b[0m', `🙋 [REQUEST_ATTENDANCE] Usuario ${userId} pidiendo asistir a reunión: ${id}`);
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   try {
     const meeting = await Meeting.findById(id).populate('creator', 'nombres.primero apellidos.primero');
 
     if (!meeting) {
+      console.log('❌ Reunión no encontrada');
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
     if (!meeting.creator) {
+      console.log('❌ El creador de esta reunión no existe');
       return res.status(404).json({ success: false, message: 'El creador de esta reunión ya no existe.' });
     }
 
     if (meeting.status === 'cancelled' || meeting.status === 'completed') {
+      console.log(`❌ Estado inválido para solicitud: ${meeting.status}`);
       return res.status(400).json({ success: false, message: 'No se puede solicitar asistencia a esta reunión.' });
     }
 
     // Verificar si ya es attendee
-    const isAttendee = meeting.attendees.some(a => a.toString() === userId);
+    const isAttendee = (meeting.attendees || []).some(a => a.toString() === userId.toString());
     if (isAttendee) {
+      console.log('ℹ️ El usuario ya es participante aprobado');
       return res.status(200).json({ success: true, message: 'Ya eres participante aprobado.' });
     }
 
     // Verificar si ya tiene una solicitud
-    const existingRequest = meeting.attendanceRequests.find(r => r.user.toString() === userId);
+    const existingRequest = (meeting.attendanceRequests || []).find(r => r.user.toString() === userId.toString());
     if (existingRequest) {
+      console.log(`ℹ️ Solicitud ya existente con estado: ${existingRequest.status}`);
       return res.status(200).json({
         success: true,
         message: 'Ya tienes una solicitud registrada.',
@@ -347,26 +357,33 @@ const requestAttendance = async (req, res) => {
     }
 
     // Agregar solicitud
+    console.log('💾 Guardando nueva solicitud de asistencia...');
     meeting.attendanceRequests.push({ user: userId, status: 'pending' });
     await meeting.save();
 
-    // Notificar al creador
-    const requestingUser = await User.findById(userId).select('nombres apellidos social');
-    const userName = `${requestingUser?.nombres?.primero || ''} ${requestingUser?.apellidos?.primero || ''}`.trim();
+    // Notificar al creador (en background para no bloquear)
+    try {
+      const requestingUser = await User.findById(userId).select('nombres apellidos');
+      const userName = `${requestingUser?.nombres?.primero || ''} ${requestingUser?.apellidos?.primero || ''}`.trim();
 
-    await createMeetingNotification(
-      meeting.creator._id,
-      userId,
-      'attendance_request',
-      `${userName} quiere unirse a tu reunión "${meeting.title}"`,
-      meeting._id
-    );
+      console.log(`📢 Notificando al creador (${meeting.creator._id}) sobre la solicitud de ${userName}`);
+      await createMeetingNotification(
+        meeting.creator._id,
+        userId,
+        'attendance_request',
+        `${userName} quiere unirse a tu reunión "${meeting.title}"`,
+        meeting._id
+      );
+    } catch (notifErr) {
+      console.error('⚠️ Error al enviar notificación de solicitud:', notifErr.message);
+    }
 
+    console.log('✅ Solicitud procesada con éxito');
     res.status(200).json({ success: true, message: 'Solicitud de asistencia enviada.' });
 
   } catch (error) {
-    console.error('Error en requestAttendance:', error);
-    res.status(500).json({ success: false, error: 'Error al procesar la solicitud.' });
+    console.error('💥 [REQUEST_ATTENDANCE_ERROR]:', error);
+    res.status(500).json({ success: false, error: 'Error al procesar la solicitud.', details: error.message });
   }
 };
 

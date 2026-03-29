@@ -83,16 +83,29 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
     if (id) excludedSet.add(id.toString());
   });
 
-  // --- FASE ÚNICA: Totalmente Aleatorio Rápido (Evitar Timeout de $sample en Atlas M0) ---
-  const totalUsers = await User.countDocuments();
-  const maxSkip = Math.max(0, totalUsers - 100);
-  const randomSkip = Math.floor(Math.random() * maxSkip);
-
+  // --- FASE ÚNICA: Totalmente Aleatorio Rápido en Memoria (Evitar Todo Timeout en Atlas M0) ---
+  // Hacemos una consulta limpia sin countDocuments ni skip que saturan Atlas
   const randomCandidates = await User.find()
-    .skip(randomSkip)
-    .limit(100)
-    .select('nombres apellidos social fundacion personal seguridad')
+    .limit(200)
+    .select({
+      'nombres.primero': 1,
+      'apellidos.primero': 1,
+      'social.username': 1,
+      'social.fotoPerfil': 1,
+      'fundacion.territorio.pais': 1,
+      'fundacion.cargo': 1,
+      'fundacion.nivel': 1,
+      'personal.ubicacion.pais': 1,
+      'personal.ubicacion.estado': 1,
+      'seguridad.estadoCuenta': 1
+    })
     .lean();
+
+  // Mezclado aleatorio rápido en memoria para evitar $sample o randomSkip
+  for (let i = randomCandidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [randomCandidates[i], randomCandidates[j]] = [randomCandidates[j], randomCandidates[i]];
+  }
 
   // Filtrar los que ya son amigos, limitarlo al cupo, y mapear estandarizado
   let finalResult = randomCandidates
@@ -133,7 +146,7 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
       }));
   }
 
-  logger.info(`[RECS API] totalUsers: ${totalUsers}, fetched: ${randomCandidates.length}, excludedSetSize: ${excludedSet.size}, finalOutput: ${finalResult.length}`);
+  logger.info(`[RECS API] fetched candidates in memory: ${randomCandidates.length}, excludedSetSize: ${excludedSet.size}, finalOutput: ${finalResult.length}`);
 
   // 4. Guardar en Cache
   try {

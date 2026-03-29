@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.34.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.33.1...v1.34.0) (2026-03-29)
+
+
+### Features
+
+* performance optimization for feed and recommendations ([102fd4d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/102fd4dad29e4a23355c01df41aa7606133aa4b7))
+
+
+### Bug Fixes
+
+* added extra_hosts to resolve MongoDB Atlas DNS issues in Docker container ([75d8e16](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/75d8e164e7f1694cbfd7dfba48b143b6aeba71a3))
+* implemented retroactive feed synchronization (Backfill) and strict Round-Robin author interleaving for feed diversity (Phase 4). | Detail: backfillFriendPosts in feed.service.js, friendshipController.js integration, and author diversity in postController.js ([91095c3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/91095c308573f66d2665c7f454e10dcced7bfbff))
+* optimized feed snapshots to include likes array and improved feed merge logic ([7b19b00](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7b19b00d2fcd9fa64a54306b5d8080f951f2bf9d))
+
 ### [1.33.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.33.0...v1.33.1) (2026-03-29)
 
 ## [1.33.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.32.0...v1.33.0) (2026-03-29)

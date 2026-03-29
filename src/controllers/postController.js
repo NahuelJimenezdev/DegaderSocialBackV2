@@ -292,7 +292,11 @@ const getFeed = async (req, res) => {
     }
 
     // 4. Mezclar, hidratar y devolver
-    if (cachedPostsData && cachedPostsData.length > 0) {
+    // HYBRID FIX: Solución para posts de amigos antiguos.
+    // Si la caché devuelve pocos posts (menos de 5), saltamos el return anticipado.
+    // Esto fuerza a que si el usuario sigue a un amigo nuevo, ejecute la
+    // petición FALLBACK a MongoDB e inyecte su historial en el feed.
+    if (cachedPostsData && cachedPostsData.length >= Math.min(safeLimit, 5)) {
         // Combinar: Snapshots de Redis + Posts de Influencers (Mongo)
         const allPosts = [...(cachedPostsData || []), ...influencerPosts];
         

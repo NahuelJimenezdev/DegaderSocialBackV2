@@ -129,6 +129,25 @@ Deberías ver un mensaje como:
 
 ---
 
+---
+
+## ⚡ Mantenimiento de Rendimiento y Base de Datos
+
+### Creación de Índices (Recomendado para Producción)
+
+Si notas lentitud en el carrusel de recomendaciones o en la carga de sugerencias de usuarios, es probable que falten los índices optimizados en MongoDB.
+
+#### Uso (Desde el contenedor backend)
+```bash
+docker compose exec backend node src/scripts/createIndexes.js
+```
+
+#### Qué hace este script
+1. **Índice de Jerarquías:** Optimiza las búsquedas por nivel fundacional y territorio.
+2. **Índice de Estado:** Agiliza el filtrado de usuarios activos y miembros de la fundación.
+
+---
+
 ## ❓ Solución de Problemas
 
 ### Error: "Usuario no encontrado"

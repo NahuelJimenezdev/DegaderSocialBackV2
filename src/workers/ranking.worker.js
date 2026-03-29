@@ -36,8 +36,9 @@ const startWorker = () => {
                 case 'process-game-result':
                     await handleGameResult(job.data);
                     break;
-                case 'weekly-reset':
-                    await performWeeklyReset();
+                case 'feed-backfill':
+                    const feedService = require('../services/feed.service');
+                    await feedService.processBackfill(job.data);
                     break;
                 default:
                     console.warn(`[Worker] ⚠️ Tarea desconocida: ${job.name}`);
@@ -50,7 +51,10 @@ const startWorker = () => {
             console.error(`[Worker] ❌ Error en ${job.name}:`, error.message);
             throw error; // Reintento automático de BullMQ
         }
-    }, { connection });
+    }, { 
+        connection,
+        concurrency: 2 // Limitar a 2 tareas simultáneas para no ahogar el pool de Mongo
+    });
 
     worker.on('completed', (job) => console.log(`[Worker] ✅ Tarea ${job.id} finalizada`));
     worker.on('failed', (job, err) => console.error(`[Worker] ❌ Tarea ${job.id} falló:`, err.message));

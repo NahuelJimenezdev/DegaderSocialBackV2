@@ -16,7 +16,7 @@ class FeedService {
      * @param {Object} post 
      * @returns {Promise<Number>}
      */
-    async calculatePostScore(post, viewerId = null, affinityData = null, temporaryBoost = 0) {
+    async calculatePostScore(post, viewerId = null, affinityData = null, temporaryBoost = 0, providedAuthorRole = null) {
         // 1. Engagement Weight (Ajustado según modelo Phase 3)
         const engagementWeight = 
             (post.likesCount || 0) * 3 +
@@ -39,15 +39,18 @@ class FeedService {
         // 3. Official / Priority Boost
         let priorityBoost = 0;
         try {
-            let authorRole = null;
-            if (post.usuario && post.usuario.seguridad && post.usuario.seguridad.rolSistema) {
-                authorRole = post.usuario.seguridad.rolSistema;
-            } else if (post.usuario) {
-                const User = require('../models/User.model');
-                const authorId = post.usuario._id || post.usuario;
-                const author = await User.findById(authorId).select('seguridad.rolSistema').lean();
-                if (author && author.seguridad) {
-                    authorRole = author.seguridad.rolSistema;
+            let authorRole = providedAuthorRole;
+            
+            if (!authorRole) {
+                if (post.usuario && post.usuario.seguridad && post.usuario.seguridad.rolSistema) {
+                    authorRole = post.usuario.seguridad.rolSistema;
+                } else if (post.usuario) {
+                    const User = require('../models/User.model');
+                    const authorId = post.usuario._id || post.usuario;
+                    const author = await User.findById(authorId).select('seguridad.rolSistema').lean();
+                    if (author && author.seguridad) {
+                        authorRole = author.seguridad.rolSistema;
+                    }
                 }
             }
 
@@ -88,20 +91,51 @@ class FeedService {
     }
 
     /**
-     * Sincroniza retroactivamente los posts cuando dos usuarios se hacen amigos (Backfill).
-     * @param {String} userId1 
-     * @param {String} userId2 
+     * Encola la tarea de backfill en BullMQ.
      */
-    async backfillFriendPosts(userId1, userId2) {
+    async queueBackfill(userId1, userId2) {
         try {
-            if (!redisService.isConnected) return;
-            const users = [userId1.toString(), userId2.toString()];
-            
+            const { rankingQueue } = require('../workers/ranking.worker');
+            await rankingQueue.add('feed-backfill', 
+                { userId1, userId2 },
+                { 
+                    attempts: 3, 
+                    backoff: { type: 'exponential', delay: 1000 },
+                    removeOnComplete: true
+                }
+            );
+            logger.info(`📝 [BACKFILL_QUEUED] Backfill encolado para ${userId1} y ${userId2}`);
+        } catch (error) {
+            logger.error(`❌ [BACKFILL_QUEUE_ERROR] ${error.message}`);
+        }
+    }
+
+    /**
+     * Procesa el backfill en paralelo controlado (Chunks de 15).
+     */
+    async processBackfill(data) {
+        const { userId1, userId2 } = data;
+        const users = [userId1, userId2];
+        
+        try {
+            // 1. Pre-cargar roles para evitar N+1 queries
+            const UserV2 = require('../models/User.model');
+            const [u1, u2] = await Promise.all([
+                UserV2.findById(userId1).select('seguridad.rolSistema').lean(),
+                UserV2.findById(userId2).select('seguridad.rolSistema').lean()
+            ]);
+
+            const roles = {
+                [userId1]: u1?.seguridad?.rolSistema,
+                [userId2]: u2?.seguridad?.rolSistema
+            };
+
             for (let i = 0; i < 2; i++) {
                 const authorId = users[i];
                 const viewerId = users[1 - i];
+                const authorRole = roles[authorId];
                 
-                // Obtener los últimos 50 posts del autor (no privados y fuera de grupos)
+                // 2. Obtener 50 posts pero procesar en CHUNKS
                 const posts = await Post.find({
                     usuario: authorId,
                     privacidad: { $in: ['publico', 'amigos'] },
@@ -112,22 +146,32 @@ class FeedService {
                 .lean();
 
                 if (posts.length > 0) {
-                    const pipeline = redisService.client.pipeline();
-                    const feedKey = `user:feed:${viewerId}`;
+                    const chunkSize = 15;
+                    for (let j = 0; j < posts.length; j += chunkSize) {
+                        const chunk = posts.slice(j, j + chunkSize);
+                        const pipeline = redisService.client.pipeline();
+                        const feedKey = `user:feed:${viewerId}`;
 
-                    for (const post of posts) {
-                        const score = await this.calculatePostScore(post, viewerId);
-                        pipeline.zadd(feedKey, score, post._id.toString());
+                        for (const post of chunk) {
+                            const score = await this.calculatePostScore(post, viewerId, null, 0, authorRole);
+                            pipeline.zadd(feedKey, score, post._id.toString());
+                        }
+                        
+                        await pipeline.exec();
+                        // Pequeño descanso entre chunks para no saturar el event loop
+                        await new Promise(r => setTimeout(r, 100));
                     }
-                    
-                    pipeline.zremrangebyrank(feedKey, 0, -1001);
-                    pipeline.expire(feedKey, 60 * 60 * 24 * 3);
-                    await pipeline.exec();
+
+                    // Limpieza final y TTL
+                    const feedKey = `user:feed:${viewerId}`;
+                    await redisService.client.zremrangebyrank(feedKey, 0, -1001);
+                    await redisService.client.expire(feedKey, 60 * 60 * 24 * 3);
                 }
             }
-            logger.info(`✨ [FEED_SYNC] Backfill completado entre ${userId1} y ${userId2}`);
+            logger.info(`✨ [WORKER_BACKFILL] Backfill completado exitosamente para ${userId1} <-> ${userId2}`);
         } catch (error) {
-            logger.error(`❌ [FEED_SERVICE] Error en backfill de amistad:`, error);
+            logger.error(`❌ [WORKER_BACKFILL_ERROR] ${error.message}`);
+            throw error; // Para que BullMQ lo reintente
         }
     }
 

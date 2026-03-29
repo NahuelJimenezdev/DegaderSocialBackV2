@@ -1,10 +1,13 @@
 const User = require('../models/User.model');
 const Friendship = require('../models/Friendship.model');
 const mongoose = require('mongoose');
+const redis = require('./redis.service');
+const logger = require('../config/logger');
+
+const CACHE_TTL = 60; // 60 segundos de cache
 
 /**
  * Mapeo de niveles jerárquicos para comparación eficiente.
- * Menor número = Mayor jerarquía.
  */
 const NIVELES_MAP = {
   "directivo_general": 0,
@@ -21,15 +24,28 @@ const NIVELES_MAP = {
 const NIVELES_FUNDACION = Object.keys(NIVELES_MAP);
 
 /**
- * Obtener IDs de usuarios a excluir (amigos, pendientes, bloqueados, rechazados)
+ * Borrar el cache de recomendaciones de un usuario específico
+ */
+const clearRecommendationCache = async (userId) => {
+  try {
+    const keys = await redis.client.keys(`recs:${userId}:*`);
+    if (keys.length > 0) {
+      await redis.client.del(...keys);
+      logger.info(`🧹 Cache de recomendaciones limpiado para usuario: ${userId}`);
+    }
+  } catch (err) {
+    logger.error(`❌ Error al limpiar cache de recomendaciones: ${err.message}`);
+  }
+};
+
+/**
+ * Obtener IDs a excluir (relaciones existentes)
+ * LIMITAMOS el select para ser ultra ligero
  */
 const getExcludedUserIds = async (userId) => {
   const relations = await Friendship.find({
-    $or: [
-      { solicitante: userId },
-      { receptor: userId }
-    ]
-  }).select('solicitante receptor').exec();
+    $or: [{ solicitante: userId }, { receptor: userId }]
+  }).select('solicitante receptor -_id').lean();
 
   const excludedIds = new Set();
   excludedIds.add(userId.toString());
@@ -39,161 +55,118 @@ const getExcludedUserIds = async (userId) => {
     excludedIds.add(rel.receptor.toString());
   });
 
-  return Array.from(excludedIds).map(id => new mongoose.Types.ObjectId(id));
+  return excludedIds;
 };
 
 /**
- * Fase 1: Recomendaciones por Jerarquía
+ * UNIFICADO: Obtener recomendaciones filtrando en memoria para evitar $nin gigante
  */
-const getHierarchyRecommendations = async (user, limit, excludedIds) => {
-  if (!user.esMiembroFundacion || !user.fundacion?.nivel) return [];
-
-  const userLevelValue = NIVELES_MAP[user.fundacion.nivel];
-  if (userLevelValue === undefined || userLevelValue === 0) return []; // Ya es el nivel máximo o nivel desconocido
-
-  // Identificar niveles superiores ordenados por cercanía (descendente hasta el usuario)
-  // Ejemplo: Si soy 4 (regional), busco 3 (nacional), luego 2, etc.
-  const superiorLevels = [];
-  for (let i = userLevelValue - 1; i >= 0; i--) {
-    superiorLevels.push(NIVELES_FUNDACION[i]);
+const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) => {
+  const cacheKey = `recs:${userId}:${limit}:${clientExcludedIds.length}`;
+  
+  // 1. Intentar hit de Cache
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (err) {
+    logger.warn(`⚠️ Redis error en recs: ${err.message}`);
   }
 
-  let results = [];
-  const userCountry = user.personal?.ubicacion?.pais;
+  // 2. Cargar usuario y sus exclusiones
+  const user = await User.findById(userId).select('fundacion personal').lean();
+  if (!user) throw new Error('Usuario no encontrado');
 
-  for (const level of superiorLevels) {
-    if (results.length >= limit) break;
+  const excludedSet = await getExcludedUserIds(userId);
+  clientExcludedIds.forEach(id => excludedSet.add(id.toString()));
 
-    const remainingLimit = limit - results.length;
-    
-    // Buscar en el mismo país primero
-    const sameCountryQuery = {
-      _id: { $nin: [...excludedIds, ...results.map(r => r._id)] },
-      esMiembroFundacion: true,
-      "fundacion.nivel": level,
-      "fundacion.estadoAprobacion": "aprobado",
-      "personal.ubicacion.pais": userCountry
-    };
+  let recommendations = [];
+  const userCountry = user.fundacion?.territorio?.pais || user.personal?.ubicacion?.pais;
 
-    const sameCountryResults = await User.find(sameCountryQuery)
-      .limit(remainingLimit)
+  // --- FASE 1: Jerarquía Unificada ---
+  if (user.esMiembroFundacion && user.fundacion?.nivel) {
+    const userLevelValue = NIVELES_MAP[user.fundacion.nivel];
+    if (userLevelValue !== undefined && userLevelValue > 0) {
+      const superiorLevels = NIVELES_FUNDACION.slice(0, userLevelValue);
+      
+      // Query unificada con Pais + Niveles
+      const hierarchyCandidates = await User.find({
+        "fundacion.nivel": { $in: superiorLevels },
+        "fundacion.territorio.pais": userCountry,
+        "fundacion.estadoAprobacion": "aprobado",
+        "seguridad.estadoCuenta": "activo"
+      })
+      .sort({ createdAt: -1 })
+      .limit(100)
       .select('nombres apellidos social fundacion personal')
-      .exec();
+      .lean();
 
-    results.push(...sameCountryResults);
-
-    if (results.length < limit) {
-      // Buscar globalmente en ese nivel
-      const globalQuery = {
-        _id: { $nin: [...excludedIds, ...results.map(r => r._id)] },
-        esMiembroFundacion: true,
-        "fundacion.nivel": level,
-        "fundacion.estadoAprobacion": "aprobado"
-      };
-
-      const globalResults = await User.find(globalQuery)
-        .limit(limit - results.length)
-        .select('nombres apellidos social fundacion personal')
-        .exec();
-
-      results.push(...globalResults);
+      // Filtrado en memoria
+      const filteredHierarchy = hierarchyCandidates.filter(u => !excludedSet.has(u._id.toString()));
+      recommendations.push(...filteredHierarchy);
     }
   }
 
-  return results;
-};
-
-/**
- * Fase 2: Recomendaciones por Relevancia
- */
-const getRelevanceRecommendations = async (user, limit, excludedIds) => {
-  const userCountry = user.personal?.ubicacion?.pais;
-  
-  // Priorizar populares en el mismo país
-  const query = {
-    _id: { $nin: excludedIds },
-    "seguridad.estadoCuenta": "activo"
-  };
-
-  const results = await User.find(query)
-    .sort({ 
-      "social.stats.seguidores": -1, 
-      "seguridad.ultimaConexion": -1 
+  // --- FASE 2: Relevancia Unificada (Si falta cupo) ---
+  if (recommendations.length < limit) {
+    const relevanceCandidates = await User.find({
+      "seguridad.estadoCuenta": "activo",
+      "personal.ubicacion.pais": userCountry
     })
-    .limit(limit)
+    .sort({ "social.stats.seguidores": -1, "seguridad.ultimaConexion": -1 })
+    .limit(100)
     .select('nombres apellidos social fundacion personal')
-    .exec();
+    .lean();
 
-  return results;
-};
-
-/**
- * Fase 3: Descubrimiento (Aleatorio)
- */
-const getDiscoveryRecommendations = async (user, limit, excludedIds) => {
-  // Uso de $sample para aleatoriedad (puede ser costoso en colecciones gigantes, 
-  // pero para lotes pequeños de descubrimiento es aceptable si el filtro inicial es amplio)
-  const results = await User.aggregate([
-    { $match: { _id: { $nin: excludedIds }, "seguridad.estadoCuenta": "activo" } },
-    { $sample: { size: limit } },
-    { $project: { nombres: 1, apellidos: 1, social: 1, fundacion: 1, personal: 1 } }
-  ]).exec();
-
-  return results;
-};
-
-/**
- * Servicio Principal de Recomendaciones
- */
-const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) => {
-  const user = await User.findById(userId).exec();
-  if (!user) throw new Error('Usuario no encontrado');
-
-  // Obtener IDs base a excluir (relaciones existentes)
-  const baseExcludedIds = await getExcludedUserIds(userId);
-  
-  // Combinar con IDs enviados por el cliente
-  const allExcludedIds = [...new Set([
-    ...baseExcludedIds,
-    ...clientExcludedIds.map(id => new mongoose.Types.ObjectId(id))
-  ])];
-
-  let recommendations = [];
-
-  // FASE 1: Jerarquía
-  const hierarchyRecs = await getHierarchyRecommendations(user, limit, allExcludedIds);
-  recommendations.push(...hierarchyRecs);
-
-  // FASE 2: Relevancia
-  if (recommendations.length < limit) {
-    const currentExcluded = [...allExcludedIds, ...recommendations.map(r => r._id)];
-    const relevanceRecs = await getRelevanceRecommendations(user, limit - recommendations.length, currentExcluded);
-    recommendations.push(...relevanceRecs);
+    const filteredRelevance = relevanceCandidates.filter(u => 
+      !excludedSet.has(u._id.toString()) && 
+      !recommendations.some(r => r._id.toString() === u._id.toString())
+    );
+    recommendations.push(...filteredRelevance);
   }
 
-  // FASE 3: Descubrimiento
+  // --- FASE 3: Descubrimiento ALEATORIO (Último recurso) ---
   if (recommendations.length < limit) {
-    const currentExcluded = [...allExcludedIds, ...recommendations.map(r => r._id)];
-    const discoveryRecs = await getDiscoveryRecommendations(user, limit - recommendations.length, currentExcluded);
-    recommendations.push(...discoveryRecs);
+    // Usamos limit 50 para el aggregate para no matar la DB
+    const discoveryCandidates = await User.aggregate([
+      { $match: { "seguridad.estadoCuenta": "activo" } },
+      { $sample: { size: 50 } },
+      { $project: { nombres: 1, apellidos: 1, social: 1, fundacion: 1, personal: 1 } }
+    ]).exec();
+
+    const filteredDiscovery = discoveryCandidates.filter(u => 
+      !excludedSet.has(u._id.toString()) && 
+      !recommendations.some(r => r._id.toString() === u._id.toString())
+    );
+    recommendations.push(...filteredDiscovery);
   }
 
-  // Mapear al formato esperado por el frontend
-  return recommendations.map(u => ({
+  // 3. Limitar y Formatear
+  const finalResult = recommendations.slice(0, limit).map(u => ({
     ...u,
     _id: u._id,
     name: `${u.nombres?.primero || ''} ${u.apellidos?.primero || ''}`.trim() || 'Usuario Degader',
-    country: u.personal?.ubicacion?.pais || 'Global',
+    country: u.fundacion?.territorio?.pais || u.personal?.ubicacion?.pais || 'Global',
     role: u.fundacion?.cargo || u.fundacion?.nivel || 'Miembro',
-    // Asegurar que las subestructuras existan para el frontend
     social: u.social || {},
     nombres: u.nombres || {},
     apellidos: u.apellidos || {},
     fundacion: u.fundacion || {},
     personal: u.personal || {}
   }));
+
+  // 4. Guardar en Cache
+  try {
+    await redis.set(cacheKey, finalResult, CACHE_TTL);
+  } catch (err) {
+    logger.warn(`❌ No se pudo cachear recs: ${err.message}`);
+  }
+
+  return finalResult;
 };
 
 module.exports = {
-  getRecommendedUsers
+  getRecommendedUsers,
+  clearRecommendationCache
 };

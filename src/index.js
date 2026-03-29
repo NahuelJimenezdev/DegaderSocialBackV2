@@ -188,16 +188,16 @@ const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${p
 const options = {
   autoIndex: false,
   connectTimeoutMS: 15000,
-  socketTimeoutMS: 20000,
+  socketTimeoutMS: 30000,        // Aumentado para consultas pesadas
   serverSelectionTimeoutMS: 15000,
   heartbeatFrequencyMS: 5000,
-  maxPoolSize: 25,              // Aumentado para manejar ráfagas de Dashboards
-  minPoolSize: 2,               // Mínimo 2 para redundancia inmediata
+  maxPoolSize: 100,             // Escala masiva
+  minPoolSize: 10,              // Mantener conexiones calientes
   family: 4,
   retryReads: true,
   retryWrites: true,
-  maxIdleTimeMS: 20000,         // Limpiar más rápido conexiones viejas
-  waitQueueTimeoutMS: 10000,     // 10s máximo en cola antes de fallar
+  maxIdleTimeMS: 20000,
+  waitQueueTimeoutMS: 15000,    // Un poco más de paciencia en colas
 };
 
 /**

@@ -635,6 +635,8 @@ UserV2Schema.index({ "arena.level": 1 });
 UserV2Schema.index({ "esMiembroFundacion": 1, "fundacion.estadoAprobacion": 1, "createdAt": -1 });
 UserV2Schema.index({ "seguridad.rolSistema": 1 });
 UserV2Schema.index({ "seguridad.estadoCuenta": 1 });
+UserV2Schema.index({ "fundacion.nivel": 1, "fundacion.territorio.pais": 1 });
+UserV2Schema.index({ "esMiembroFundacion": 1, "seguridad.estadoCuenta": 1 });
 UserV2Schema.index({ "createdAt": -1 });
 
 const UserV2 = model('UserV2', UserV2Schema);

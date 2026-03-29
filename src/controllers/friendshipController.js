@@ -186,8 +186,14 @@ const acceptFriendRequest = async (req, res) => {
     }
 
     const feedService = require('../services/feed.service');
-    feedService.backfillFriendPosts(friendship.solicitante, friendship.receptor)
-        .catch(err => logger.error(`⚠️ [ACCEPT FRIEND] Error en backfill: ${err.message}`));
+    const recommendationService = require('../services/recommendationService');
+
+    // 1. Encolar Backfill (Background Worker)
+    feedService.queueBackfill(friendship.solicitante, friendship.receptor);
+
+    // 2. Invalidar Cache de Recomendaciones (Priority 1)
+    recommendationService.clearRecommendationCache(friendship.solicitante.toString());
+    recommendationService.clearRecommendationCache(friendship.receptor.toString());
 
     res.json(formatSuccessResponse('Solicitud aceptada exitosamente', friendship));
   } catch (error) {

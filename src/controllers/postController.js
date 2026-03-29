@@ -292,7 +292,7 @@ const getFeed = async (req, res) => {
     }
 
     // 4. Mezclar, hidratar y devolver
-    if ((cachedPostsData && cachedPostsData.length > 0) || influencerPosts.length > 0) {
+    if (cachedPostsData && cachedPostsData.length > 0) {
         // Combinar: Snapshots de Redis + Posts de Influencers (Mongo)
         const allPosts = [...(cachedPostsData || []), ...influencerPosts];
         

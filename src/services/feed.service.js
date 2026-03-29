@@ -186,13 +186,17 @@ class FeedService {
                 contenido: post.contenido,
                 tipo: post.tipo,
                 image: post.image,
+                images: post.images, // 🆕 NUEVO: Incluir array de imágenes moderno
+                videos: post.videos, // 🆕 NUEVO: Incluir array de videos moderno
                 grupo: post.grupo,
                 comentariosRecientes: post.comentariosRecientes,
+                likes: post.likes || [], // 🆕 NUEVO: Incluir likes para verificar 'isLiked' en el front
                 likesCount: post.likesCount,
                 commentsCount: post.commentsCount,
                 sharesCount: post.sharesCount,
                 relevanceScore: post.relevanceScore,
                 createdAt: post.createdAt,
+                privacidad: post.privacidad, // 🆕 NUEVO: Incluir privacidad para reglas UI
                 postOriginal: post.postOriginal // Para compartidos
             };
 

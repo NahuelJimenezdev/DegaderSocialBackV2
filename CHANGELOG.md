@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.35.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.34.0...v1.35.0) (2026-03-29)
+
+
+### Features
+
+* force add index script ([7b3a337](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7b3a3379d8289eb79cabf5010d1a4f11b8a49836))
+
+
+### Bug Fixes
+
+* **backend:** add fallback to prevent empty recommendations in small databases where everyone is a friend ([1fe4e90](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/1fe4e9031d2ac3cbdf050d84f821f38d074ec176))
+* **backend:** replace  aggregation with skip-limit pattern to prevent MongoDB Atlas network timeouts ([786386a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/786386ab5e9f096e173d57071886a97f13a24ab1))
+* **dns:** remove stale extra_hosts IPs to resolve connection timeouts against shifting cluster nodes ([d0522af](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/d0522aff8b7b2814c41fb706404eac31bd486df0))
+* Poblado de usuarios en comentarios y verificacion de menciones ([5ced803](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5ced8038978c8e5eeac119cee92213edbff4dc94))
+* **recs:** gracefully handle missing user country and strict security filters ([ef7a207](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ef7a20746302de0c353b1c37f3cc967af4d59c4a))
+
 ## [1.34.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.33.1...v1.34.0) (2026-03-29)
 
 

@@ -62,7 +62,7 @@ const getExcludedUserIds = async (userId) => {
  * UNIFICADO: Obtener recomendaciones filtrando en memoria para evitar $nin gigante
  */
 const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) => {
-  const cacheKey = `recs:${userId}:${limit}:${clientExcludedIds.length}`;
+  const cacheKey = `recs:v2:${userId}:${limit}:${clientExcludedIds.length}`;
   
   // 1. Intentar hit de Cache
   try {
@@ -74,8 +74,8 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
     logger.warn(`⚠️ Redis error en recs: ${err.message}`);
   }
 
-  // 2. Cargar usuario y sus exclusiones
-  const user = await User.findById(userId).select('fundacion personal').lean();
+  // 2. Cargar usuario y relaciones
+  const user = await User.findById(userId).select('_id').lean();
   if (!user) throw new Error('Usuario no encontrado');
 
   const excludedSet = await getExcludedUserIds(userId);
@@ -83,95 +83,28 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
     if (id) excludedSet.add(id.toString());
   });
 
-  let recommendations = [];
-  const userCountry = user.fundacion?.territorio?.pais || user.personal?.ubicacion?.pais;
+  // --- FASE ÚNICA: Totalmente Aleatorio y Sin Complejidad ---
+  const randomCandidates = await User.aggregate([
+    { $sample: { size: 100 } }, // Traer bastantes al azar para tener de dónde elegir
+    { $project: { _id: 1, nombres: 1, apellidos: 1, social: 1, fundacion: 1, personal: 1, seguridad: 1 } }
+  ]).exec();
 
-  // Filtro base de seguridad: Activo o Ausente (legacy)
-  const baseSecurityFilter = {
-    $or: [
-      { "seguridad.estadoCuenta": "activo" },
-      { "seguridad.estadoCuenta": { $exists: false } }
-    ]
-  };
-
-  // --- FASE 1: Jerarquía Unificada ---
-  if (user.esMiembroFundacion && user.fundacion?.nivel) {
-    const userLevelValue = NIVELES_MAP[user.fundacion.nivel];
-    if (userLevelValue !== undefined && userLevelValue > 0) {
-      const superiorLevels = NIVELES_FUNDACION.slice(0, userLevelValue);
-      
-      // Query unificada dinámica
-      const hierarchyQuery = {
-        "fundacion.nivel": { $in: superiorLevels },
-        "fundacion.estadoAprobacion": "aprobado",
-        ...baseSecurityFilter
-      };
-
-      // Solo filtrar por país si el usuario tiene uno configurado
-      if (userCountry) {
-        hierarchyQuery["fundacion.territorio.pais"] = userCountry;
-      }
-
-      const hierarchyCandidates = await User.find(hierarchyQuery)
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .select('nombres apellidos social fundacion personal')
-      .lean();
-
-      // Filtrado en memoria
-      const filteredHierarchy = hierarchyCandidates.filter(u => u && !excludedSet.has(u._id.toString()));
-      recommendations.push(...filteredHierarchy);
-    }
-  }
-
-  // --- FASE 2: Relevancia Unificada (Si falta cupo) ---
-  if (recommendations.length < limit) {
-    const relevanceQuery = { ...baseSecurityFilter };
-    if (userCountry) {
-      relevanceQuery["personal.ubicacion.pais"] = userCountry;
-    }
-
-    const relevanceCandidates = await User.find(relevanceQuery)
-    .sort({ "social.stats.seguidores": -1, "seguridad.ultimaConexion": -1 })
-    .limit(100)
-    .select('nombres apellidos social fundacion personal')
-    .lean();
-
-    const filteredRelevance = relevanceCandidates.filter(u => 
-      u && !excludedSet.has(u._id.toString()) && 
-      !recommendations.some(r => r._id.toString() === u._id.toString())
-    );
-    recommendations.push(...filteredRelevance);
-  }
-
-  // --- FASE 3: Descubrimiento ALEATORIO (Último recurso universal) ---
-  if (recommendations.length < limit) {
-    const discoveryCandidates = await User.aggregate([
-      { $match: baseSecurityFilter },
-      { $sample: { size: 50 } },
-      { $project: { nombres: 1, apellidos: 1, social: 1, fundacion: 1, personal: 1 } }
-    ]).exec();
-
-    const filteredDiscovery = discoveryCandidates.filter(u => 
-      u && !excludedSet.has(u._id.toString()) && 
-      !recommendations.some(r => r._id.toString() === u._id.toString())
-    );
-    recommendations.push(...filteredDiscovery);
-  }
-
-  // 3. Limitar y Formatear
-  const finalResult = recommendations.slice(0, limit).map(u => ({
-    ...u,
-    _id: u._id,
-    name: `${u.nombres?.primero || ''} ${u.apellidos?.primero || ''}`.trim() || 'Usuario Degader',
-    country: u.fundacion?.territorio?.pais || u.personal?.ubicacion?.pais || 'Global',
-    role: u.fundacion?.cargo || u.fundacion?.nivel || 'Miembro',
-    social: u.social || {},
-    nombres: u.nombres || {},
-    apellidos: u.apellidos || {},
-    fundacion: u.fundacion || {},
-    personal: u.personal || {}
-  }));
+  // Filtrar los que ya son amigos, limitarlo al cupo, y mapear estandarizado
+  const finalResult = randomCandidates
+    .filter(u => u && u._id && !excludedSet.has(u._id.toString()) && u.seguridad?.estadoCuenta !== 'suspendido')
+    .slice(0, limit)
+    .map(u => ({
+      ...u,
+      _id: u._id.toString(),
+      name: `${u.nombres?.primero || ''} ${u.apellidos?.primero || ''}`.trim() || 'Usuario Degader',
+      country: u.fundacion?.territorio?.pais || u.personal?.ubicacion?.pais || 'Global',
+      role: u.fundacion?.cargo || u.fundacion?.nivel || 'Miembro',
+      social: u.social || {},
+      nombres: u.nombres || {},
+      apellidos: u.apellidos || {},
+      fundacion: u.fundacion || {},
+      personal: u.personal || {}
+    }));
 
   // 4. Guardar en Cache
   try {

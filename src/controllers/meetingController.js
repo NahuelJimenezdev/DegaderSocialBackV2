@@ -391,9 +391,15 @@ const requestAttendance = async (req, res) => {
 // PUT /api/reuniones/:id/respond/:userId — Aceptar/Denegar asistencia
 // ─────────────────────────────────────────────
 const respondAttendance = async (req, res) => {
-  const creatorId = req.user.id;
+  const currentUserId = req.userId || req.user?._id || req.user?.id;
   const { id, userId } = req.params;
   const { action } = req.body; // 'approve' | 'deny'
+
+  console.log('\x1b[33m%s\x1b[0m', `⚖️ [RESPOND_ATTENDANCE] Usuario ${currentUserId} respondiendo a ${userId} en reunión ${id}. Acción: ${action}`);
+
+  if (!currentUserId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   if (!['approve', 'deny'].includes(action)) {
     return res.status(400).json({ success: false, message: 'Acción inválida. Usa "approve" o "deny".' });
@@ -406,7 +412,8 @@ const respondAttendance = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
-    if (meeting.creator.toString() !== creatorId) {
+    console.log(`🔍 Validando creador: MeetingCreator=${meeting.creator.toString()} | CurrentUser=${currentUserId}`);
+    if (meeting.creator.toString() !== currentUserId.toString()) {
       return res.status(403).json({ success: false, message: 'Solo el creador puede gestionar asistentes.' });
     }
 
@@ -420,7 +427,7 @@ const respondAttendance = async (req, res) => {
 
     if (action === 'approve') {
       // Agregar a attendees aprobados
-      const alreadyAttendee = meeting.attendees.some(a => a.toString() === userId);
+      const alreadyAttendee = (meeting.attendees || []).some(a => a.toString() === userId.toString());
       if (!alreadyAttendee) {
         meeting.attendees.push(userId);
       }
@@ -429,25 +436,30 @@ const respondAttendance = async (req, res) => {
     await meeting.save();
 
     // Notificar al usuario su resultado
-    const contenido = action === 'approve'
-      ? `Tu solicitud para unirte a "${meeting.title}" fue aceptada`
-      : `Tu solicitud para unirte a "${meeting.title}" fue denegada`;
+    try {
+      const contenido = action === 'approve'
+        ? `Tu solicitud para unirte a "${meeting.title}" fue aceptada`
+        : `Tu solicitud para unirte a "${meeting.title}" fue denegada`;
 
-    await createMeetingNotification(
-      userId,
-      creatorId,
-      action === 'approve' ? 'attendance_approved' : 'attendance_denied',
-      contenido,
-      meeting._id
-    );
+      await createMeetingNotification(
+        userId,
+        currentUserId,
+        action === 'approve' ? 'attendance_approved' : 'attendance_denied',
+        contenido,
+        meeting._id
+      );
+    } catch (notifErr) {
+      console.error('⚠️ Error al enviar notificación de respuesta:', notifErr.message);
+    }
 
+    console.log('✅ Respuesta procesada con éxito');
     res.status(200).json({
       success: true,
       message: action === 'approve' ? 'Usuario aprobado.' : 'Usuario denegado.',
     });
 
   } catch (error) {
-    console.error('Error en respondAttendance:', error);
+    console.error('💥 [RESPOND_ATTENDANCE_ERROR]:', error);
     res.status(500).json({ success: false, error: 'Error al procesar la respuesta.' });
   }
 };
@@ -456,8 +468,14 @@ const respondAttendance = async (req, res) => {
 // GET /api/reuniones/:id/detail — Detalle para el creador
 // ─────────────────────────────────────────────
 const getCreatorMeetingDetail = async (req, res) => {
-  const creatorId = req.user.id;
+  const currentUserId = req.userId || req.user?._id || req.user?.id;
   const { id } = req.params;
+
+  console.log('\x1b[34m%s\x1b[0m', `📋 [GET_CREATOR_DETAIL] Usuario ${currentUserId} pidiendo detalle de reunión ${id}`);
+
+  if (!currentUserId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   try {
     const meeting = await Meeting.findById(id)
@@ -475,13 +493,14 @@ const getCreatorMeetingDetail = async (req, res) => {
       return res.status(404).json({ success: false, message: 'El creador de esta reunión ya no existe.' });
     }
 
-    if (meeting.creator._id.toString() !== creatorId) {
+    console.log(`🔍 Validando detalle: Creator=${meeting.creator._id.toString()} | Current=${currentUserId}`);
+    if (meeting.creator._id.toString() !== currentUserId.toString()) {
       return res.status(403).json({ success: false, message: 'Solo el creador puede ver el detalle completo.' });
     }
 
     res.status(200).json({ success: true, data: meeting });
-
   } catch (error) {
+    console.error('💥 [GET_CREATOR_DETAIL_ERROR]:', error);
     res.status(500).json({ success: false, error: 'Error al obtener el detalle.' });
   }
 };
@@ -490,9 +509,13 @@ const getCreatorMeetingDetail = async (req, res) => {
 // PUT /api/reuniones/:id — Editar reunión (solo creator)
 // ─────────────────────────────────────────────
 const updateMeeting = async (req, res) => {
-  const creatorId = req.user.id;
+  const currentUserId = req.userId || req.user?._id || req.user?.id;
   const { id } = req.params;
   const { title, description, meetLink, time, date, startsAt } = req.body;
+
+  if (!currentUserId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   try {
     const meeting = await Meeting.findById(id);
@@ -501,7 +524,7 @@ const updateMeeting = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
-    if (meeting.creator.toString() !== creatorId) {
+    if (meeting.creator.toString() !== currentUserId.toString()) {
       return res.status(403).json({ success: false, message: 'Solo el creador puede editar la reunión.' });
     }
 

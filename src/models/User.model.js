@@ -90,6 +90,8 @@ const CARGOS_FUNDACION = [
   // Territoriales (Nuevos)
   "Director de Áreas",
   "Secretario/a Director de Áreas",
+  "Sub-Director de Áreas",
+  "Secretario/a Sub-Director de Áreas",
   "Director General",
   "Sub-Director General",
   "secretario Director General",

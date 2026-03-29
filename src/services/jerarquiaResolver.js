@@ -43,7 +43,7 @@ const CARGOS = [
   "Director Ejecutivo", "Secretario Ejecutivo", "Miembro de Junta Directiva", "Equipo de Licitación y Adquisiciones",
   "Dirección de Control Interno y Seguimiento", "Dirección Asuntos Ético",
   "Salvación Mundial", "Misión Internacional de Paz",
-  "Director de Áreas", "Secretario/a Director de Áreas", "Director General", "Sub-Director General", "secretario Director General", "secretario Sub-Director General",
+  "Director de Áreas", "Secretario/a Director de Áreas", "Sub-Director de Áreas", "Secretario/a Sub-Director de Áreas", "Director General", "Sub-Director General", "secretario Director General", "secretario Sub-Director General",
   "Director", "Subdirector", "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal", "Coordinador", "Director General (Pastor)", "Auditor", "Secretario/a", "Miembro Comité Ético", "Delegado Internacional"
 ];
 

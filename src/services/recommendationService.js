@@ -95,7 +95,7 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
     .lean();
 
   // Filtrar los que ya son amigos, limitarlo al cupo, y mapear estandarizado
-  const finalResult = randomCandidates
+  let finalResult = randomCandidates
     .filter(u => u && u._id && !excludedSet.has(u._id.toString()) && u.seguridad?.estadoCuenta !== 'suspendido')
     .slice(0, limit)
     .map(u => ({
@@ -110,6 +110,30 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
       fundacion: u.fundacion || {},
       personal: u.personal || {}
     }));
+
+  // === MODO SALVAVIDAS PARA ENTORNOS DE PRUEBAS PEQUEÑOS ===
+  // Si filtramos a todos (ej. tienes 15 amigos y la BD solo tiene 15 usuarios), mostramos usuarios de todos modos
+  // para no dejar el carrusel vacío en front.
+  if (finalResult.length === 0 && randomCandidates.length > 0) {
+    logger.warn(`[RECS API] Salvavidas activado: Excluidos todos los candidatos (${randomCandidates.length}). Mostrando de igual manera para no dejar carrusel vacío.`);
+    finalResult = randomCandidates
+      .filter(u => u && u._id && u._id.toString() !== userId.toString()) // Al menos no recomendarse a sí mismo
+      .slice(0, limit)
+      .map(u => ({
+        ...u,
+        _id: u._id.toString(),
+        name: `${u.nombres?.primero || ''} ${u.apellidos?.primero || ''}`.trim() || 'Usuario Degader',
+        country: u.fundacion?.territorio?.pais || u.personal?.ubicacion?.pais || 'Global',
+        role: u.fundacion?.cargo || u.fundacion?.nivel || 'Miembro',
+        social: u.social || {},
+        nombres: u.nombres || {},
+        apellidos: u.apellidos || {},
+        fundacion: u.fundacion || {},
+        personal: u.personal || {}
+      }));
+  }
+
+  logger.info(`[RECS API] totalUsers: ${totalUsers}, fetched: ${randomCandidates.length}, excludedSetSize: ${excludedSet.size}, finalOutput: ${finalResult.length}`);
 
   // 4. Guardar en Cache
   try {

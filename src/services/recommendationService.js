@@ -79,10 +79,20 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
   if (!user) throw new Error('Usuario no encontrado');
 
   const excludedSet = await getExcludedUserIds(userId);
-  clientExcludedIds.forEach(id => excludedSet.add(id.toString()));
+  clientExcludedIds.forEach(id => {
+    if (id) excludedSet.add(id.toString());
+  });
 
   let recommendations = [];
   const userCountry = user.fundacion?.territorio?.pais || user.personal?.ubicacion?.pais;
+
+  // Filtro base de seguridad: Activo o Ausente (legacy)
+  const baseSecurityFilter = {
+    $or: [
+      { "seguridad.estadoCuenta": "activo" },
+      { "seguridad.estadoCuenta": { $exists: false } }
+    ]
+  };
 
   // --- FASE 1: Jerarquía Unificada ---
   if (user.esMiembroFundacion && user.fundacion?.nivel) {
@@ -90,53 +100,60 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
     if (userLevelValue !== undefined && userLevelValue > 0) {
       const superiorLevels = NIVELES_FUNDACION.slice(0, userLevelValue);
       
-      // Query unificada con Pais + Niveles
-      const hierarchyCandidates = await User.find({
+      // Query unificada dinámica
+      const hierarchyQuery = {
         "fundacion.nivel": { $in: superiorLevels },
-        "fundacion.territorio.pais": userCountry,
         "fundacion.estadoAprobacion": "aprobado",
-        "seguridad.estadoCuenta": "activo"
-      })
+        ...baseSecurityFilter
+      };
+
+      // Solo filtrar por país si el usuario tiene uno configurado
+      if (userCountry) {
+        hierarchyQuery["fundacion.territorio.pais"] = userCountry;
+      }
+
+      const hierarchyCandidates = await User.find(hierarchyQuery)
       .sort({ createdAt: -1 })
       .limit(100)
       .select('nombres apellidos social fundacion personal')
       .lean();
 
       // Filtrado en memoria
-      const filteredHierarchy = hierarchyCandidates.filter(u => !excludedSet.has(u._id.toString()));
+      const filteredHierarchy = hierarchyCandidates.filter(u => u && !excludedSet.has(u._id.toString()));
       recommendations.push(...filteredHierarchy);
     }
   }
 
   // --- FASE 2: Relevancia Unificada (Si falta cupo) ---
   if (recommendations.length < limit) {
-    const relevanceCandidates = await User.find({
-      "seguridad.estadoCuenta": "activo",
-      "personal.ubicacion.pais": userCountry
-    })
+    const relevanceQuery = { ...baseSecurityFilter };
+    if (userCountry) {
+      relevanceQuery["personal.ubicacion.pais"] = userCountry;
+    }
+
+    const relevanceCandidates = await User.find(relevanceQuery)
     .sort({ "social.stats.seguidores": -1, "seguridad.ultimaConexion": -1 })
     .limit(100)
     .select('nombres apellidos social fundacion personal')
     .lean();
 
     const filteredRelevance = relevanceCandidates.filter(u => 
-      !excludedSet.has(u._id.toString()) && 
+      u && !excludedSet.has(u._id.toString()) && 
       !recommendations.some(r => r._id.toString() === u._id.toString())
     );
     recommendations.push(...filteredRelevance);
   }
 
-  // --- FASE 3: Descubrimiento ALEATORIO (Último recurso) ---
+  // --- FASE 3: Descubrimiento ALEATORIO (Último recurso universal) ---
   if (recommendations.length < limit) {
-    // Usamos limit 50 para el aggregate para no matar la DB
     const discoveryCandidates = await User.aggregate([
-      { $match: { "seguridad.estadoCuenta": "activo" } },
+      { $match: baseSecurityFilter },
       { $sample: { size: 50 } },
       { $project: { nombres: 1, apellidos: 1, social: 1, fundacion: 1, personal: 1 } }
     ]).exec();
 
     const filteredDiscovery = discoveryCandidates.filter(u => 
-      !excludedSet.has(u._id.toString()) && 
+      u && !excludedSet.has(u._id.toString()) && 
       !recommendations.some(r => r._id.toString() === u._id.toString())
     );
     recommendations.push(...filteredDiscovery);

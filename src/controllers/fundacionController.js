@@ -30,19 +30,26 @@ const solicitarUnirse = async (req, res) => {
       return res.status(400).json(formatErrorResponse('Ya eres miembro aprobado de la fundación'));
     }
 
-    // Actualizar perfil de fundación
+    // Actualizar perfil de fundación usando asignación explícita para asegurar el tracking de Mongoose
     user.esMiembroFundacion = true;
-    user.fundacion = {
-      activo: true,
-      nivel,
-      area,
-      subArea, // Nuevo
-      programa, // Nuevo
-      cargo,
-      territorio: territorio || {},
-      estadoAprobacion: 'pendiente',
-      fechaIngreso: new Date()
-    };
+    
+    // Inicializar objeto fundacion si no existe
+    if (!user.fundacion) {
+      user.fundacion = {};
+    }
+
+    user.fundacion.activo = true;
+    user.fundacion.nivel = nivel;
+    user.fundacion.area = area;
+    user.fundacion.subArea = subArea;
+    user.fundacion.programa = programa;
+    user.fundacion.cargo = cargo;
+    user.fundacion.territorio = territorio || {};
+    user.fundacion.estadoAprobacion = 'pendiente';
+    user.fundacion.fechaSolicitud = new Date(); // Marcamos el envío de la solicitud actual
+
+    // Forzar marcado de modificación por seguridad en subdocumentos
+    user.markModified('fundacion');
 
     await user.save();
 
@@ -279,10 +286,10 @@ const listarSolicitudes = async (req, res) => {
 
     // Buscar solicitudes pendientes (Optimizado: Proyección quirúrgica)
     const solicitudes = await User.find(query)
-      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.fechaIngreso createdAt')
+      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.fechaSolicitud createdAt')
       // Excluir campos pesados (por si acaso query trae el doc entero)
       .select('-fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
-      .sort({ 'fundacion.fechaIngreso': -1, createdAt: -1 })
+      .sort({ 'fundacion.fechaSolicitud': -1, createdAt: -1 })
       .lean();
 
 
@@ -392,7 +399,28 @@ const aprobarSolicitud = async (req, res) => {
     solicitante.fundacion.estadoAprobacion = 'aprobado';
     solicitante.fundacion.aprobadoPor = aprobadorId;
     solicitante.fundacion.fechaAprobacion = new Date();
+    
+    // Si es la primera vez que ingresa a la fundación, seteamos la fecha oficial
+    if (!solicitante.fundacion.fechaIngreso) {
+      solicitante.fundacion.fechaIngreso = new Date();
+    }
+    
+    // Registrar en el historial de cargos
+    if (!solicitante.fundacion.historialCargos) {
+      solicitante.fundacion.historialCargos = [];
+    }
+    
+    solicitante.fundacion.historialCargos.push({
+      nivel: solicitante.fundacion.nivel,
+      area: solicitante.fundacion.area,
+      cargo: solicitante.fundacion.cargo,
+      territorio: solicitante.fundacion.territorio,
+      fechaCambio: new Date(),
+      aprobadoPor: aprobadorId
+    });
+
     solicitante.fundacion.activo = true;
+    solicitante.markModified('fundacion');
 
     await solicitante.save();
 
@@ -677,7 +705,7 @@ const getAllSolicitudesAdmin = async (req, res) => {
     const solicitudes = await User.find(query)
       .select('nombres apellidos email fundacion createdAt')
       .populate('fundacion.aprobadoPor', 'nombres apellidos')
-      .sort({ 'fundacion.fechaIngreso': -1 })
+      .sort({ 'fundacion.fechaSolicitud': -1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 

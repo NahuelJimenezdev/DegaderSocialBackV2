@@ -161,8 +161,8 @@ const InfoPersonalSchema = new Schema({
 
 // 2. Perfil Fundación Sol y Luna (FHS&L)
 const PerfilFundacionSchema = new Schema({
-  activo: { type: Boolean, default: false },
-  fechaIngreso: { type: Date, default: Date.now },
+  fechaIngreso: { type: Date }, // Fecha oficial de ingreso (se setea en la primera aprobación)
+  fechaSolicitud: { type: Date, default: Date.now }, // Fecha de la última solicitud enviada
   codigoEmpleado: { type: String, trim: true }, // Legajo o ID interno
 
   // Estructura Organizacional
@@ -216,6 +216,16 @@ const PerfilFundacionSchema = new Schema({
     type: String,
     trim: true
   },
+
+  // Historial de Cargos y Movimientos
+  historialCargos: [{
+    nivel: String,
+    area: String,
+    cargo: String,
+    territorio: Schema.Types.Mixed,
+    fechaCambio: { type: Date, default: Date.now },
+    aprobadoPor: { type: Schema.Types.ObjectId, ref: 'UserV2' }
+  }],
 
   // Organismos Internacionales (Si aplica)
   organismoInternacional: {

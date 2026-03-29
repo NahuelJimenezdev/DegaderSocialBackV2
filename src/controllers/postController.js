@@ -302,43 +302,30 @@ const getFeed = async (req, res) => {
         // ORDENAMIENTO DE RELEVANCIA SECUNDARIO (MongoDB vs Redis merges)
         const sortedDesc = uniquePosts.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
 
-        // 🧠 MEJORA PHASE 4: DIVERSIDAD DE CONTENIDO & EXPLORATION FACTOR
-        let diversedPosts = [];
-        let explorationPool = [];
-        const authorCountMap = {};
-
+        // 🧠 MEJORA PHASE 4: DIVERSIDAD DE CONTENIDO (INTERCALADO ESTRICTO - ROUND ROBIN)
+        const authorBuckets = {};
         sortedDesc.forEach(post => {
             const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
-            authorCountMap[authorId] = (authorCountMap[authorId] || 0) + 1;
-            
-            // Limitar burbuja: Máximo 2 posts de un mismo autor seguidos/dominantes
-            if (authorCountMap[authorId] > 2) {
-                explorationPool.push(post);
-            } else {
-                diversedPosts.push(post);
-            }
+            if (!authorBuckets[authorId]) authorBuckets[authorId] = [];
+            authorBuckets[authorId].push(post);
         });
 
-        // EXPLORATION FACTOR: Barajamos los posts excedentes/relegados
-        explorationPool = explorationPool.sort(() => Math.random() - 0.5);
-        
-        // Interjección: 1 post de exploración inyectado cada 4 top posts para frescura del feed
+        // Intercalado: Tomamos el mejor post de cada autor, luego el segundo mejor...
         let finalFeed = [];
-        let eIndex = 0;
-        
-        for (let i = 0; i < diversedPosts.length; i++) {
-            finalFeed.push(diversedPosts[i]);
-            // Insertar factor sorpresa (exploration post) para matar monotonía
-            if ((i + 1) % 4 === 0 && eIndex < explorationPool.length) {
-                finalFeed.push(explorationPool[eIndex]);
-                eIndex++;
+        const authorIds = Object.keys(authorBuckets);
+        let currentTier = 0;
+        let addedInThisTier = true;
+
+        while (addedInThisTier && finalFeed.length < safeLimit) {
+            addedInThisTier = false;
+            for (const authId of authorIds) {
+                if (authorBuckets[authId][currentTier]) {
+                    finalFeed.push(authorBuckets[authId][currentTier]);
+                    addedInThisTier = true;
+                    if (finalFeed.length >= safeLimit) break;
+                }
             }
-        }
-        
-        // Empujar excedentes al final para no perder data si se scrollea hasta el final
-        while (eIndex < explorationPool.length) {
-            finalFeed.push(explorationPool[eIndex]);
-            eIndex++;
+            currentTier++;
         }
 
         const finalSortedPosts = finalFeed.slice(0, safeLimit);

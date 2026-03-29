@@ -88,6 +88,50 @@ class FeedService {
     }
 
     /**
+     * Sincroniza retroactivamente los posts cuando dos usuarios se hacen amigos (Backfill).
+     * @param {String} userId1 
+     * @param {String} userId2 
+     */
+    async backfillFriendPosts(userId1, userId2) {
+        try {
+            if (!redisService.isConnected) return;
+            const users = [userId1.toString(), userId2.toString()];
+            
+            for (let i = 0; i < 2; i++) {
+                const authorId = users[i];
+                const viewerId = users[1 - i];
+                
+                // Obtener los últimos 50 posts del autor (no privados y fuera de grupos)
+                const posts = await Post.find({
+                    usuario: authorId,
+                    privacidad: { $in: ['publico', 'amigos'] },
+                    $or: [{ grupo: { $exists: false } }, { grupo: null }]
+                })
+                .sort({ createdAt: -1 })
+                .limit(50)
+                .lean();
+
+                if (posts.length > 0) {
+                    const pipeline = redisService.client.pipeline();
+                    const feedKey = `user:feed:${viewerId}`;
+
+                    for (const post of posts) {
+                        const score = await this.calculatePostScore(post, viewerId);
+                        pipeline.zadd(feedKey, score, post._id.toString());
+                    }
+                    
+                    pipeline.zremrangebyrank(feedKey, 0, -1001);
+                    pipeline.expire(feedKey, 60 * 60 * 24 * 3);
+                    await pipeline.exec();
+                }
+            }
+            logger.info(`✨ [FEED_SYNC] Backfill completado entre ${userId1} y ${userId2}`);
+        } catch (error) {
+            logger.error(`❌ [FEED_SERVICE] Error en backfill de amistad:`, error);
+        }
+    }
+
+    /**
      * Sincroniza el score de un post en los feeds de Redis y persiste en MongoDB.
      */
     async syncPostScore(postId) {

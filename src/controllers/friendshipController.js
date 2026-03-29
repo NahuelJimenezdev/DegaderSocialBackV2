@@ -185,6 +185,10 @@ const acceptFriendRequest = async (req, res) => {
       emitUpdate(req.userId.toString(), friendship.solicitante.toString());
     }
 
+    const feedService = require('../services/feed.service');
+    feedService.backfillFriendPosts(friendship.solicitante, friendship.receptor)
+        .catch(err => logger.error(`⚠️ [ACCEPT FRIEND] Error en backfill: ${err.message}`));
+
     res.json(formatSuccessResponse('Solicitud aceptada exitosamente', friendship));
   } catch (error) {
     if (session.inTransaction()) await session.abortTransaction();

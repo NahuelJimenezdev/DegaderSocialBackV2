@@ -558,8 +558,12 @@ const updateMeeting = async (req, res) => {
 // PUT /api/reuniones/:id/join — Unirse (si está aprobado)
 // ─────────────────────────────────────────────
 const joinMeeting = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.userId || req.user?._id || req.user?.id;
   const { id } = req.params;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   try {
     const meeting = await Meeting.findById(id);
@@ -568,7 +572,7 @@ const joinMeeting = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
-    const isApproved = meeting.attendees.some(a => a.toString() === userId);
+    const isApproved = meeting.attendees.some(a => (a._id || a).toString() === userId.toString());
     if (!isApproved) {
       return res.status(403).json({ success: false, message: 'No tienes aprobación para unirte a esta reunión.' });
     }
@@ -588,47 +592,75 @@ const joinMeeting = async (req, res) => {
 // PUT /api/reuniones/:id/cancel — Cancelar reunión
 // ─────────────────────────────────────────────
 const cancelMeeting = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.userId || req.user?._id || req.user?.id;
   const { id } = req.params;
+
+  console.log('\x1b[31m%s\x1b[0m', `🚫 [CANCEL_MEETING] Intentando cancelar reunión: ${id} por usuario: ${userId}`);
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   try {
     const meeting = await Meeting.findById(id);
 
     if (!meeting) {
+      console.log('❌ Reunión no encontrada');
       return res.status(404).json({ success: false, message: 'Reunión no encontrada.' });
     }
 
-    if (meeting.creator.toString() !== userId) {
+    console.log(`🔍 Validando creador: Creator=${meeting.creator.toString()} | CurrentUser=${userId}`);
+    if (meeting.creator.toString() !== userId.toString()) {
       return res.status(403).json({ success: false, message: 'Solo el creador puede cancelar la reunión.' });
     }
 
     if (meeting.status === 'completed') {
+      console.log('⚠️ La reunión ya está completada, no se puede cancelar');
       return res.status(400).json({ success: false, message: 'No se puede cancelar una reunión completada.' });
     }
 
     meeting.status = 'cancelled';
     await meeting.save();
+    console.log('✅ Reunión marcada como cancelada en BD');
 
     if (global.emitMeetingUpdate) {
-      const attendeeIds = meeting.attendees.map(id => id.toString());
+      const attendeeIds = meeting.attendees
+        .filter(a => a != null)
+        .map(a => (a._id || a).toString());
+      
+      console.log(`📡 Emitiendo actualización de cancelación a ${attendeeIds.length} asistentes`);
       global.emitMeetingUpdate(attendeeIds, meeting, 'cancel');
     }
 
-    const attendeesToNotify = meeting.attendees.filter(a => a.toString() !== userId);
-    for (const attendeeId of attendeesToNotify) {
-      await createMeetingNotification(
-        attendeeId,
-        userId,
-        'meeting_cancelled',
-        `La reunión "${meeting.title}" ha sido cancelada`,
-        meeting._id
-      );
+    const attendeesToNotify = meeting.attendees
+      .filter(a => a != null)
+      .filter(a => (a._id || a).toString() !== userId.toString());
+
+    console.log(`📢 Enviando ${attendeesToNotify.length} notificaciones de cancelación...`);
+    for (const attendee of attendeesToNotify) {
+      const attendeeId = (attendee._id || attendee).toString();
+      try {
+        await createMeetingNotification(
+          attendeeId,
+          userId,
+          'meeting_cancelled',
+          `La reunión "${meeting.title}" ha sido cancelada`,
+          meeting._id
+        );
+      } catch (notifErr) {
+        console.error(`❌ Error al notificar cancelación a ${attendeeId}:`, notifErr.message);
+      }
     }
 
     res.status(200).json({ success: true, message: 'Reunión cancelada exitosamente.', data: meeting });
 
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Error al cancelar la reunión.' });
+    console.error('💥 [CANCEL_MEETING_ERROR]:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error al cancelar la reunión.',
+      details: error.message 
+    });
   }
 };
 

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.33.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.32.0...v1.33.0) (2026-03-29)
+
+
+### Features
+
+* implement hierarchical user recommendation system backend ([38ea22c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/38ea22c022f47a5c02cd29015fab56fd0d6467be))
+* Modelo de Backup para registros de base de datos ([2c8af5a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2c8af5a6e767fb6aa08b614a52ed95064d6ae3c2))
+
+
+### Bug Fixes
+
+* **backend:** corregido path notificationService ([cf22adb](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/cf22adb0ae2d88d9e7f04d578ec4efc3d03e6280))
+
 ## [1.32.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.31.0...v1.32.0) (2026-03-27)
 
 

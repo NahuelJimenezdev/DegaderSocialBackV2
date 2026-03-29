@@ -279,10 +279,10 @@ const listarSolicitudes = async (req, res) => {
 
     // Buscar solicitudes pendientes (Optimizado: Proyección quirúrgica)
     const solicitudes = await User.find(query)
-      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio createdAt')
+      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.fechaIngreso createdAt')
       // Excluir campos pesados (por si acaso query trae el doc entero)
       .select('-fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
-      .sort({ createdAt: -1 })
+      .sort({ 'fundacion.fechaIngreso': -1, createdAt: -1 })
       .lean();
 
 

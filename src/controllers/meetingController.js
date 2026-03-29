@@ -36,20 +36,37 @@ const getVisibilityForType = (type) => {
 // POST /api/reuniones — Crear reunión
 // ─────────────────────────────────────────────
 const createMeeting = async (req, res) => {
+  console.log('\x1b[36m%s\x1b[0m', '🚀 [CREATE_MEETING] Inicio del proceso');
+  console.log('📦 Body recibido:', JSON.stringify(req.body, null, 2));
+  
   const {
     title, description, date, time, duration, meetLink,
     type, group, iglesia, attendees: invitedFromForm, targetMinistry,
     timezone, startsAt
   } = req.body;
-  const creatorId = req.user.id;
+
+  // 🛡️ CORRECCIÓN: Capturar ID de varias posibles fuentes en req
+  const creatorId = req.userId || req.user?._id || req.user?.id;
+  console.log('👤 Creador ID detectado:', creatorId);
+
+  if (!creatorId) {
+    console.error('❌ [AUTH_ERROR] No se pudo determinar el ID del creador.');
+    return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
+  }
 
   try {
     let startsAtFinal = startsAt;
     if (!startsAtFinal) {
+      console.log('⚠️ No viene startsAt, intentando construir desde date y time...');
+      console.log('📅 Date:', date, '⏰ Time:', time);
       startsAtFinal = new Date(`${date}T${time}:00Z`);
+      console.log('✅ startsAtFinal construido:', startsAtFinal);
+    } else {
+      console.log('✅ startsAt recibido:', startsAtFinal);
     }
 
     const visibility = getVisibilityForType(type);
+    console.log('👁️ Visibilidad determinada:', visibility, 'para tipo:', type);
 
     const newMeeting = new Meeting({
       creator: creatorId,
@@ -66,26 +83,36 @@ const createMeeting = async (req, res) => {
       type,
       visibility,
       targetMinistry: targetMinistry || 'todos',
-      // El creador ya es attendee aprobado desde el inicio
       attendees: [creatorId],
-      // Los que el creador agregó manualmente son invitados (deben pedir asistir)
       invitedUsers: [...new Set((invitedFromForm || []).filter(id => id !== creatorId))],
     });
 
-    await newMeeting.save();
+    console.log('💾 Intentando guardar nueva reunión en BD...');
+    try {
+      await newMeeting.save();
+      console.log('✅ Reunión guardada con éxito. ID:', newMeeting._id);
+    } catch (saveError) {
+      console.error('❌ Error específico de Mongoose al guardar:', saveError);
+      if (saveError.errors) {
+        Object.keys(saveError.errors).forEach(key => {
+          console.error(`   - Campo [${key}]: ${saveError.errors[key].message}`);
+        });
+      }
+      throw saveError;
+    }
+
+    console.log('🔄 Populando datos de creador y asistentes...');
     await newMeeting.populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil');
     await newMeeting.populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil');
 
-    // Emitir via WebSocket a los attendees actuales (solo el creador)
     if (global.emitMeetingUpdate) {
+      console.log('📡 Emitiendo actualización via WebSocket...');
       global.emitMeetingUpdate([creatorId], newMeeting, 'create');
     }
 
-    // ─── Notificaciones según tipo ───
     let notifyIds = [];
-
     if (iglesia) {
-      // Contexto iglesia: notificar según ministerio
+      console.log('⛪ Contexto Iglesia detectado:', iglesia);
       const ministryTarget = targetMinistry || 'todos';
       const query = {
         'eclesiastico.iglesia': iglesia,
@@ -96,8 +123,10 @@ const createMeeting = async (req, res) => {
         query['eclesiastico.ministerios.nombre'] = ministryTarget;
         query['eclesiastico.ministerios.activo'] = true;
       }
+      console.log('🔍 Buscando usuarios para notificar (Iglesia) con query:', JSON.stringify(query));
       const members = await User.find(query).select('_id');
       notifyIds = members.map(m => m._id.toString());
+      console.log(`📢 Se encontraron ${notifyIds.length} miembros de iglesia para notificar`);
     } else if (type === 'grupal' && group) {
       // Grupal: notificar a los miembros del grupo (excepto creador)
       const groupDoc = await Group.findById(group).select('miembros');
@@ -113,16 +142,23 @@ const createMeeting = async (req, res) => {
     // Pública: no notificar, solo se visualiza
 
     const finalNotifyIds = [...new Set(notifyIds)];
+    console.log(`✉️ Iniciando envío de notificaciones a ${finalNotifyIds.length} usuarios...`);
+    
     for (const userId of finalNotifyIds) {
-      await createMeetingNotification(
-        userId,
-        creatorId,
-        'meeting_created',
-        `Te invitaron a la reunión "${title}"`,
-        newMeeting._id
-      );
+      try {
+        await createMeetingNotification(
+          userId,
+          creatorId,
+          'meeting_created',
+          `Te invitaron a la reunión "${title}"`,
+          newMeeting._id
+        );
+      } catch (notifErr) {
+        console.error(`❌ Fallo al notificar al usuario ${userId}:`, notifErr.message);
+      }
     }
 
+    console.log('🏁 Proceso completado con éxito. Enviando respuesta 201.');
     res.status(201).json({
       success: true,
       data: newMeeting,
@@ -130,7 +166,12 @@ const createMeeting = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    console.error('💥 [CREATE_MEETING_ERROR] Fallo crítico:', error);
+    res.status(400).json({ 
+      success: false, 
+      error: error.message,
+      details: error.stack // Enviamos el stack para verlo en el front si es necesario durante el debug
+    });
   }
 };
 
@@ -138,12 +179,17 @@ const createMeeting = async (req, res) => {
 // GET /api/reuniones/me — Reuniones del usuario
 // ─────────────────────────────────────────────
 const getMyMeetings = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.userId || req.user?._id || req.user?.id;
+  console.log('\x1b[36m%s\x1b[0m', '🔍 [GET_MY_MEETINGS] Buscando reuniones para:', userId);
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+  }
 
   try {
-    const user = await User.findById(userId).select('eclesiastico amigos');
+    const user = await User.findById(userId).select('eclesiastico');
 
-    // Buscar amigos del usuario para reuniones públicas (usando el modelo Friendship)
+    // Buscar amigos del usuario para reuniones públicas
     const friendships = await Friendship.find({
       $or: [
         { solicitante: userId, estado: 'aceptada' },
@@ -152,19 +198,15 @@ const getMyMeetings = async (req, res) => {
     });
 
     const friendIds = friendships.map(f =>
-      f.solicitante.toString() === userId ? f.receptor.toString() : f.solicitante.toString()
+      f.solicitante.toString() === userId.toString() ? f.receptor.toString() : f.solicitante.toString()
     );
+    console.log(`👫 Amigos detectados (aceptados): ${friendIds.length}`);
 
     // Query compuesta:
-    // 1. Reuniones donde soy attendee (aprobado) o creador
-    // 2. Reuniones públicas de mis amigos
-    // 3. Reuniones grupales de grupos donde soy miembro
-    // 4. Reuniones donde fui invitado
-    // 5. Reuniones de iglesia si soy miembro
     let orConditions = [
-      { attendees: userId },
-      { creator: userId },
-      { invitedUsers: userId },
+      { creator: userId },    // 🛡️ CRÍTICO: Soy el creador (SIEMPRE debe estar)
+      { attendees: userId },  // Soy asistente aprobado
+      { invitedUsers: userId }, // Fui invitado directamente
     ];
 
     // Reuniones públicas de amigos
@@ -193,7 +235,7 @@ const getMyMeetings = async (req, res) => {
       });
     }
 
-    // Reuniones grupales de grupos donde soy miembro
+    // Reuniones de grupos
     const myGroups = await Group.find({ 'miembros.usuario': userId }).select('_id');
     if (myGroups.length > 0) {
       const groupIds = myGroups.map(g => g._id);
@@ -204,6 +246,7 @@ const getMyMeetings = async (req, res) => {
       });
     }
 
+    console.log('📡 Ejecutando query OR con condiciones:', JSON.stringify(orConditions));
     const meetings = await Meeting.find({ $or: orConditions })
       .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
       .populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil')
@@ -212,8 +255,10 @@ const getMyMeetings = async (req, res) => {
       .populate('group', 'nombre imagen')
       .sort({ startsAt: 1, date: 1 });
 
-    const now = new Date();
+    console.log(`✅ Se encontraron ${meetings.length} reuniones en total (antes de auto-status).`);
 
+    const now = new Date();
+    // Auto-actualización de estados según el tiempo actual
     for (const meeting of meetings) {
       if (meeting.status === 'cancelled') continue;
 
@@ -223,75 +268,43 @@ const getMyMeetings = async (req, res) => {
 
       if (meeting.startsAt) {
         meetingDateTime = new Date(meeting.startsAt);
-      } else if (meeting.date instanceof Date) {
-        const year = meeting.date.getUTCFullYear();
-        const month = meeting.date.getUTCMonth();
-        const day = meeting.date.getUTCDate();
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        meetingDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
-      } else if (typeof meeting.date === 'string') {
-        // Si es un string, intentar parsearlo
-        const dateObj = new Date(meeting.date);
-        if (!isNaN(dateObj.getTime())) {
-          const year = dateObj.getUTCFullYear();
-          const month = dateObj.getUTCMonth();
-          const day = dateObj.getUTCDate();
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          meetingDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
-        } else {
-          meetingDateTime = new Date(); // Fallback
-        }
       } else {
-        meetingDateTime = new Date(); // Fallback total
+        // Fallback robusto si falta startsAt
+        const baseDate = meeting.date instanceof Date ? meeting.date : new Date(meeting.date);
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        meetingDateTime = new Date(baseDate);
+        meetingDateTime.setUTCHours(hours, minutes, 0, 0);
       }
 
-      if (isNaN(meetingDateTime.getTime())) {
-        meetingDateTime = new Date();
-      }
+      if (isNaN(meetingDateTime.getTime())) meetingDateTime = new Date();
 
       let durationMinutes = 60;
-      if (meeting.duration !== undefined && meeting.duration !== null) {
-        const durationStr = String(meeting.duration);
-        if (durationStr.includes('minutos')) {
-          durationMinutes = parseInt(durationStr) || 60;
-        } else if (durationStr.includes('hora')) {
-          durationMinutes = (parseFloat(durationStr) || 1) * 60;
-        } else if (!isNaN(parseInt(durationStr))) {
-          durationMinutes = parseInt(durationStr);
-        }
-      }
+      const durationStr = String(meeting.duration || '60');
+      if (durationStr.includes('minutos')) durationMinutes = parseInt(durationStr) || 60;
+      else if (durationStr.includes('hora')) durationMinutes = (parseFloat(durationStr) || 1) * 60;
+      else durationMinutes = parseInt(durationStr) || 60;
 
       const meetingEndTime = new Date(meetingDateTime.getTime() + durationMinutes * 60000);
       let newStatus = meeting.status;
 
-      if (now < meetingDateTime) {
-        newStatus = 'upcoming';
-      } else if (now >= meetingDateTime && now < meetingEndTime) {
-        newStatus = 'in-progress';
-      } else if (now >= meetingEndTime) {
-        newStatus = 'completed';
-      }
+      if (now < meetingDateTime) newStatus = 'upcoming';
+      else if (now >= meetingDateTime && now < meetingEndTime) newStatus = 'in-progress';
+      else if (now >= meetingEndTime) newStatus = 'completed';
 
       if (newStatus !== meeting.status) {
         meeting.status = newStatus;
         await meeting.save();
-
-        // Solo WebSocket, las notificaciones push van por el cron exclusivamente
         if (global.emitMeetingUpdate) {
-          const attendeeIds = meeting.attendees
-            .filter(id => id != null)
-            .map(id => id._id ? id._id.toString() : id.toString());
+          const attendeeIds = meeting.attendees.map(a => (a._id || a).toString());
           global.emitMeetingUpdate(attendeeIds, meeting, 'statusChange');
         }
       }
     }
 
     res.status(200).json({ success: true, data: meetings });
-
   } catch (error) {
-    console.error('Error en getMyMeetings:', error.message);
-    console.error(error.stack);
-    res.status(500).json({ success: false, error: 'Error al obtener las reuniones.', details: error.message, stack: error.stack });
+    console.error('💥 [GET_MY_MEETINGS_ERROR]:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener las reuniones.' });
   }
 };
 

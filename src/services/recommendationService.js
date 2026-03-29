@@ -83,11 +83,16 @@ const getRecommendedUsers = async (userId, limit = 10, clientExcludedIds = []) =
     if (id) excludedSet.add(id.toString());
   });
 
-  // --- FASE ÚNICA: Totalmente Aleatorio y Sin Complejidad ---
-  const randomCandidates = await User.aggregate([
-    { $sample: { size: 100 } }, // Traer bastantes al azar para tener de dónde elegir
-    { $project: { _id: 1, nombres: 1, apellidos: 1, social: 1, fundacion: 1, personal: 1, seguridad: 1 } }
-  ]).exec();
+  // --- FASE ÚNICA: Totalmente Aleatorio Rápido (Evitar Timeout de $sample en Atlas M0) ---
+  const totalUsers = await User.countDocuments();
+  const maxSkip = Math.max(0, totalUsers - 100);
+  const randomSkip = Math.floor(Math.random() * maxSkip);
+
+  const randomCandidates = await User.find()
+    .skip(randomSkip)
+    .limit(100)
+    .select('nombres apellidos social fundacion personal seguridad')
+    .lean();
 
   // Filtrar los que ya son amigos, limitarlo al cupo, y mapear estandarizado
   const finalResult = randomCandidates

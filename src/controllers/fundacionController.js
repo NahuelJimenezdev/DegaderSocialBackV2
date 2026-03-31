@@ -11,7 +11,7 @@ const logger = require('../config/logger');
 const solicitarUnirse = async (req, res) => {
   try {
     const userId = req.userId;
-    const { nivel, subArea, programa, cargo, territorio } = req.body;
+    const { nivel, subArea, programa, cargo, territorio, referenteId } = req.body;
     const area = req.body.area || 'Ejecutivo/a';
 
     // Validar campos requeridos
@@ -48,6 +48,11 @@ const solicitarUnirse = async (req, res) => {
     user.fundacion.estadoAprobacion = 'pendiente';
     user.fundacion.fechaSolicitud = new Date(); // Marcamos el envío de la solicitud actual
 
+    // Si es Afiliado, guardar el referente asignado
+    if (nivel === 'afiliado' && referenteId) {
+      user.fundacion.referenteId = referenteId;
+    }
+
     // Forzar marcado de modificación por seguridad en subdocumentos
     user.markModified('fundacion');
 
@@ -64,7 +69,7 @@ const solicitarUnirse = async (req, res) => {
 
       // 1. Jerarquía Ordenada (de abajo hacia arriba)
       const nivelesOrdenados = [
-        "local", "barrial", "municipal",
+        "afiliado", "local", "barrial", "municipal",
         "departamental", "regional", "nacional",
         "organismo_internacional", "organo_control", "directivo_general"
       ];
@@ -215,6 +220,14 @@ const listarSolicitudes = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permisos para ver solicitudes'));
     }
 
+    // 🚫 Afiliados NO pueden ver solicitudes
+    if (currentUser.fundacion?.nivel === 'afiliado') {
+      return res.json(formatSuccessResponse('Los afiliados no tienen solicitudes bajo su gestión', {
+        total: 0,
+        solicitudes: []
+      }));
+    }
+
     // 🚫 Founder NO debe usar este endpoint - debe usar el Panel de Monitoreo Global
     // Permitir al Founder listar solicitudes (eliminada restricción de panel global)
     // if (currentUser.seguridad?.rolSistema === 'Founder') {
@@ -223,7 +236,7 @@ const listarSolicitudes = async (req, res) => {
 
     // 1. Jerarquía Ordenada (de abajo hacia arriba)
     const nivelesOrdenados = [
-      "local", "barrial", "municipal",
+      "afiliado", "local", "barrial", "municipal",
       "departamental", "regional", "nacional",
       "organismo_internacional", "organo_control", "directivo_general"
     ];
@@ -339,7 +352,7 @@ const aprobarSolicitud = async (req, res) => {
 
     // Verificar jerarquía con nueva lista ordenada (de abajo hacia arriba)
     const nivelesOrdenados = [
-      "local", "barrial", "municipal",
+      "afiliado", "local", "barrial", "municipal",
       "departamental", "regional", "nacional",
       "organismo_internacional", "organo_control", "directivo_general"
     ];
@@ -526,7 +539,7 @@ const rechazarSolicitud = async (req, res) => {
 
     // Verificar jerarquía con nueva lista ordenada
     const nivelesOrdenados = [
-      "local", "barrial", "municipal",
+      "afiliado", "local", "barrial", "municipal",
       "departamental", "regional", "nacional",
       "organismo_internacional", "organo_control", "directivo_general"
     ];
@@ -767,11 +780,66 @@ const obtenerMiEstado = async (req, res) => {
   }
 };
 
+/**
+ * Obtener directores aprobados de un país específico
+ * GET /api/fundacion/directores-pais?pais=Argentina
+ * Usado por afiliados para seleccionar su "Responsable asignado"
+ */
+const getDirectoresPorPais = async (req, res) => {
+  try {
+    const { pais } = req.query;
+
+    if (!pais) {
+      return res.status(400).json(formatErrorResponse('El parámetro país es requerido'));
+    }
+
+    // Buscar directores/coordinadores aprobados en ese país
+    const directores = await User.find({
+      esMiembroFundacion: true,
+      'fundacion.estadoAprobacion': 'aprobado',
+      'fundacion.territorio.pais': { $regex: new RegExp(`^${pais.trim()}$`, 'i') },
+      'fundacion.cargo': {
+        $in: [
+          'Director Ejecutivo', 'Secretario Ejecutivo',
+          'Director de Áreas', 'Secretario/a Director de Áreas',
+          'Sub-Director de Áreas', 'Secretario/a Sub-Director de Áreas',
+          'Director General', 'Sub-Director General',
+          'secretario Director General', 'secretario Sub-Director General',
+          'Director', 'Subdirector',
+          'Director Nacional', 'Director Regional', 'Director Departamental',
+          'Coordinador Municipal', 'Coordinador',
+          'Director General (Pastor)'
+        ]
+      },
+      // Excluir afiliados
+      'fundacion.nivel': { $ne: 'afiliado' }
+    })
+    .select('_id nombres apellidos fundacion.cargo fundacion.nivel fundacion.area fundacion.territorio')
+    .sort({ 'nombres.primero': 1 })
+    .lean();
+
+    res.json(formatSuccessResponse('Directores obtenidos', {
+      directores: directores.map(d => ({
+        _id: d._id,
+        nombreCompleto: `${d.nombres?.primero || ''} ${d.apellidos?.primero || ''}`.trim(),
+        cargo: d.fundacion?.cargo || '',
+        nivel: d.fundacion?.nivel || '',
+        area: d.fundacion?.area || '',
+        territorio: d.fundacion?.territorio || {}
+      }))
+    }));
+  } catch (error) {
+    logger.error(`[Fundación] Error obtener directores: ${error.message}`);
+    res.status(500).json(formatErrorResponse('Error al obtener directores', [error.message]));
+  }
+};
+
 module.exports = {
   solicitarUnirse,
   listarSolicitudes,
   aprobarSolicitud,
   rechazarSolicitud,
   obtenerMiEstado,
-  getAllSolicitudesAdmin
+  getAllSolicitudesAdmin,
+  getDirectoresPorPais
 };

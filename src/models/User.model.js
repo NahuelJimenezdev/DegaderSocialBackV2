@@ -10,7 +10,7 @@ const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 
 // Niveles jerárquicos Fundación
 const NIVELES_FUNDACION = [
-  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial"
+  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial", "afiliado"
 ];
 
 const AREAS_FUNDACION = [
@@ -32,7 +32,9 @@ const AREAS_FUNDACION = [
   // Áreas por nivel nacional/regional/departamental/municipal
   "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
   // Áreas de Coordinación (Nivel Departamental/Municipal)
-  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad"
+  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad",
+  // Afiliados
+  "Afiliado"
 ];
 
 // Subdirecciones / Unidades internas
@@ -109,7 +111,10 @@ const CARGOS_FUNDACION = [
   "Auditor",
   "Secretario/a",
   "Miembro Comité Ético",
-  "Delegado Internacional"
+  "Delegado Internacional",
+
+  // Afiliados (Sin poder jerárquico)
+  "Afiliado"
 ];
 // Roles funcionales (qué hace)
 const ROLES_FUNCIONALES = [
@@ -226,6 +231,13 @@ const PerfilFundacionSchema = new Schema({
     fechaCambio: { type: Date, default: Date.now },
     aprobadoPor: { type: Schema.Types.ObjectId, ref: 'UserV2' }
   }],
+
+  // Responsable asignado (Solo para Afiliados)
+  // Referencia al director/responsable que gestiona a este afiliado
+  referenteId: {
+    type: Schema.Types.ObjectId,
+    ref: 'UserV2'
+  },
 
   // Organismos Internacionales (Si aplica)
   organismoInternacional: {

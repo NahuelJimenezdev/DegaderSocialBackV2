@@ -9,6 +9,7 @@ const {
   obtenerMiEstado,
   getAllSolicitudesAdmin
 } = require('../controllers/fundacionController');
+const { getDirectoresPorPais } = require('../controllers/fundacionController');
 const { 
   getUsuariosBajoJurisdiccion,
   getUsuarioJurisdiccionDetalle 
@@ -64,5 +65,11 @@ router.get('/admin/usuarios-jurisdiccion', getUsuariosBajoJurisdiccion);
  * Obtener detalle completo para ver formularios/documentos (Bajo Demanda)
  */
 router.get('/admin/usuario/:targetUserId', getUsuarioJurisdiccionDetalle);
+
+/**
+ * GET /api/fundacion/directores-pais?pais=Argentina
+ * Obtener directores aprobados por país (Para select "Responsable asignado" de Afiliados)
+ */
+router.get('/directores-pais', getDirectoresPorPais);
 
 module.exports = router;

@@ -18,7 +18,9 @@ const AREAS = [
   "Salvación Latinoamérica", "Embajadores",
   "Despacho del Director", "Despacho del Subdirector",
   "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
-  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad"
+  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad",
+  // Afiliados
+  "Afiliado"
 ];
 
 // Subáreas
@@ -44,12 +46,14 @@ const CARGOS = [
   "Dirección de Control Interno y Seguimiento", "Dirección Asuntos Ético",
   "Salvación Mundial", "Misión Internacional de Paz",
   "Director de Áreas", "Secretario/a Director de Áreas", "Sub-Director de Áreas", "Secretario/a Sub-Director de Áreas", "Director General", "Sub-Director General", "secretario Director General", "secretario Sub-Director General",
-  "Director", "Subdirector", "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal", "Coordinador", "Director General (Pastor)", "Auditor", "Secretario/a", "Miembro Comité Ético", "Delegado Internacional"
+  "Director", "Subdirector", "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal", "Coordinador", "Director General (Pastor)", "Auditor", "Secretario/a", "Miembro Comité Ético", "Delegado Internacional",
+  // Afiliados
+  "Afiliado"
 ];
 
 // Niveles institucionales oficiales
 const NIVELES = [
-  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial"
+  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial", "afiliado"
 ];
 
 /* -------------------------------------------------------------------------- */

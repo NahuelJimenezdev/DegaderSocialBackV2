@@ -34,13 +34,18 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No tienes permisos de acceso al panel administrativo'));
     }
 
+    // 🚫 Afiliados NO pueden acceder al panel administrativo
+    if (director.fundacion?.nivel === 'afiliado') {
+      return res.status(403).json(formatErrorResponse('Los afiliados no tienen acceso al panel administrativo'));
+    }
+
     const { seguridad } = director;
     const { nivel: nivelDirector, territorio, area: areaDirector } = director.fundacion || {};
     const esFounder = seguridad?.rolSistema === 'Founder';
 
     // Jerarquía ordenada
     const nivelesOrdenados = [
-      "local", "barrial", "municipal",
+      "afiliado", "local", "barrial", "municipal",
       "departamental", "regional", "nacional",
       "organismo_internacional", "organo_control", "directivo_general"
     ];
@@ -214,7 +219,7 @@ const getUsuarioJurisdiccionDetalle = async (req, res) => {
       }
 
       // B. Validación de Nivel (No puede ver niveles superiores)
-      const nivelesOrdenados = ["local", "barrial", "municipal", "departamental", "regional", "nacional", "organismo_internacional", "organo_control", "directivo_general"];
+      const nivelesOrdenados = ["afiliado", "local", "barrial", "municipal", "departamental", "regional", "nacional", "organismo_internacional", "organo_control", "directivo_general"];
       const idxDir = nivelesOrdenados.indexOf(nivelDir?.toLowerCase());
       const idxTar = nivelesOrdenados.indexOf(nivelTar?.toLowerCase());
 

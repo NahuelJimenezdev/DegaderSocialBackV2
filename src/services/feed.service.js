@@ -23,20 +23,23 @@ class FeedService {
             (post.commentsCount || 0) * 5 +
             (post.sharesCount || 0) * 7;
 
-        // 2. Freshness & Time Decay
+        // 2. Freshness & Time Decay (MEJORADO: Más agresivo con posts viejos)
         const hoursSinceCreation = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
         
         let recencyBoost = 0;
-        if (hoursSinceCreation <= 2) {
-            recencyBoost = 150 - (hoursSinceCreation * 25);
+        if (hoursSinceCreation <= 3) {
+            // Súper boost para las primeras 3 horas (de 300 bajando a 0)
+            recencyBoost = 300 - (hoursSinceCreation * 100);
         } else if (hoursSinceCreation <= 24) {
+            // Boost moderado para el primer día
             recencyBoost = Math.max(0, 100 - (hoursSinceCreation * 4)); 
         }
         
-        const decayFactor = 3;
+        // Penalización por tiempo (Más agresiva: multiplicador x10 en lugar de x3)
+        const decayFactor = 10;
         const timeDecay = hoursSinceCreation * decayFactor;
 
-        // 3. Official / Priority Boost
+        // 3. Official / Priority Boost (Ajustado: Ya no es invencible frente al tiempo)
         let priorityBoost = 0;
         try {
             let authorRole = providedAuthorRole;
@@ -58,7 +61,8 @@ class FeedService {
             }
 
             if (authorRole && ['Founder', 'admin', 'moderador'].includes(authorRole)) {
-                priorityBoost = 500;
+                // Priority boost ahora es de 250 (antes 500) para permitir que lo nuevo lo supere
+                priorityBoost = 250;
             }
         } catch (e) {
             logger.warn('⚠️ [FEED_SERVICE] Error al obtener rol para priority boost:', e.message);

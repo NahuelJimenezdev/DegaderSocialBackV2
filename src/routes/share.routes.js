@@ -13,34 +13,40 @@ router.get('/post/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const userAgent = req.headers['user-agent'] || '';
-        
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const baseUrl = `${protocol}://${host}`;
+
         // Detect if it's a crawler (WhatsApp, Facebook, Twitter, etc.)
-        const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|bingbot|Googlebot|Discordbot/i.test(userAgent);
+        const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|bingbot|Googlebot|Discordbot|SkypeShell/i.test(userAgent);
 
         // Fetch post and populate author
         const post = await Post.findById(id).populate('usuario', 'nombres apellidos username social.fotoPerfil');
 
         if (!post) {
-            return res.redirect('https://degadersocial.com');
+            logger.warn(`⚠️ [SHARE_ROUTE] Post with ID ${id} not found. Redirecting to home.`);
+            return res.redirect(`${protocol}://${host.replace('api.', '')}`);
         }
 
         // If it's a REAL user (not a bot), redirect to the actual React app
         if (!isCrawler) {
-            return res.redirect(`https://degadersocial.com/post/${id}`);
+            // If the host is 'api.degadersocial.com', we redirect to the frontend domain
+            const frontDomain = host.includes('api.') ? host.replace('api.', '') : 'degadersocial.com';
+            return res.redirect(`https://${frontDomain}/post/${id}`);
         }
 
         // --- SEO DATA FOR BOT ---
         const authorName = post.usuario ? `${post.usuario.nombres.primero} ${post.usuario.apellidos.primero}` : 'Alguien';
         let ogTitle = 'Publicación en Degader Social';
         let ogDesc = post.contenido ? post.contenido.substring(0, 150) : 'Echa un vistazo a este post en Degader Social.';
-        let ogImage = `https://degadersocial.com/assets/logo.png`; // Fallback image
+        let ogImage = `https://degadersocial.com/assets/logo.png`; 
 
         if (post.tipo === 'cumpleaños') {
             const birthdayTitle = post.metadatos?.title || '¡Feliz Cumpleaños!';
             ogTitle = `${birthdayTitle} 🎈`;
             ogDesc = `Mira la tarjeta especial enviada para este cumpleaños en Degader Social.`;
-            // Dynamic image endpoint
-            ogImage = `https://api.degadersocial.com/api/share/post/${id}/image`;
+            // Dynamic image endpoint - Using the current API URL
+            ogImage = `${baseUrl}/api/share/post/${id}/image`;
         } else if (post.images && post.images.length > 0) {
             ogImage = post.images[0];
         } else if (post.imagen) {
@@ -48,30 +54,30 @@ router.get('/post/:id', async (req, res) => {
         }
 
         // --- SERVE MINI-HTML WITH OG TAGS ---
-        const html = `
-<!DOCTYPE html>
+        const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>${ogTitle}</title>
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Degader Social">
     <meta property="og:url" content="https://degadersocial.com/post/${id}">
     <meta property="og:title" content="${ogTitle}">
     <meta property="og:description" content="${ogDesc}">
     <meta property="og:image" content="${ogImage}">
+    <meta property="og:image:secure_url" content="${ogImage}">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:site_name" content="Degader Social">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://degadersocial.com/post/${id}">
     <meta property="twitter:title" content="${ogTitle}">
     <meta property="twitter:description" content="${ogDesc}">
     <meta property="twitter:image" content="${ogImage}">
 
-    <meta http-equiv="refresh" content="1;url=https://degadersocial.com/post/${id}">
+    <meta http-equiv="refresh" content="0;url=https://degadersocial.com/post/${id}">
 </head>
 <body>
     <div style="font-family: sans-serif; text-align: center; padding: 50px;">
@@ -80,8 +86,7 @@ router.get('/post/:id', async (req, res) => {
     </div>
     <script>window.location.href = "https://degadersocial.com/post/${id}";</script>
 </body>
-</html>
-        `;
+</html>`;
 
         res.set('Content-Type', 'text/html');
         return res.send(html);

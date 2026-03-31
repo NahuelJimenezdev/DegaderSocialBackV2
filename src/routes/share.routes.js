@@ -102,20 +102,20 @@ router.get('/post/:id/image', async (req, res) => {
             return res.redirect('https://degadersocial.com/assets/logo.png');
         }
 
-        // DESIGN: "PREMIUM BALLOON FESTIVAL" (Inspired by top-left reference)
+        // DESIGN: "SQUARE PREMIUM BALLOON CARD" (1000x1000 Optimized for WhatsApp)
         const svgImage = `
-        <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+        <svg width="1000" height="1000" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
             <defs>
                 <!-- Pattern for the golden balloon -->
-                <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                    <circle cx="10" cy="10" r="3" fill="#ffffff" opacity="0.5"/>
+                <pattern id="dots" x="0" y="0" width="15" height="15" patternUnits="userSpaceOnUse">
+                    <circle cx="7" cy="7" r="2.5" fill="#ffffff" opacity="0.5"/>
                 </pattern>
                 <!-- Shadow for balloons -->
-                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur in="SourceAlpha" stdDeviation="5"/>
-                    <feOffset dx="4" dy="4" result="offsetblur"/>
+                <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+                    <feOffset dx="6" dy="6" result="offsetblur"/>
                     <feComponentTransfer>
-                        <feFuncA type="linear" slope="0.3"/>
+                        <feFuncA type="linear" slope="0.4"/>
                     </feComponentTransfer>
                     <feMerge>
                         <feMergeNode/>
@@ -125,49 +125,51 @@ router.get('/post/:id/image', async (req, res) => {
             </defs>
 
             <!-- Background institutional cream -->
-            <rect width="100%" height="100%" fill="#fdfcf0"/>
+            <rect width="1000" height="1000" fill="#fdfcf0"/>
             
-            <!-- Confetti Scattered -->
-            <circle cx="100" cy="100" r="8" fill="#ff85a2" />
-            <circle cx="300" cy="50" r="6" fill="#1e3a5f" />
-            <circle cx="1000" cy="100" r="10" fill="#eab308" />
-            <circle cx="900" cy="550" r="8" fill="#ff85a2" />
-            <circle cx="200" cy="580" r="6" fill="#4f46e5" />
+            <!-- Confetti Scattered in Square Area -->
+            <circle cx="150" cy="150" r="10" fill="#ff85a2" />
+            <circle cx="850" cy="100" r="8" fill="#1e3a5f" />
+            <circle cx="900" cy="850" r="12" fill="#eab308" />
+            <circle cx="100" cy="900" r="10" fill="#4f46e5" />
+            <circle cx="500" cy="50" r="6" fill="#ff85a2" />
 
-            <!-- PINK GLITTER BALLOON (Top Left) -->
+            <!-- PINK BALLOON (Upper Left) -->
             <g filter="url(#shadow)">
-                <ellipse cx="200" cy="180" rx="90" ry="110" fill="#ff85a2" />
-                <ellipse cx="200" cy="180" rx="90" ry="110" fill="url(#dots)" />
-                <path d="M200 290 Q200 350 180 400" stroke="#1e3a5f" stroke-width="2" fill="none" opacity="0.3"/>
+                <ellipse cx="220" cy="220" rx="100" ry="120" fill="#ff85a2" />
+                <ellipse cx="220" cy="220" rx="100" ry="120" fill="url(#dots)" />
+                <path d="M220 340 Q220 450 180 500" stroke="#1e3a5f" stroke-width="3" fill="none" opacity="0.2"/>
             </g>
 
-            <!-- GOLDEN DOT BALLOON (Bottom Right) -->
+            <!-- GOLDEN BALLOON (Upper Right) -->
             <g filter="url(#shadow)">
-                <ellipse cx="1000" cy="450" rx="100" ry="120" fill="#eab308" />
-                <ellipse cx="1000" cy="450" rx="100" ry="120" fill="url(#dots)" />
-                <path d="M1000 570 Q1000 600 980 630" stroke="#1e3a5f" stroke-width="2" fill="none" opacity="0.3"/>
+                <ellipse cx="780" cy="220" rx="100" ry="120" fill="#eab308" />
+                <ellipse cx="780" cy="220" rx="100" ry="120" fill="url(#dots)" />
+                <path d="M780 340 Q780 450 820 500" stroke="#1e3a5f" stroke-width="3" fill="none" opacity="0.2"/>
             </g>
 
-            <!-- BLUE SOLID BALLOON (Top Right) -->
+            <!-- BLUE BALLOON (Lower Right) -->
             <g filter="url(#shadow)">
-                <ellipse cx="1050" cy="150" rx="80" ry="100" fill="#4a9eff" />
-                <path d="M1050 250 Q1050 300 1070 350" stroke="#1e3a5f" stroke-width="2" fill="none" opacity="0.3"/>
+                <ellipse cx="800" cy="780" rx="100" ry="120" fill="#4a9eff" />
+                <path d="M800 900 Q800 950 820 1000" stroke="#1e3a5f" stroke-width="3" fill="none" opacity="0.2"/>
             </g>
 
-            <!-- BLACK LUXURY BALLOON (Left Edge) -->
+            <!-- DARK BALLOON (Lower Left) -->
             <g filter="url(#shadow)">
-                <ellipse cx="40" cy="400" rx="80" ry="100" fill="#1e3a5f" />
-                <ellipse cx="40" cy="400" rx="80" ry="100" fill="url(#dots)" opacity="0.2" />
+                <ellipse cx="200" cy="780" rx="100" ry="120" fill="#1e3a5f" />
+                <ellipse cx="200" cy="780" rx="100" ry="120" fill="url(#dots)" opacity="0.2" />
+                <path d="M200 900 Q200 950 180 1000" stroke="#1e3a5f" stroke-width="3" fill="none" opacity="0.2"/>
             </g>
 
-            <!-- CENTER MESSAGE AREA -->
-            <!-- We will try text rendering one more time but with 10 fallbacks. 
-                 If fonts fail, the balloons alone are a strong design. -->
-            <text x="50%" y="42%" text-anchor="middle" font-family="DejaVu Sans, Liberation Serif, serif" font-size="65" font-weight="900" letter-spacing="8" fill="#1e3a5f">HAPPY</text>
-            <text x="50%" y="54%" text-anchor="middle" font-family="DejaVu Sans, Liberation Serif, serif" font-size="95" font-style="italic" fill="#1e3a5f">Birthday</text>
+            <!-- CENTER MESSAGE AREA (Always visible in square crop) -->
+            <text x="500" y="440" text-anchor="middle" font-family="DejaVu Sans, Liberation Serif, serif" font-size="70" font-weight="900" letter-spacing="10" fill="#1e3a5f">HAPPY</text>
+            <text x="500" y="560" text-anchor="middle" font-family="DejaVu Sans, Liberation Serif, serif" font-size="110" font-style="italic" fill="#1e3a5f">Birthday</text>
             
-            <rect x="350" y="580" width="500" height="2" fill="#1e3a5f" opacity="0.1" />
-            <text x="50%" y="615" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="20" fill="#6b7280" letter-spacing="2">DEGADER SOCIAL SPECIAL CARD</text>
+            <rect x="300" y="620" width="400" height="3" fill="#1e3a5f" opacity="0.1" />
+            <text x="500" y="680" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="bold" fill="#6b7280" letter-spacing="3">DEGADER SOCIAL</text>
+            
+            <circle cx="500" cy="150" r="15" fill="#4f46e5" opacity="0.3" />
+            <circle cx="500" cy="850" r="20" fill="#1e3a5f" opacity="0.2" />
         </svg>`;
 
         const imageBuffer = await sharp(Buffer.from(svgImage))

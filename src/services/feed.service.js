@@ -46,10 +46,13 @@ class FeedService {
                     authorRole = post.usuario.seguridad.rolSistema;
                 } else if (post.usuario) {
                     const User = require('../models/User.model');
-                    const authorId = post.usuario._id || post.usuario;
-                    const author = await User.findById(authorId).select('seguridad.rolSistema').lean();
-                    if (author && author.seguridad) {
-                        authorRole = author.seguridad.rolSistema;
+                    const authorId = post.usuario._id || (typeof post.usuario === 'string' ? post.usuario : null);
+                    
+                    if (authorId) {
+                        const author = await User.findById(authorId).select('seguridad.rolSistema').lean();
+                        if (author && author.seguridad) {
+                            authorRole = author.seguridad.rolSistema;
+                        }
                     }
                 }
             }
@@ -185,7 +188,7 @@ class FeedService {
             const post = await Post.findById(postId);
             if (!post) return;
 
-            const authorId = post.usuario.toString();
+            const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
             // Calcular score base para Mongo (Generic Fallback Ranking)
             const baseScore = await this.calculatePostScore(post, authorId);
             
@@ -306,7 +309,7 @@ class FeedService {
         try {
             if (!redisService.isConnected) return;
 
-            const authorId = post.usuario.toString();
+            const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
             const isInfluencer = await this.isInfluencer(authorId);
             
             if (isInfluencer) {
@@ -609,8 +612,11 @@ class FeedService {
     async isInfluencer(userId) {
         try {
             const User = require('../models/User.model');
-            // FIX CRITICO: se cachean requests a rolsistema de usuarios comunes
-            const user = await User.findById(userId).select('seguridad.rolSistema').lean();
+            const authorId = userId._id ? userId._id.toString() : userId.toString();
+            // Evitar consultas si el ID es inválido o parece un objeto stringificado
+            if (authorId.includes('{')) return false;
+
+            const user = await User.findById(authorId).select('seguridad.rolSistema').lean();
             if (user && user.seguridad) {
                 return ['Founder', 'admin', 'moderador'].includes(user.seguridad.rolSistema);
             }

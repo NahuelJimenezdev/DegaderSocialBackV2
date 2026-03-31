@@ -21,8 +21,10 @@ router.get('/post/:id', async (req, res) => {
         // Detect if it's a crawler (WhatsApp, Facebook, Twitter, etc.)
         const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|bingbot|Googlebot|Discordbot|SkypeShell/i.test(userAgent);
 
-        // Fetch post using Mongoose
-        const post = await Post.findById(id).populate('usuario');
+        // Fetch post and populate author AND targetUser (for birthdays)
+        const post = await Post.findById(id)
+            .populate('usuario', 'nombres apellidos username')
+            .populate('metadatos.targetUser', 'nombres apellidos username');
 
         if (!post) {
             logger.error(`❌ [SHARE_ROUTE] Post with ID ${id} NOT FOUND in database.`);
@@ -30,7 +32,7 @@ router.get('/post/:id', async (req, res) => {
             return res.redirect(`https://${frontDomain}`);
         }
 
-        logger.info(`✅ [SHARE_ROUTE] Post found: ${post.tipo} - Author: ${post.usuario?.email || 'unknown'}`);
+        logger.info(`✅ [SHARE_ROUTE] Post found: ${post.tipo} - Recipient: ${post.metadatos?.targetUser?.username || 'none'}`);
 
         // If it's a REAL user (not a bot), redirect to the actual React app
         if (!isCrawler) {
@@ -39,16 +41,19 @@ router.get('/post/:id', async (req, res) => {
         }
 
         // --- SEO DATA FOR BOT ---
+        const creatorName = post.usuario ? `${post.usuario.nombres.primero} ${post.usuario.apellidos.primero}` : 'Alguien';
+        const targetName = post.metadatos?.targetUser ? `${post.metadatos.targetUser.nombres.primero} ${post.metadatos.targetUser.apellidos.primero}` : '';
+        
         let ogTitle = 'Publicación en Degader Social';
         let ogDesc = post.contenido ? post.contenido.substring(0, 150) : 'Echa un vistazo a este post en Degader Social.';
         let ogImage = `https://degadersocial.com/assets/logo.png`; 
 
         if (post.tipo === 'cumpleaños') {
-            const birthdayTitle = post.metadatos?.title || '¡Feliz Cumpleaños!';
-            ogTitle = `${birthdayTitle} 🎈`;
-            ogDesc = `Mira la tarjeta especial enviada para este cumpleaños en Degader Social.`;
+            ogTitle = `¡Feliz Cumpleaños ${targetName}! 🎈`;
+            ogDesc = `${creatorName} ha enviado una tarjeta especial de cumpleaños. ¡Haz clic para verla!`;
             ogImage = `${protocol}://${host}/api/share/post/${id}/image`;
-        } else if (post.images && post.images.length > 0) {
+        }
+ else if (post.images && post.images.length > 0) {
             ogImage = post.images[0].url || post.images[0];
         } else if (post.imagen) {
             ogImage = `https://degadersocial.com${post.imagen}`;

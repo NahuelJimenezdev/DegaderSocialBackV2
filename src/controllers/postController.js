@@ -529,9 +529,12 @@ const getUserPosts = async (req, res) => {
       ? {} // Ver todas si es el propio usuario
       : { privacidad: 'publico' }; // Solo públicas si es otro usuario
 
+    // 🚀 MEJORADO: Traer posts donde el usuario es el autor O el destinatario de un post de cumpleaños
     const posts = await Post.find({
-      usuario: userId,
-      ...privacyFilter
+      $or: [
+        { usuario: userId, ...privacyFilter },
+        { "metadatos.targetUser": userId, tipo: 'cumpleaños' }
+      ]
     })
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
       .populate('grupo', 'nombre tipo')
@@ -548,8 +551,10 @@ const getUserPosts = async (req, res) => {
       .skip(skip);
 
     const total = await Post.countDocuments({
-      usuario: userId,
-      ...privacyFilter
+      $or: [
+        { usuario: userId, ...privacyFilter },
+        { "metadatos.targetUser": userId, tipo: 'cumpleaños' }
+      ]
     });
 
     res.json({

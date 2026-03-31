@@ -294,6 +294,18 @@ const updateProfile = async (req, res) => {
       if (req.body.fundacion.cargo !== undefined) {
         updates['fundacion.cargo'] = req.body.fundacion.cargo;
       }
+      if (req.body.fundacion.subArea !== undefined) {
+        updates['fundacion.subArea'] = req.body.fundacion.subArea;
+      }
+      if (req.body.fundacion.programa !== undefined) {
+        updates['fundacion.programa'] = req.body.fundacion.programa;
+      }
+      if (req.body.fundacion.rolFuncional !== undefined) {
+        updates['fundacion.rolFuncional'] = req.body.fundacion.rolFuncional;
+      }
+      if (req.body.fundacion.referenteId !== undefined) {
+        updates['fundacion.referenteId'] = req.body.fundacion.referenteId;
+      }
       if (req.body.fundacion.territorio) {
         updates['fundacion.territorio'] = req.body.fundacion.territorio;
       }

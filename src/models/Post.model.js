@@ -64,7 +64,7 @@ const postSchema = new mongoose.Schema({
   },
   tipo: {
     type: String,
-    enum: ['original', 'compartido'],
+    enum: ['original', 'compartido', 'cumpleaños'],
     default: 'original'
   },
   postOriginal: {
@@ -112,6 +112,16 @@ const postSchema = new mongoose.Schema({
   grupo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
+  },
+  // --- CAMPOS ESPECIALES (Post Personalizados) ---
+  metadatos: {
+    title: String,
+    titleFont: String,
+    textFont: String,
+    targetUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserV2'
+    }
   },
   // --- RANKING INTELIGENTE ---
   relevanceScore: {

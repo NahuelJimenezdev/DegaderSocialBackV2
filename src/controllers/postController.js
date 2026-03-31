@@ -55,11 +55,12 @@ const createPost = async (req, res) => {
     console.log('📝 [CREATE POST] Files:', req.files ? req.files.length : 0);
     console.log('📝 [CREATE POST] Has images (base64):', !!req.body.images, 'Count:', req.body.images?.length);
 
-    const { contenido, privacidad = 'publico', etiquetas, grupo, images = [], videos = [] } = req.body;
+    const { contenido, privacidad = 'publico', etiquetas, grupo, images = [], videos = [], tipo, metadatos } = req.body;
 
     console.log('📝 [CREATE POST] Extracted data:', {
       contenido: contenido?.substring(0, 50),
       privacidad,
+      tipo,
       imageCount: images.length,
       videoCount: videos.length,
       filesCount: req.files?.length || 0,
@@ -82,6 +83,18 @@ const createPost = async (req, res) => {
       privacidad,
       etiquetas: etiquetas ? etiquetas.split(',').map(t => t.trim()) : []
     };
+
+    // Soporte para publicaciones especiales (ej. Cumpleaños)
+    if (tipo === 'cumpleaños') {
+      postData.tipo = tipo;
+      if (metadatos) {
+        try {
+          postData.metadatos = typeof metadatos === 'string' ? JSON.parse(metadatos) : metadatos;
+        } catch (e) {
+          console.error('❌ [CREATE POST] Error parsing metadatos:', e.message);
+        }
+      }
+    }
 
     // 🆕 PROCESAR ARCHIVOS SUBIDOS A R2 (prioridad sobre base64)
     if (req.files && req.files.length > 0) {

@@ -35,7 +35,7 @@ router.get('/post/:id', async (req, res) => {
         // If it's a REAL user (not a bot), redirect to the actual React app
         if (!isCrawler) {
             const frontDomain = host.includes('api.') ? host.replace('api.', '') : 'degadersocial.com';
-            return res.redirect(`https://${frontDomain}/post/${id}`);
+            return res.redirect(`https://${frontDomain}/publicacion/${id}`);
         }
 
         // --- SEO DATA FOR BOT ---
@@ -72,10 +72,10 @@ router.get('/post/:id', async (req, res) => {
     <meta name="twitter:title" content="${ogTitle}">
     <meta name="twitter:description" content="${ogDesc}">
     <meta name="twitter:image" content="${ogImage}">
-    <meta http-equiv="refresh" content="0;url=https://degadersocial.com/post/${id}">
+    <meta http-equiv="refresh" content="0;url=https://degadersocial.com/publicacion/${id}">
 </head>
 <body>
-    <script>window.location.href = "https://degadersocial.com/post/${id}";</script>
+    <script>window.location.href = "https://degadersocial.com/publicacion/${id}";</script>
 </body>
 </html>`;
 

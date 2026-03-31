@@ -82,6 +82,46 @@ const solicitarUnirse = async (req, res) => {
         logger.warn(`[Fundación] Nivel desconocido: ${nivel}. No se notificarán superiores.`);
       }
 
+      // ========================================
+      // 🔥 ATAJO PARA AFILIADOS: Notificar al referenteId directamente
+      // ========================================
+      if (nivel === 'afiliado' && referenteId) {
+        const referente = await User.findById(referenteId).select('_id nombres apellidos');
+        if (referente) {
+          await notificationService.notify({
+            receptorId: referente._id,
+            emisorId: userId,
+            tipo: 'solicitud_fundacion',
+            contenido: `${user.nombres?.primero || ''} ${user.apellidos?.primero || ''} solicita unirse como Afiliado bajo tu supervisión.`,
+            referencia: { tipo: 'UserV2', id: user._id },
+            metadata: {
+              nivel, area, cargo, territorio,
+              esAfiliado: true,
+              referenteId
+            }
+          });
+          logger.info(`[Fundación] ✅ Notificación de afiliado enviada al referente: ${referente._id}`);
+        } else {
+          // Referente no encontrado, escalar al Founder
+          logger.warn(`[Fundación] Referente ${referenteId} no encontrado, escalando al Founder.`);
+          if (founders.length > 0) {
+            const founderPromises = founders.map(founder => 
+              notificationService.notify({
+                receptorId: founder._id,
+                emisorId: userId,
+                tipo: 'solicitud_fundacion',
+                contenido: `[ESCALADA] Solicitud de afiliado ${user.nombres?.primero || ''} sin referente válido.`,
+                metadata: { nivel, area, cargo, territorio, esEscalada: true, esAfiliado: true }
+              })
+            );
+            await Promise.allSettled(founderPromises);
+          }
+        }
+      } else {
+      // ========================================
+      // FLUJO NORMAL: Escalada jerárquica para cargos regulares
+      // ========================================
+
       // 2. Algoritmo de Escalada (Buscar superior inmediato)
       let notificacionEnviada = false;
       const territorioSolicitante = user.fundacion.territorio || {};
@@ -184,6 +224,7 @@ const solicitarUnirse = async (req, res) => {
           await Promise.allSettled(founderPromises);
         }
       }
+      } // fin else (flujo normal no-afiliado)
 
     } catch (notifError) {
       logger.error(`[Fundación] Error notificaciones: ${notifError.message}`);

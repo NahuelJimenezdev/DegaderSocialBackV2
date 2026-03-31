@@ -129,6 +129,7 @@ const onboardingRoutes = require('./routes/onboarding.routes');
 const arenaRoutes = require('./modules/arena/routes/arena.routes');
 const economyRoutes = require('./modules/economy/economy.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const shareRoutes = require('./routes/share.routes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -167,6 +168,7 @@ app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/arena', arenaRoutes);
 app.use('/api/economy', distributedRateLimit({ maxPerMinute: 30 }), economyRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/share', shareRoutes);
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {

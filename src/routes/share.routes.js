@@ -102,57 +102,72 @@ router.get('/post/:id/image', async (req, res) => {
             return res.redirect('https://degadersocial.com/assets/logo.png');
         }
 
-        // DESIGN STRATEGY: "STYLIZED BIRTHDAY CARD"
-        // We draw a recognizable birthday cake icon using only SVG shapes.
+        // DESIGN: "PREMIUM BALLOON FESTIVAL" (Inspired by top-left reference)
         const svgImage = `
         <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background institutional cream -->
-            <rect width="100%" height="100%" fill="#fffdf7"/>
-            
-            <!-- Branded Header & Footer Decoration -->
-            <path d="M0 0 H1200 V80 Q600 120 0 80 Z" fill="#1e3a5f" />
-            <path d="M0 630 H1200 V550 Q600 510 0 550 Z" fill="#1e3a5f" />
-            
-            <!-- Central Branded Badge -->
-            <circle cx="600" cy="315" r="220" fill="#4f46e5" opacity="0.05" />
-            
-            <!-- STYLIZED BIRTHDAY CAKE (Geometric Shapes) -->
-            <!-- Cake Base -->
-            <rect x="450" y="320" width="300" height="120" rx="10" fill="#1e3a5f" />
-            <rect x="470" y="240" width="260" height="80" rx="10" fill="#4f46e5" />
-            <!-- Frosting / Decoration lines -->
-            <rect x="450" y="320" width="300" height="15" fill="#4f46e5" opacity="0.5" />
-            <rect x="470" y="240" width="260" height="10" fill="#1e3a5f" opacity="0.3" />
-            
-            <!-- Candles -->
-            <rect x="520" y="190" width="10" height="50" fill="#1e3a5f" />
-            <circle cx="525" cy="175" r="8" fill="#eab308" /> <!-- Flame 1 -->
-            
-            <rect x="595" y="180" width="10" height="60" fill="#4f46e5" />
-            <circle cx="600" cy="165" r="10" fill="#ef4444" /> <!-- Flame 2 -->
-            
-            <rect x="670" y="190" width="10" height="50" fill="#1e3a5f" />
-            <circle cx="675" cy="175" r="8" fill="#eab308" /> <!-- Flame 3 -->
+            <defs>
+                <!-- Pattern for the golden balloon -->
+                <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <circle cx="10" cy="10" r="3" fill="#ffffff" opacity="0.5"/>
+                </pattern>
+                <!-- Shadow for balloons -->
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="5"/>
+                    <feOffset dx="4" dy="4" result="offsetblur"/>
+                    <feComponentTransfer>
+                        <feFuncA type="linear" slope="0.3"/>
+                    </feComponentTransfer>
+                    <feMerge>
+                        <feMergeNode/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </defs>
 
-            <!-- Festive Confetti & Balloons (Paths for more "real" look) -->
-            <!-- Balloon 1 (Left) -->
-            <circle cx="200" cy="250" r="70" fill="#1e3a5f" opacity="0.9" />
-            <path d="M200 320 Q200 400 180 430" stroke="#4f46e5" stroke-width="4" fill="none" />
+            <!-- Background institutional cream -->
+            <rect width="100%" height="100%" fill="#fdfcf0"/>
             
-            <!-- Balloon 2 (Right) -->
-            <circle cx="1000" cy="250" r="80" fill="#4f46e5" opacity="0.8" />
-            <path d="M1000 330 Q1000 420 1020 450" stroke="#1e3a5f" stroke-width="4" fill="none" />
+            <!-- Confetti Scattered -->
+            <circle cx="100" cy="100" r="8" fill="#ff85a2" />
+            <circle cx="300" cy="50" r="6" fill="#1e3a5f" />
+            <circle cx="1000" cy="100" r="10" fill="#eab308" />
+            <circle cx="900" cy="550" r="8" fill="#ff85a2" />
+            <circle cx="200" cy="580" r="6" fill="#4f46e5" />
+
+            <!-- PINK GLITTER BALLOON (Top Left) -->
+            <g filter="url(#shadow)">
+                <ellipse cx="200" cy="180" rx="90" ry="110" fill="#ff85a2" />
+                <ellipse cx="200" cy="180" rx="90" ry="110" fill="url(#dots)" />
+                <path d="M200 290 Q200 350 180 400" stroke="#1e3a5f" stroke-width="2" fill="none" opacity="0.3"/>
+            </g>
+
+            <!-- GOLDEN DOT BALLOON (Bottom Right) -->
+            <g filter="url(#shadow)">
+                <ellipse cx="1000" cy="450" rx="100" ry="120" fill="#eab308" />
+                <ellipse cx="1000" cy="450" rx="100" ry="120" fill="url(#dots)" />
+                <path d="M1000 570 Q1000 600 980 630" stroke="#1e3a5f" stroke-width="2" fill="none" opacity="0.3"/>
+            </g>
+
+            <!-- BLUE SOLID BALLOON (Top Right) -->
+            <g filter="url(#shadow)">
+                <ellipse cx="1050" cy="150" rx="80" ry="100" fill="#4a9eff" />
+                <path d="M1050 250 Q1050 300 1070 350" stroke="#1e3a5f" stroke-width="2" fill="none" opacity="0.3"/>
+            </g>
+
+            <!-- BLACK LUXURY BALLOON (Left Edge) -->
+            <g filter="url(#shadow)">
+                <ellipse cx="40" cy="400" rx="80" ry="100" fill="#1e3a5f" />
+                <ellipse cx="40" cy="400" rx="80" ry="100" fill="url(#dots)" opacity="0.2" />
+            </g>
+
+            <!-- CENTER MESSAGE AREA -->
+            <!-- We will try text rendering one more time but with 10 fallbacks. 
+                 If fonts fail, the balloons alone are a strong design. -->
+            <text x="50%" y="42%" text-anchor="middle" font-family="DejaVu Sans, Liberation Serif, serif" font-size="65" font-weight="900" letter-spacing="8" fill="#1e3a5f">HAPPY</text>
+            <text x="50%" y="54%" text-anchor="middle" font-family="DejaVu Sans, Liberation Serif, serif" font-size="95" font-style="italic" fill="#1e3a5f">Birthday</text>
             
-            <!-- Confetti (Brand Colors) -->
-            <rect x="350" y="150" width="15" height="5" fill="#eab308" transform="rotate(45 350 150)" />
-            <rect x="850" y="150" width="15" height="5" fill="#ef4444" transform="rotate(-30 850 150)" />
-            <circle cx="300" cy="500" r="8" fill="#4f46e5" opacity="0.6" />
-            <circle cx="900" cy="500" r="10" fill="#1e3a5f" opacity="0.4" />
-            <circle cx="600" cy="100" r="6" fill="#3b82f6" />
-            
-            <!-- Branded Logo Space (Minimalist) -->
-            <circle cx="600" cy="565" r="45" fill="#fffdf7" />
-            <circle cx="600" cy="565" r="35" fill="#1e3a5f" />
+            <rect x="350" y="580" width="500" height="2" fill="#1e3a5f" opacity="0.1" />
+            <text x="50%" y="615" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="20" fill="#6b7280" letter-spacing="2">DEGADER SOCIAL SPECIAL CARD</text>
         </svg>`;
 
         const imageBuffer = await sharp(Buffer.from(svgImage))

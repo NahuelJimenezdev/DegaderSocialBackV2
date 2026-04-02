@@ -20,7 +20,9 @@ const uploadToR2 = async (fileBuffer, originalName, folder = 'uploads') => {
     });
 
     await r2Client.send(command);
-    return `${PUBLIC_URL}/${fileName}`;
+    // Asegurar que no haya doble barra entre PUBLIC_URL y fileName
+    const baseUrl = PUBLIC_URL.endsWith('/') ? PUBLIC_URL.slice(0, -1) : PUBLIC_URL;
+    return `${baseUrl}/${fileName}`;
   } catch (error) {
     console.error('Error al subir archivo a R2:', error);
     throw new Error('Error al subir archivo');

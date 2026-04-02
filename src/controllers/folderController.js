@@ -586,17 +586,20 @@ const subirArchivo = async (req, res) => {
       return res.status(400).json(formatErrorResponse('No se ha proporcionado ningún archivo'));
     }
 
-    console.log('📤 [UPLOAD FILE] Subiendo a R2:', req.file.originalname);
+    // Corregir codificación de caracteres especiales (ñ, acentos) de multer
+    const originalNameCorrected = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+
+    console.log('📤 [UPLOAD FILE] Subiendo a R2:', originalNameCorrected);
 
     // Subir archivo a Cloudflare R2
-    const fileUrl = await uploadToR2(req.file.buffer, req.file.originalname, 'folders');
+    const fileUrl = await uploadToR2(req.file.buffer, originalNameCorrected, 'folders');
 
     console.log('✅ [UPLOAD FILE] Archivo subido a R2:', fileUrl);
 
     // Crear objeto archivo
     const nuevoArchivo = {
-      filename: req.file.originalname, // Nombre original
-      originalName: req.file.originalname,
+      filename: originalNameCorrected, // Nombre original corregido
+      originalName: originalNameCorrected,
       size: req.file.size,
       mimetype: req.file.mimetype,
       tipo: determinarTipoArchivo(req.file.mimetype),

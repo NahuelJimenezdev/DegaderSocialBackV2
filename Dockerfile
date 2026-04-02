@@ -1,5 +1,5 @@
-# Use Node.js 18 LTS
-FROM node:18-slim
+# Use Node.js 20 LTS (Recommended for modern dependencies)
+FROM node:20-slim
 
 # Create app directory
 WORKDIR /usr/src/app

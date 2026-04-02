@@ -1,0 +1,8 @@
+﻿🔍 Testing metadata for: https://chat.whatsapp.com/HCOu3zlOT7HJ3XEx6DtiBo?mode=gi_t
+✅ Result: {
+  "title": "Secretarios Argentina FHISYL 🇦🇷",
+  "description": "Invitación a grupo de WhatsApp",
+  "image": "https://pps.whatsapp.net/v/t61.24694-24/658809870_1519296446378573_8633382693202392566_n.jpg?ccb=11-4&oh=01_Q5Aa4AFVv0R8lu26ZRTYUZxXEz50kMo0W5CEqespU5fX9ohC5Q&oe=69DAEE34&_nc_sid=5e03e0&_nc_cat=108",
+  "siteName": "WhatsApp.com",
+  "url": "https://chat.whatsapp.com/HCOu3zlOT7HJ3XEx6DtiBo?mode=gi_t"
+}

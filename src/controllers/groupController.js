@@ -6,6 +6,7 @@ const User = require('../models/User.model');
 const { validateGroupData, formatErrorResponse, formatSuccessResponse, isValidObjectId } = require('../utils/validators');
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 const { processAndUploadImage } = require('../services/imageOptimizationService');
+const urlMetadataService = require('../services/urlMetadataService');
 
 /**
  * Obtener todos los grupos
@@ -825,13 +826,30 @@ const sendMessage = async (req, res) => {
       return res.status(403).json(formatErrorResponse('No eres miembro de este grupo'));
     }
 
+    // Detectar URLs para previsualización
+    let urlPreview = null;
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const urlsInContent = finalContent.match(urlRegex);
+
+    if (urlsInContent && urlsInContent.length > 0) {
+      // Tomar la primera URL para el preview
+      const firstUrl = urlsInContent[0].replace(/[.,;!?]+$/, '');
+      const meta = await urlMetadataService.getUrlMetadata(firstUrl);
+      if (meta) {
+        urlPreview = meta;
+      }
+    }
+
     // Crear mensaje
     const messageData = {
       grupo: id,
       author: req.userId,
       content: finalContent.trim(),
       tipo,
-      metadata,
+      metadata: { 
+        ...metadata,
+        urlPreview 
+      },
       files
     };
 
@@ -1435,11 +1453,15 @@ const getEnlaces = async (req, res) => {
           urls.forEach(url => {
             // Limpiar la URL (quitar puntuación al final)
             const cleanUrl = url.replace(/[.,;!?]+$/, '');
+            const preview = msg.metadata?.urlPreview;
             msgEnlaces.push({
               url: cleanUrl,
               type: 'text',
               source: 'content',
-              title: cleanUrl,
+              title: preview?.title || cleanUrl, // Usar título de metadata si existe
+              description: preview?.description || '', // Usar descripción de metadata si existe
+              image: preview?.image || '', // Usar imagen de metadata si existe
+              siteName: preview?.siteName || '',
               messageId: msg._id,
               content: msg.content,
               author: msg.author,
@@ -1459,7 +1481,7 @@ const getEnlaces = async (req, res) => {
               source: 'attachment',
               title: att.title || att.url,
               description: att.description,
-              preview: att.preview,
+              image: att.preview, // Map preview to image for consistency
               messageId: msg._id,
               content: msg.content,
               author: msg.author,

@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.36.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.35.0...v1.36.0) (2026-04-02)
+
+
+### Features
+
+* **backend:** add support for birthday post type and custom metadata ([cfa5926](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/cfa5926178a457090ea27f58e4076d6666a9338e))
+* **fundacion:** add fechaSolicitud and historialCargos support ([a769ada](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a769ada7f3162a95a91176e76b56ecb182bef08b))
+* Implementacion de previsualizacion Pro (Open Graph) para tarjetas de cumpleaños y copia directa de link ([ad8a32e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ad8a32e9e1902c4128dcd7e10412382ec1765e55))
+* Implementar cargo Afiliado con doble dimensión (territorial + jerárquica manual via referenteId) ([f67b8b1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/f67b8b16acd78bb6907dbaf64597bcf56fc5b557))
+* **institutional-roles:** add Sub-Director de Áreas and Secretario/a Sub-Director de Áreas positions ([5939acb](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/5939acb1ebe42d09e71284690647218aaa028207))
+
+
+### Bug Fixes
+
+* Correccion de casting de IDs en FeedService y blindaje de isInfluencer para posts poblados ([b349cbc](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/b349cbce94bbc9407f7b6f02ee58f5b174d2fb82))
+* Correccion de rutas dinamicas y metadatos SEO para compartir ([2b86da2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2b86da2cf57e303a6b787b3d322918da320b86bb))
+* Corrigiendo rutas de redireccion de /post/ a /publicacion/ para coincidir con frontend ([148553e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/148553e30d09344d630fefaa7d239fbe6c031edd))
+* Error 403 Forbidden al gestionar asistentes y ver detalles de reuniones. Ajustada validación de creador con ID robusto en respondAttendance, getCreatorMeetingDetail y updateMeeting. ([e404d5c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e404d5c6a45b23c8a4274c66a7c01cd341c15dc2))
+* Error 500 al solicitar asistencia a reuniones. Corregida obtención de ID de usuario y blindado envío de notificaciones al creador. Sistema de solicitudes ahora es robusto y trazable. ([ec9d78d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ec9d78dd9283d802e795e381e96c234eeecac4bf))
+* **fundacion:** sort and select solicitudes by fechaIngreso instead of createdAt ([2a525a8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2a525a8e6c7d1f7e8b922d5e77927c29263c235a))
+* Guardar subArea, programa, rolFuncional y referenteId en updateProfile - campos faltantes en el mapeo de fundacion que causaban que nunca se persistieran en MongoDB ([00b17cd](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/00b17cddf4a184adc660b0c8bcd30d941f526b1b))
+* Notificacion de afiliado va directo al referenteId en vez de escalar al Founder ([0c101f7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0c101f74c2315f7ecd7504902dc7da3ce6657b02))
+* Permitir visualizar posts de cumpleaños en el perfil del destinatario ([8bf569a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/8bf569a61a10ba6c643ee877f334fa720e3310ab))
+* standardized userId extraction and ObjectId comparison in cancelMeeting and joinMeeting ([c346129](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c346129b2c78c7c6b59196c1a75d3d9101dae456))
+
 ## [1.35.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.34.0...v1.35.0) (2026-03-29)
 
 

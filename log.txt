@@ -1,0 +1,65 @@
+﻿[dotenv@17.3.1] injecting env (22) from .env -- tip: ÔÜí´©Å secrets for agents: https://dotenvx.com/as2
+2026-04-02 02:25:47:2547 [32minfo[39m: [32m­ƒöÑ Firebase Admin SDK inicializado correctamente.[39m
+node : It is highly 
+recommended to use a 
+minimum Redis version of 
+6.2.0
+En línea: 1 Carácter: 1
++ node src/index.js 
+--env-file .env 2>&1 | 
+Out-File -Encoding utf8 
+log. ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (It   
+  is highly re...ersion    
+ of 6.2.0:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+             Current: 
+5.0.14.1
+ÔØç´©Å [DB] Conexi├│n establecida con MongoDB Atlas
+Ô£à Conectado a MongoDB
+2026-04-02 02:25:49:2549 [32minfo[39m: [32m­ƒîÉ Iniciando Verificaci├│n de Infraestructura Distribuida...[39m
+2026-04-02 02:25:49:2549 [32minfo[39m: [32m­ƒöî Conectando a Redis...[39m
+2026-04-02 02:25:49:2549 [32minfo[39m: [32mÔ£à Redis est├í LISTO[39m
+2026-04-02 02:25:49:2549 [32minfo[39m: [32mÔ£à Todos los ├¡ndices cr├¡ticos est├ín presentes en la DB.[39m
+2026-04-02 02:25:49:2549 [32minfo[39m: [32mÔ£à Redis est├í operativo para Idempotencia Distribuida.[39m
+node:events:496
+      throw er; // 
+Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: 
+address already in use 
+0.0.0.0:3001
+    at 
+Server.setupListenHandle 
+[as _listen2] 
+(node:net:1937:16)
+    at listenInCluster 
+(node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicks
+AndRejections (node:interna
+l/process/task_queues:90:21
+)
+Emitted 'error' event on 
+Server instance at:
+    at emitErrorNT 
+(node:net:1973:8)
+    at process.processTicks
+AndRejections (node:interna
+l/process/task_queues:90:21
+) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 3001
+}
+
+Node.js v22.14.0

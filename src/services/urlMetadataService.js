@@ -61,16 +61,34 @@ const getUrlMetadata = async (url) => {
       }
     }
 
-    // Extraer Nombre del Sitio / Favicon
+    // Extraer Nombre del Sitio
     const siteName = 
       $('meta[property="og:site_name"]').attr('content') || 
       '';
+
+    // Extraer Favicon directamente de la página
+    let favicon = 
+      $('link[rel="shortcut icon"]').attr('href') ||
+      $('link[rel="icon"]').attr('href') ||
+      $('link[rel="apple-touch-icon"]').attr('href') ||
+      '';
+
+    // Asegurar que la URL del favicon sea absoluta
+    if (favicon && !favicon.startsWith('http')) {
+      try {
+        const urlOrigin = new URL(targetUrl).origin;
+        favicon = new URL(favicon, urlOrigin).href;
+      } catch (e) {
+        favicon = '';
+      }
+    }
 
     return {
       title: title.substring(0, 200).trim(),
       description: description.substring(0, 500).trim(),
       image,
       siteName,
+      favicon,
       url: targetUrl
     };
   } catch (error) {

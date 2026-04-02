@@ -29,9 +29,8 @@ const folderSchema = new mongoose.Schema({
   },
   descripcion: {
     type: String,
-    required: [true, 'La descripción es obligatoria'],
     trim: true,
-    maxlength: 500
+    maxlength: 2000
   },
   propietario: {
     type: mongoose.Schema.Types.ObjectId,

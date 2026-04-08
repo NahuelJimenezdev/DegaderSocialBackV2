@@ -37,20 +37,23 @@ const processFormImages = async (data, folder = 'fundacion') => {
           // - Recortar bordes vacíos (trim)
           buffer = await sharp(buffer)
             .ensureAlpha()
-            .toFormat('png')
-            .pipelineColorspace('srgb')
-            .on('info', (info) => logger.debug(`[Sharp] Procesada firma: ${info.width}x${info.height}`))
-            .raw()
-            .toBuffer({ resolveWithObject: true })
+            .png()
+            .toBuffer()
+            .then(pngBuf => sharp(pngBuf)
+              .raw()
+              .toBuffer({ resolveWithObject: true })
+            )
             .then(({ data, info }) => {
-                // Filtro de píxeles: Si R, G y B son > 200, poner Alpha a 0
+                logger.debug(`[Sharp] Procesando firma: ${info.width}x${info.height}, ${info.channels}ch`);
+                // Filtro de píxeles: Si R, G y B son > 195, poner Alpha a 0
                 for (let i = 0; i < data.length; i += 4) {
                     if (data[i] > 195 && data[i + 1] > 195 && data[i + 2] > 195) {
                         data[i + 3] = 0;
                     }
                 }
                 return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-                    .trim() // Eliminar bordes blancos sobrantes
+                    .trim({ threshold: 20 })
+                    .png()
                     .toBuffer();
             });
         } else {

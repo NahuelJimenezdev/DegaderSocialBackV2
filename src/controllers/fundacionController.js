@@ -340,7 +340,8 @@ const listarSolicitudes = async (req, res) => {
 
     // Buscar solicitudes pendientes (Optimizado: Proyección quirúrgica)
     const solicitudes = await User.find(query)
-      .select('nombres apellidos email fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.fechaSolicitud createdAt')
+      .select('nombres apellidos email fundacion.referenteId fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.fechaSolicitud createdAt')
+      .populate('fundacion.referenteId', 'nombres apellidos fundacion')
       // Excluir campos pesados (por si acaso query trae el doc entero)
       .select('-fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
       .sort({ 'fundacion.fechaSolicitud': -1, createdAt: -1 })
@@ -759,6 +760,7 @@ const getAllSolicitudesAdmin = async (req, res) => {
     const solicitudes = await User.find(query)
       .select('nombres apellidos email fundacion createdAt')
       .populate('fundacion.aprobadoPor', 'nombres apellidos')
+      .populate('fundacion.referenteId', 'nombres apellidos fundacion')
       .sort({ 'fundacion.fechaSolicitud': -1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));

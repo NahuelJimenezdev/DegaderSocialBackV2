@@ -7,6 +7,7 @@ const { formatErrorResponse, formatSuccessResponse, isValidObjectId } = require(
 const { uploadToR2, deleteFromR2 } = require('../services/r2Service');
 const imageOptimizationService = require('../services/imageOptimizationService');
 const { invalidateUserCache } = require('../utils/userCache');
+const mongoose = require('mongoose');
 
 
 /**

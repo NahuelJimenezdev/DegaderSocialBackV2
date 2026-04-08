@@ -804,9 +804,27 @@ const actualizarHojaDeVida = async (req, res) => {
     const userId = req.userId;
     let { datos } = req.body;
 
+    // Validar que datos no esté vacío
+    if (!datos || typeof datos !== 'object' || Object.keys(datos).length === 0) {
+      return res.status(400).json(formatErrorResponse('No se proporcionaron datos para la Hoja de Vida'));
+    }
+
+    console.log(`📝 [HOJA DE VIDA] Guardando para usuario ${userId}. Campos recibidos: ${Object.keys(datos).length}`);
+
     // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
     // Además aplica transparencia a firmas si detecta campos con nombre 'firma'
-    datos = await processFormImages(datos, 'hojaDeVida');
+    try {
+      datos = await processFormImages(datos, 'hojaDeVida');
+    } catch (imgError) {
+      console.error(`⚠️ [HOJA DE VIDA] Error procesando imágenes, continuando con datos originales:`, imgError.message);
+      // Eliminar campos de imagen base64 para evitar exceder 16MB en MongoDB
+      for (const [key, value] of Object.entries(datos)) {
+        if (typeof value === 'string' && value.startsWith('data:image') && value.length > 500000) {
+          console.warn(`⚠️ [HOJA DE VIDA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB) para evitar límites de MongoDB`);
+          datos[key] = null;
+        }
+      }
+    }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
@@ -814,10 +832,7 @@ const actualizarHojaDeVida = async (req, res) => {
     if (!user.fundacion) user.fundacion = { activo: false };
 
     if (!user.fundacion.hojaDeVida) {
-      user.fundacion.hojaDeVida = { completado: true, datos: new Map(), fechaCompletado: new Date() };
-    } else {
-      user.fundacion.hojaDeVida.completado = true;
-      user.fundacion.hojaDeVida.fechaCompletado = new Date();
+      user.fundacion.hojaDeVida = { completado: false, datos: new Map(), fechaCompletado: null };
     }
 
     // Asegurar que datos sea un Map y setear valores uno a uno
@@ -825,12 +840,33 @@ const actualizarHojaDeVida = async (req, res) => {
       user.fundacion.hojaDeVida.datos = new Map();
     }
 
+    let savedCount = 0;
     Object.entries(datos).forEach(([key, value]) => {
       user.fundacion.hojaDeVida.datos.set(key, value);
+      savedCount++;
     });
 
+    // Solo marcar como completado si realmente se guardaron datos
+    if (savedCount > 0) {
+      user.fundacion.hojaDeVida.completado = true;
+      user.fundacion.hojaDeVida.fechaCompletado = new Date();
+      console.log(`✅ [HOJA DE VIDA] ${savedCount} campos guardados para usuario ${userId}`);
+    } else {
+      console.warn(`⚠️ [HOJA DE VIDA] No se guardaron campos para usuario ${userId}`);
+    }
+
+    user.markModified('fundacion.hojaDeVida');
     user.markModified('fundacion.hojaDeVida.datos');
     await user.save();
+
+    // Verificar que se guardó correctamente
+    const verifyUser = await User.findById(userId).select('fundacion.hojaDeVida');
+    const savedMapSize = verifyUser?.fundacion?.hojaDeVida?.datos?.size || 0;
+    console.log(`🔍 [HOJA DE VIDA] Verificación post-save: ${savedMapSize} campos en DB`);
+
+    if (savedMapSize === 0 && savedCount > 0) {
+      console.error(`❌ [HOJA DE VIDA] ¡ALERTA! Los datos no se persistieron correctamente para ${userId}`);
+    }
 
     res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', {
       hojaDeVida: user.fundacion.hojaDeVida

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.37.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.2...v1.37.3) (2026-04-08)
+
+
+### Bug Fixes
+
+* **storageHelpers:** fix Sharp producing corrupted PNG for firma uploads ([d54c06e](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/d54c06e5d3b1610da128d5742a9dd054e7c36d9d))
+
 ### [1.37.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.1...v1.37.2) (2026-04-08)
 
 ### [1.37.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.0...v1.37.1) (2026-04-08)

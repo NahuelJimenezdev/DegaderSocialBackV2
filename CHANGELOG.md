@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.37.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.36.0...v1.37.0) (2026-04-08)
+
+
+### Features
+
+* **fundacion:** se populó el campo referenteId con información detallada de fundación en los listados de solicitudes para permitir visualización completa en el frontend ([2ce09bb](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2ce09bba22e65f1f19e64bf7b7ebf1b6b226a6c3))
+* implementation of rich link previews for group chat and backend metadata service ([685023b](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/685023b2bf2d7c89bf70bb06cb36e20042ca1c87))
+* rich link previews, security hardening, and mobile UI fixes ([07b62ad](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/07b62ad5f92f5a00f648afc01a801c283673a7e5))
+
+
+### Bug Fixes
+
+* **folders:** increase description limit and make optional to resolve 500 error ([b0b66a8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/b0b66a8ddc7e45776ebdba7daa3bfd38a16bcec6))
+* **folders:** resolve UTF-8 filename encoding and permission checks ([28ec509](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/28ec509040b30309084429f77945f2bbb2e0d7b1))
+* **r2:** prevent double slashes in generated URLs ([37521b1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/37521b1d94daa8d3534a346bc35304c3122ca537))
+* upgrading node to version 20 in Dockerfile to fix ReferenceError File is not defined ([00ee121](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/00ee12198c486de4299c261568794981532b8c94))
+
 ## [1.36.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.35.0...v1.36.0) (2026-04-02)
 
 

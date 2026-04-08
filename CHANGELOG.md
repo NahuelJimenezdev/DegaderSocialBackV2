@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.37.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.3...v1.37.4) (2026-04-08)
+
+
+### Bug Fixes
+
+* **userController:** prevent silent data loss in hojaDeVida save ([ae5259f](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ae5259f31393e42ce8cee3e2f61362daeed29654))
+
 ### [1.37.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.2...v1.37.3) (2026-04-08)
 
 

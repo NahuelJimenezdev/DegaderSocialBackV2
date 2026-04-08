@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.37.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.0...v1.37.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* **iglesia:** add missing mongoose import to fix 500 error during church creation ([33ebd88](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/33ebd88d70b14a3a513582b9085f6f6afcbb3893))
+* **iglesia:** prevent duplicate members + add expulsarMiembro endpoint ([a6438b4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/a6438b41b769e35a47b19873a19b7629f5e8f76b))
+
 ## [1.37.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.36.0...v1.37.0) (2026-04-08)
 
 

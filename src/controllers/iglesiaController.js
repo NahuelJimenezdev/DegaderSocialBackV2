@@ -180,13 +180,14 @@ const unirseIglesia = async (req, res) => {
     const iglesia = await Iglesia.findById(id).populate('pastorPrincipal', 'nombres apellidos');
     if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
 
-    // Verificar si ya es miembro
-    if (iglesia.miembros.includes(req.userId)) {
+    // Verificar si ya es miembro (comparación segura con toString)
+    const yaEsMiembro = iglesia.miembros.some(m => m.toString() === req.userId.toString());
+    if (yaEsMiembro) {
       return res.status(400).json(formatErrorResponse('Ya eres miembro de esta iglesia'));
     }
 
     // Verificar si ya hay solicitud pendiente
-    const solicitudExistente = iglesia.solicitudes.find(s => s.usuario.toString() === req.userId);
+    const solicitudExistente = iglesia.solicitudes.find(s => s.usuario.toString() === req.userId.toString());
     if (solicitudExistente) {
       return res.status(400).json(formatErrorResponse('Ya tienes una solicitud pendiente'));
     }
@@ -596,7 +597,14 @@ const gestionarSolicitud = async (req, res) => {
 
     if (accion === 'aprobar') {
       console.log('🔄 gestionarSolicitud - Aprobando solicitud...');
-      iglesia.miembros.push(userId);
+
+      // PROTECCIÓN ANTI-DUPLICADOS: Verificar que NO sea ya miembro antes de agregar
+      const yaEsMiembroCheck = iglesia.miembros.some(m => m.toString() === userId.toString());
+      if (yaEsMiembroCheck) {
+        console.warn(`⚠️ [gestionarSolicitud] Usuario ${userId} ya es miembro. Evitando duplicado.`);
+      } else {
+        iglesia.miembros.push(userId);
+      }
 
       // Actualizar perfil del usuario
       console.log('🔄 gestionarSolicitud - Actualizando perfil usuario:', userId);
@@ -1111,6 +1119,109 @@ const transferirLiderazgo = async (req, res) => {
   }
 };
 
+/**
+ * Expulsar miembro de la iglesia (solo pastor principal)
+ * DELETE /api/iglesias/:id/miembros/:userId
+ */
+const expulsarMiembro = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const { motivo } = req.body;
+
+    if (!isValidObjectId(id) || !isValidObjectId(userId)) {
+      return res.status(400).json(formatErrorResponse('ID inválido'));
+    }
+
+    const iglesia = await Iglesia.findById(id);
+    if (!iglesia) return res.status(404).json(formatErrorResponse('Iglesia no encontrada'));
+
+    // Solo el pastor principal puede expulsar
+    if (iglesia.pastorPrincipal.toString() !== req.userId.toString()) {
+      return res.status(403).json(formatErrorResponse('Solo el pastor principal puede expulsar miembros'));
+    }
+
+    // No puede expulsarse a sí mismo
+    if (userId.toString() === req.userId.toString()) {
+      return res.status(400).json(formatErrorResponse('No puedes expulsarte a ti mismo'));
+    }
+
+    // Verificar que el usuario sea miembro
+    const esMiembro = iglesia.miembros.some(m => m.toString() === userId.toString());
+    if (!esMiembro) {
+      return res.status(400).json(formatErrorResponse('Este usuario no es miembro de la iglesia'));
+    }
+
+    // Obtener datos del usuario antes de eliminarlo
+    const user = await UserV2.findById(userId);
+    if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+
+    const fechaUnion = user.eclesiastico?.fechaUnion || user.createdAt;
+    const tiempoMembresia = calculateDuration(fechaUnion);
+
+    // Registrar en historial de salidas
+    iglesia.historialSalidas.push({
+      usuario: userId,
+      fechaSalida: new Date(),
+      motivo: motivo || 'Expulsado por el pastor',
+      rolAlSalir: user.eclesiastico?.rolPrincipal || 'miembro',
+      fechaUnion: fechaUnion,
+      tiempoMembresia: tiempoMembresia,
+      historialRoles: user.eclesiastico?.historialRoles || []
+    });
+
+    // Eliminar de la lista de miembros
+    iglesia.miembros = iglesia.miembros.filter(m => m.toString() !== userId.toString());
+    await iglesia.save();
+
+    // Actualizar perfil del usuario expulsado
+    await UserV2.findByIdAndUpdate(userId, {
+      esMiembroIglesia: false,
+      eclesiastico: {
+        activo: false,
+        iglesia: null,
+        rolPrincipal: 'miembro',
+        ministerios: [],
+        historialRoles: []
+      }
+    });
+
+    // Invalidar caché del usuario expulsado
+    await invalidateUserCache(userId);
+
+    // Notificación al usuario expulsado
+    const usuarioNombre = `${user.nombres?.primero || ''} ${user.apellidos?.primero || ''}`.trim();
+    notificationService.notify({
+      receptorId: userId,
+      emisorId: req.userId,
+      tipo: 'expulsado_iglesia',
+      contenido: `Has sido removido de la iglesia ${iglesia.nombre}.${motivo ? ` Motivo: "${motivo}"` : ''}`,
+      referencia: { tipo: 'Iglesia', id: iglesia._id },
+      metadata: { iglesiaNombre: iglesia.nombre, motivo }
+    }).catch(err => console.error('⚠️ [Iglesia] Error notification expulsion:', err.message));
+
+    // Emitir evento Socket para actualizar UI en tiempo real
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${userId}`).emit('expulsadoDeIglesia', {
+        iglesiaId: iglesia._id,
+        iglesiaNombre: iglesia.nombre,
+        motivo
+      });
+      io.to(`user:${req.userId}`).emit('miembroExpulsado', {
+        iglesiaId: iglesia._id,
+        userId: userId
+      });
+    }
+
+    logger.info(`[EXPULSION] ✅ ${usuarioNombre} (${userId}) expulsado de ${iglesia.nombre} por pastor ${req.userId}. Motivo: ${motivo || 'Sin motivo'}`);
+
+    res.json(formatSuccessResponse('Miembro expulsado exitosamente', { userId }));
+  } catch (error) {
+    console.error('❌ Error al expulsar miembro:', error);
+    res.status(500).json(formatErrorResponse('Error al expulsar miembro', [error.message]));
+  }
+};
+
 module.exports = {
   crearIglesia,
   obtenerIglesias,
@@ -1127,5 +1238,6 @@ module.exports = {
   leaveIglesia,
   getExMiembros,
   eliminarIglesia,
-  transferirLiderazgo
+  transferirLiderazgo,
+  expulsarMiembro
 };

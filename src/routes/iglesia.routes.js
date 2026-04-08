@@ -70,6 +70,7 @@ router.put('/:id', uploadMiddleware, iglesiaController.updateIglesia);
 router.delete('/:id', iglesiaController.eliminarIglesia);
 router.put('/:id/transferir-admin', iglesiaController.transferirLiderazgo);
 router.post('/:id/solicitudes/:userId', iglesiaController.gestionarSolicitud);
+router.delete('/:id/miembros/:userId', iglesiaController.expulsarMiembro);
 
 // Rutas de Chat
 router.get('/:id/messages', iglesiaController.getMessages);

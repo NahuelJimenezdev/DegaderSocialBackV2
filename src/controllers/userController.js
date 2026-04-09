@@ -709,8 +709,24 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
     const userId = req.userId;
     let documentacionData = req.body;
 
+    if (!documentacionData || Object.keys(documentacionData).length === 0) {
+      return res.status(400).json(formatErrorResponse('No se proporcionaron datos para la documentación FHSYL'));
+    }
+
+    console.log(`📝 [FHSYL] Guardando para usuario ${userId}. Campos: ${Object.keys(documentacionData).length}`);
+
     // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
-    documentacionData = await processFormImages(documentacionData, 'fhsyl');
+    try {
+      documentacionData = await processFormImages(documentacionData, 'fhsyl');
+    } catch (imgError) {
+      console.error(`⚠️ [FHSYL] Error procesando imágenes:`, imgError.message);
+      // Limpiar campos grandes si falló el procesamiento
+      for (const [key, value] of Object.entries(documentacionData)) {
+        if (typeof value === 'string' && value.startsWith('data:image') && value.length > 500000) {
+          documentacionData[key] = null;
+        }
+      }
+    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -740,6 +756,8 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
     user.markModified('fundacion');
     await user.save();
     
+    console.log(`✅ [FHSYL] Datos guardados exitosamente para ${userId}`);
+
     // Obtener el usuario actualizado sin password para devolver al frontend
     const updatedUser = await User.findById(userId).select('-password');
 
@@ -759,8 +777,26 @@ const actualizarEntrevistaFundacion = async (req, res) => {
     const userId = req.userId;
     let { respuestas } = req.body;
 
+    // Validar que respuestas no esté vacío
+    if (!respuestas || typeof respuestas !== 'object' || Object.keys(respuestas).length === 0) {
+      return res.status(400).json(formatErrorResponse('No se proporcionaron respuestas para la entrevista'));
+    }
+
+    console.log(`📝 [ENTREVISTA] Guardando para usuario ${userId}. Campos recibidos: ${Object.keys(respuestas).length}`);
+
     // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
-    respuestas = await processFormImages(respuestas, 'entrevista');
+    try {
+      respuestas = await processFormImages(respuestas, 'entrevista');
+    } catch (imgError) {
+      console.error(`⚠️ [ENTREVISTA] Error procesando imágenes, continuando con datos originales:`, imgError.message);
+      // Eliminar campos de imagen base64 para evitar exceder 16MB en MongoDB si son muy grandes
+      for (const [key, value] of Object.entries(respuestas)) {
+        if (typeof value === 'string' && value.startsWith('data:image') && value.length > 500000) {
+          console.warn(`⚠️ [ENTREVISTA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB) para evitar límites de MongoDB`);
+          respuestas[key] = null;
+        }
+      }
+    }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
@@ -768,10 +804,7 @@ const actualizarEntrevistaFundacion = async (req, res) => {
     if (!user.fundacion) user.fundacion = { activo: false };
 
     if (!user.fundacion.entrevista) {
-      user.fundacion.entrevista = { completado: true, respuestas: new Map(), fechaCompletado: new Date() };
-    } else {
-      user.fundacion.entrevista.completado = true;
-      user.fundacion.entrevista.fechaCompletado = new Date();
+      user.fundacion.entrevista = { completado: false, respuestas: new Map(), fechaCompletado: null };
     }
 
     // Asegurar que respuestas sea un Map y setear valores uno a uno para mayor robustez
@@ -779,12 +812,31 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       user.fundacion.entrevista.respuestas = new Map();
     }
 
+    let savedCount = 0;
     Object.entries(respuestas).forEach(([key, value]) => {
       user.fundacion.entrevista.respuestas.set(key, value);
+      savedCount++;
     });
 
+    // Solo marcar como completado si realmente se guardaron datos
+    if (savedCount > 0) {
+      user.fundacion.entrevista.completado = true;
+      user.fundacion.entrevista.fechaCompletado = new Date();
+      console.log(`✅ [ENTREVISTA] ${savedCount} campos guardados para usuario ${userId}`);
+    }
+
+    user.markModified('fundacion.entrevista');
     user.markModified('fundacion.entrevista.respuestas');
     await user.save();
+
+    // Verificar que se guardó correctamente
+    const verifyUser = await User.findById(userId).select('fundacion.entrevista');
+    const savedMapSize = verifyUser?.fundacion?.entrevista?.respuestas?.size || 0;
+    console.log(`🔍 [ENTREVISTA] Verificación post-save: ${savedMapSize} campos en DB`);
+
+    if (savedMapSize === 0 && savedCount > 0) {
+      console.error(`❌ [ENTREVISTA] ¡ALERTA! Los datos no se persistieron correctamente para ${userId}`);
+    }
 
     res.json(formatSuccessResponse('Entrevista guardada exitosamente', {
       entrevista: user.fundacion.entrevista

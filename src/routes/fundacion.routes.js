@@ -14,6 +14,7 @@ const {
   getUsuariosBajoJurisdiccion,
   getUsuarioJurisdiccionDetalle 
 } = require('../controllers/fundacionAdminController');
+const { descargarBase } = require('../controllers/fundacionExportController');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
@@ -53,6 +54,12 @@ router.put('/rechazar/:userId', rechazarSolicitud);
  * Obtener TODAS las solicitudes (Solo Founder)
  */
 router.get('/admin/todas-solicitudes', getAllSolicitudesAdmin);
+
+/**
+ * GET /api/fundacion/admin/descargar-base
+ * Descarga la base de miembros en formato Excel (.xlsx) según jurisdicción
+ */
+router.get('/admin/descargar-base', descargarBase);
 
 /**
  * GET /api/fundacion/admin/usuarios-jurisdiccion

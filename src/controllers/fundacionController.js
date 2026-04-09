@@ -12,7 +12,8 @@ const solicitarUnirse = async (req, res) => {
   try {
     const userId = req.userId;
     const { nivel, subArea, programa, cargo, territorio, referenteId } = req.body;
-    const area = req.body.area || 'Ejecutivo/a';
+    // antes area era: const area = req.body.area || 'Ejecutivo/a';
+    const area = req.body.area || 'Dirección y organismo Ejecutivo';
 
     // Validar campos requeridos
     if (!nivel || !area || !cargo) {

@@ -14,7 +14,8 @@ const NIVELES_FUNDACION = [
 ];
 
 const AREAS_FUNDACION = [
-  "Ejecutivo/a",
+  // antes era: "Ejecutivo/a",
+  "Dirección y organismo Ejecutivo",
   // Directivo General
   "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
   // Nuevas Áreas Directivo General

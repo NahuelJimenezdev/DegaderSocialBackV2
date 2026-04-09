@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.38.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.38.0...v1.38.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* **fundacion:** corregir nombre de área ejecutiva y actualizar lógica de asignación ([c10670a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c10670a7b69057182d43c7b949a0da5f99741bd3))
+
 ## [1.38.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.7...v1.38.0) (2026-04-09)
 
 

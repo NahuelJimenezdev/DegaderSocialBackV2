@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.37.7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.6...v1.37.7) (2026-04-09)
+
+
+### Bug Fixes
+
+* **controllers:** harden FHSYL and Entrevista persistence ([be0a256](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/be0a256f7f0b04e0b2b93d5c8d0e93ee57b6c766))
+
 ### [1.37.6](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.5...v1.37.6) (2026-04-09)
 
 ### [1.37.5](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.4...v1.37.5) (2026-04-08)

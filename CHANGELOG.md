@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.38.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.7...v1.38.0) (2026-04-09)
+
+
+### Features
+
+* **fundacion:** implementar descarga de base de miembros en Excel con control de jurisdicción ([f272e34](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/f272e345313a8d3ab997b7f9bc866e1539038cee))
+
 ### [1.37.7](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.37.6...v1.37.7) (2026-04-09)
 
 

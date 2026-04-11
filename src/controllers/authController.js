@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 const { validateRegisterData, formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
 const logger = require('../config/logger');
-const { sendWelcomeEmail } = require('../services/emailService');
+const { sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
+const crypto = require('crypto');
 
 /**
  * Generar JWT token enriquecido con role y versión para cache de auth
@@ -418,18 +419,126 @@ const getSuspensionInfo = async (req, res) => {
 };
 
 /**
- * Logout (lado servidor - opcional)
+ * Solicitar recuperación de contraseña
+ * POST /api/auth/forgot-password
+ */
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json(formatErrorResponse('El email es obligatorio'));
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      // Por seguridad, no revelamos si el usuario existe
+      return res.json(formatSuccessResponse('Si el email está registrado, recibirás un enlace de recuperación'));
+    }
+
+    // Generar token
+    const token = crypto.randomBytes(32).toString('hex');
+    user.seguridad.resetPasswordToken = token;
+    user.seguridad.resetPasswordExpires = Date.now() + 3600000; // 1 hora
+    
+    await user.save();
+
+    // Enviar email
+    const resetUrl = `${process.env.FRONTEND_URL || 'https://degadersocial.com'}/reset-password/${token}`;
+    await sendPasswordResetEmail(user, resetUrl, req.ip);
+
+    res.json(formatSuccessResponse('Se ha enviado un enlace de recuperación a tu email'));
+  } catch (error) {
+    console.error('Error en forgotPassword:', error);
+    res.status(500).json(formatErrorResponse('Error al procesar la solicitud'));
+  }
+};
+
+/**
+ * Resetear contraseña con token
+ * POST /api/auth/reset-password/:token
+ */
+const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json(formatErrorResponse('La contraseña debe tener al menos 6 caracteres'));
+    }
+
+    const user = await User.findOne({
+      'seguridad.resetPasswordToken': token,
+      'seguridad.resetPasswordExpires': { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json(formatErrorResponse('Token inválido o expirado'));
+    }
+
+    // Actualizar password
+    user.password = password;
+    user.seguridad.resetPasswordToken = undefined;
+    user.seguridad.resetPasswordExpires = undefined;
+    user.seguridad.cambioPassword = Date.now();
+    
+    await user.save();
+
+    res.json(formatSuccessResponse('Contraseña actualizada exitosamente. Ya puedes iniciar sesión.'));
+  } catch (error) {
+    console.error('Error en resetPassword:', error);
+    res.status(500).json(formatErrorResponse('Error al resetear contraseña'));
+  }
+};
+
+/**
+ * Resetear contraseña por un Administrador/Founder
+ * POST /api/auth/admin/reset-password
+ */
+const adminResetPassword = async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+
+    // Solo Founder o Admin con permisos específicos
+    const currentUser = await User.findById(req.userId);
+    if (currentUser.seguridad.rolSistema !== 'Founder' && !currentUser.seguridad.permisos?.gestionarUsuarios) {
+      return res.status(403).json(formatErrorResponse('No tienes permisos para realizar esta acción'));
+    }
+
+    if (!userId || !newPassword || newPassword.length < 6) {
+      return res.status(400).json(formatErrorResponse('Datos incompletos o contraseña muy corta'));
+    }
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json(formatErrorResponse('Usuario no encontrado'));
+    }
+
+    // Protección: Nadie puede cambiarle la pass al Founder excepto él mismo
+    if (targetUser.seguridad.rolSistema === 'Founder' && currentUser.seguridad.rolSistema !== 'Founder') {
+      return res.status(403).json(formatErrorResponse('No puedes modificar la cuenta del Founder'));
+    }
+
+    // Actualizar password
+    targetUser.password = newPassword;
+    targetUser.seguridad.cambioPassword = Date.now();
+    await targetUser.save();
+
+    logger.info(`[ADMIN-ACTION] El usuario ${req.userId} cambió la contraseña de ${userId}`);
+
+    res.json(formatSuccessResponse('Contraseña de usuario actualizada exitosamente'));
+  } catch (error) {
+    console.error('Error en adminResetPassword:', error);
+    res.status(500).json(formatErrorResponse('Error al actualizar contraseña'));
+  }
+};
+
+/**
+ * Logout de usuario
  * POST /api/auth/logout
  */
 const logout = async (req, res) => {
   try {
-    // En un sistema JWT sin blacklist, el logout se maneja en el cliente
-    // Aquí podríamos registrar el evento o limpiar datos de sesión si fuera necesario
-
-    res.json(formatSuccessResponse('Logout exitoso'));
+    res.json(formatSuccessResponse('Sesión cerrada correctamente'));
   } catch (error) {
-    console.error('Error en logout:', error);
-    res.status(500).json(formatErrorResponse('Error al cerrar sesión', [error.message]));
+    res.status(500).json(formatErrorResponse('Error al cerrar sesión'));
   }
 };
 
@@ -439,5 +548,8 @@ module.exports = {
   getProfile,
   changePassword,
   getSuspensionInfo,
-  logout
+  logout,
+  forgotPassword,
+  resetPassword,
+  adminResetPassword
 };

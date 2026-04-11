@@ -441,7 +441,8 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     // Enviar email
-    const resetUrl = `${process.env.FRONTEND_URL || 'https://degadersocial.com'}/reset-password/${token}`;
+    const baseUrl = (process.env.FRONTEND_URL || 'https://degadersocial.com').replace(/\/$/, '');
+    const resetUrl = `${baseUrl}/reset-password/${token}`;
     await sendPasswordResetEmail(user, resetUrl, req.ip);
 
     res.json(formatSuccessResponse('Se ha enviado un enlace de recuperación a tu email'));

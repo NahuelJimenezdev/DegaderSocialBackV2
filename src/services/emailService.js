@@ -8,6 +8,9 @@ const transporter = nodemailer.createTransport({
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
     },
+    tls: {
+        rejectUnauthorized: false
+    }
 });
 
 /**
@@ -163,6 +166,73 @@ const sendWelcomeEmail = async (user) => {
     }
 };
 
+/**
+ * Enviar correo de recuperación de contraseña
+ */
+const sendPasswordResetEmail = async (user, resetUrl, ip) => {
+    try {
+        const mailOptions = {
+            from: process.env.MAIL_FROM,
+            to: user.email,
+            subject: 'Recuperación de contraseña - Degader Social 🔒',
+            html: `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+                    .header { background: #2563eb; color: #ffffff; padding: 30px 20px; text-align: center; }
+                    .content { padding: 30px; }
+                    .button-container { text-align: center; margin: 30px 0; }
+                    .button { background-color: #2563eb; color: #ffffff !important; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; }
+                    .footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+                    .warning { color: #dc2626; font-size: 13px; margin-top: 20px; padding: 10px; background: #fef2f2; border-radius: 6px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h2>Recuperación de Contraseña</h2>
+                    </div>
+                    <div class="content">
+                        <p>Hola <strong>${user.nombres.primero}</strong>,</p>
+                        <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Degader Social.</p>
+                        <p>Para continuar, haz clic en el siguiente botón. Este enlace expirará en 1 hora por tu seguridad.</p>
+                        
+                        <div class="button-container">
+                            <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
+                        </div>
+
+                        <p>Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+                        <p style="word-break: break-all; font-size: 12px; color: #2563eb;">${resetUrl}</p>
+
+                        <div class="warning">
+                            <strong>Seguridad:</strong> Esta solicitud fue realizada desde la dirección IP: ${ip}. 
+                            Si tú no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu contraseña actual no cambiará.
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>&copy; 2026 Degader Social - Conectando con propósito</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Correo de recuperación enviado');
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Error enviando correo de recuperación:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
-    sendWelcomeEmail
+    sendWelcomeEmail,
+    sendPasswordResetEmail
 };

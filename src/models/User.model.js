@@ -404,7 +404,9 @@ const SeguridadSchema = new Schema({
   ipUltimoLogin: { type: String },
   intentosFallidos: { type: Number, default: 0 },
   cambioPassword: { type: Date },
-  versionTerminos: { type: Number, default: 1 }
+  versionTerminos: { type: Number, default: 1 },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date }
 }, { _id: false });
 
 // 6. Perfil Publicitario (Para Sistema de Anuncios Segmentados)

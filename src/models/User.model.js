@@ -88,7 +88,9 @@ const CARGOS_FUNDACION = [
   
   // Organismos Internacionales (Nuevos)
   "Salvación Mundial",
+  "Secretario Salvación Mundial",
   "Misión Internacional de Paz",
+  "Secretario Misión Internacional de Paz",
 
   // Territoriales (Nuevos)
   "Director de Áreas",

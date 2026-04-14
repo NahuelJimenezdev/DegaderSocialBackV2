@@ -21,6 +21,7 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       cargo,
       nivel,
       search,
+      estado,
       page = 1,
       limit = 20
     } = req.query;
@@ -85,6 +86,22 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
           { 'apellidos.segundo': { $regex: searchRegex } }
         ]
       });
+    }
+
+    // Filtro por Estado (Completado / Pendiente)
+    if (estado === 'completado') {
+      query['fundacion.hojaDeVida.completado'] = true;
+      query['fundacion.entrevista.completado'] = true;
+      // Para FHSYL consideramos que tiene algún dato mínimo
+      query['fundacion.documentacionFHSYL.testimonioConversion'] = { $exists: true, $ne: '' };
+    } else if (estado === 'pendiente') {
+      query.$or = query.$or || [];
+      query.$or.push(
+        { 'fundacion.hojaDeVida.completado': { $ne: true } },
+        { 'fundacion.entrevista.completado': { $ne: true } },
+        { 'fundacion.documentacionFHSYL.testimonioConversion': { $exists: false } },
+        { 'fundacion.documentacionFHSYL.testimonioConversion': '' }
+      );
     }
 
     // --- RESTRICCIONES JERÁRQUICAS ---
@@ -155,9 +172,9 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     
     const [usuarios, total] = await Promise.all([
       User.find(query)
-        .select('nombres apellidos email social.fotoPerfil fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.estadoAprobacion fundacion.activo fundacion.fechaAprobacion createdAt')
+        .select('nombres apellidos email social.fotoPerfil fundacion.nivel fundacion.area fundacion.subArea fundacion.programa fundacion.cargo fundacion.territorio fundacion.estadoAprobacion fundacion.activo fundacion.fechaAprobacion fundacion.hojaDeVida.completado fundacion.entrevista.completado fundacion.documentacionFHSYL.testimonioConversion createdAt')
         // Excluir campos pesados que no se usan en la LISTA general
-        .select('-fundacion.documentacionFHSYL.testimonioConversion -fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
+        .select('-fundacion.documentacionFHSYL.llamadoPastoral -fundacion.hojaDeVida.datos -fundacion.entrevista.respuestas')
         .sort({ 'nombres.primero': 1 })
         .skip(skip)
         .limit(parseInt(limit))

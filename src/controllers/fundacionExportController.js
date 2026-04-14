@@ -226,11 +226,18 @@ const descargarBase = async (req, res) => {
     });
     worksheet.getRow(1).height = 28;
 
-    // Determinar si la documentación FHSYL está "completada" 
-    // (tiene al menos testimonioConversion o ocupacion o estadoCivil)
+    // Determinar si la documentación FHSYL está realmente completada
+    // 🔧 FIX: Validación estricta - requiere al menos 5 campos sustanciales con contenido real
     const isDocFHSYLCompleted = (doc) => {
       if (!doc) return false;
-      return !!(doc.testimonioConversion || doc.ocupacion || doc.estadoCivil);
+      const camposClave = [
+        doc.testimonioConversion, doc.ocupacion, doc.estadoCivil,
+        doc.llamadoPastoral, doc.nombreCongregacionPastorea,
+        doc.pastorQueInvito, doc.upz, doc.nombreConyuge,
+        doc.profesionalesIglesia, doc.proyectoPsicosocial
+      ];
+      const camposConContenido = camposClave.filter(v => v && String(v).trim().length > 0);
+      return camposConContenido.length >= 5;
     };
 
     // Agregar filas

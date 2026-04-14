@@ -789,10 +789,9 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       respuestas = await processFormImages(respuestas, 'entrevista');
     } catch (imgError) {
       console.error(`⚠️ [ENTREVISTA] Error procesando imágenes, continuando con datos originales:`, imgError.message);
-      // Eliminar campos de imagen base64 para evitar exceder 16MB en MongoDB si son muy grandes
       for (const [key, value] of Object.entries(respuestas)) {
         if (typeof value === 'string' && value.startsWith('data:image') && value.length > 500000) {
-          console.warn(`⚠️ [ENTREVISTA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB) para evitar límites de MongoDB`);
+          console.warn(`⚠️ [ENTREVISTA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB)`);
           respuestas[key] = null;
         }
       }
@@ -807,22 +806,41 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       user.fundacion.entrevista = { completado: false, respuestas: new Map(), fechaCompletado: null };
     }
 
-    // Asegurar que respuestas sea un Map y setear valores uno a uno para mayor robustez
     if (!(user.fundacion.entrevista.respuestas instanceof Map)) {
       user.fundacion.entrevista.respuestas = new Map();
     }
 
+    // 🔧 FIX: Solo guardar campos con contenido real (no strings vacíos)
     let savedCount = 0;
     Object.entries(respuestas).forEach(([key, value]) => {
       user.fundacion.entrevista.respuestas.set(key, value);
-      savedCount++;
+      // Solo contar como "guardado real" si tiene contenido significativo
+      if (value !== null && value !== undefined && String(value).trim() !== '') {
+        savedCount++;
+      }
     });
 
-    // Solo marcar como completado si realmente se guardaron datos
-    if (savedCount > 0) {
+    // 🔧 FIX: Validar campos obligatorios mínimos antes de marcar completado
+    const camposObligatoriosEntrevista = [
+      'nombre', 'llamado', 'loQueMasGusta', 'sacrificioPastoral',
+      'caracterAmigos', 'situacionDificil', 'autoridadEspiritual',
+      'dones', 'talentos', 'profesion', 'disponibilidadTiempo'
+    ];
+    const camposCompletados = camposObligatoriosEntrevista.filter(campo => {
+      const val = user.fundacion.entrevista.respuestas.get(campo);
+      return val && String(val).trim().length > 0;
+    });
+    const porcentajeCompletado = camposCompletados.length / camposObligatoriosEntrevista.length;
+
+    // Solo marcar completado si al menos el 80% de campos obligatorios tienen contenido
+    if (porcentajeCompletado >= 0.8) {
       user.fundacion.entrevista.completado = true;
       user.fundacion.entrevista.fechaCompletado = new Date();
-      console.log(`✅ [ENTREVISTA] ${savedCount} campos guardados para usuario ${userId}`);
+      console.log(`✅ [ENTREVISTA] COMPLETADO - ${camposCompletados.length}/${camposObligatoriosEntrevista.length} campos obligatorios (${savedCount} totales) para ${userId}`);
+    } else {
+      user.fundacion.entrevista.completado = false;
+      user.fundacion.entrevista.fechaCompletado = null;
+      console.log(`⏳ [ENTREVISTA] PENDIENTE - ${camposCompletados.length}/${camposObligatoriosEntrevista.length} campos obligatorios (${savedCount} totales) para ${userId}`);
     }
 
     user.markModified('fundacion.entrevista');
@@ -838,9 +856,10 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       console.error(`❌ [ENTREVISTA] ¡ALERTA! Los datos no se persistieron correctamente para ${userId}`);
     }
 
-    res.json(formatSuccessResponse('Entrevista guardada exitosamente', {
-      entrevista: user.fundacion.entrevista
-    }));
+    // Devolver usuario completo actualizado para sincronizar frontend
+    const updatedUser = await User.findById(userId).select('-password').lean();
+
+    res.json(formatSuccessResponse('Entrevista guardada exitosamente', updatedUser));
   } catch (error) {
     console.error('Error al actualizar entrevista:', error);
     res.status(500).json(formatErrorResponse('Error al guardar entrevista', [error.message]));
@@ -863,16 +882,14 @@ const actualizarHojaDeVida = async (req, res) => {
 
     console.log(`📝 [HOJA DE VIDA] Guardando para usuario ${userId}. Campos recibidos: ${Object.keys(datos).length}`);
 
-    // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2 para evitar bloqueos en Atlas M0
-    // Además aplica transparencia a firmas si detecta campos con nombre 'firma'
+    // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2
     try {
       datos = await processFormImages(datos, 'hojaDeVida');
     } catch (imgError) {
-      console.error(`⚠️ [HOJA DE VIDA] Error procesando imágenes, continuando con datos originales:`, imgError.message);
-      // Eliminar campos de imagen base64 para evitar exceder 16MB en MongoDB
+      console.error(`⚠️ [HOJA DE VIDA] Error procesando imágenes:`, imgError.message);
       for (const [key, value] of Object.entries(datos)) {
         if (typeof value === 'string' && value.startsWith('data:image') && value.length > 500000) {
-          console.warn(`⚠️ [HOJA DE VIDA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB) para evitar límites de MongoDB`);
+          console.warn(`⚠️ [HOJA DE VIDA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB)`);
           datos[key] = null;
         }
       }
@@ -887,24 +904,38 @@ const actualizarHojaDeVida = async (req, res) => {
       user.fundacion.hojaDeVida = { completado: false, datos: new Map(), fechaCompletado: null };
     }
 
-    // Asegurar que datos sea un Map y setear valores uno a uno
     if (!(user.fundacion.hojaDeVida.datos instanceof Map)) {
       user.fundacion.hojaDeVida.datos = new Map();
     }
 
+    // 🔧 FIX: Solo guardar y contar campos con contenido real
     let savedCount = 0;
     Object.entries(datos).forEach(([key, value]) => {
       user.fundacion.hojaDeVida.datos.set(key, value);
-      savedCount++;
+      if (value !== null && value !== undefined && String(value).trim() !== '' && value !== false) {
+        savedCount++;
+      }
     });
 
-    // Solo marcar como completado si realmente se guardaron datos
-    if (savedCount > 0) {
+    // 🔧 FIX: Validar campos obligatorios mínimos antes de marcar completado
+    const camposObligatoriosHDV = [
+      'nombre_completo', 'documento_num', 'fecha_nacimiento', 'nacionalidad',
+      'direccion', 'telefono', 'email', 'estado_civil'
+    ];
+    const camposCompletados = camposObligatoriosHDV.filter(campo => {
+      const val = user.fundacion.hojaDeVida.datos.get(campo);
+      return val && String(val).trim().length > 0;
+    });
+    const porcentajeCompletado = camposCompletados.length / camposObligatoriosHDV.length;
+
+    if (porcentajeCompletado >= 0.75) {
       user.fundacion.hojaDeVida.completado = true;
       user.fundacion.hojaDeVida.fechaCompletado = new Date();
-      console.log(`✅ [HOJA DE VIDA] ${savedCount} campos guardados para usuario ${userId}`);
+      console.log(`✅ [HOJA DE VIDA] COMPLETADO - ${camposCompletados.length}/${camposObligatoriosHDV.length} campos obligatorios (${savedCount} con contenido) para ${userId}`);
     } else {
-      console.warn(`⚠️ [HOJA DE VIDA] No se guardaron campos para usuario ${userId}`);
+      user.fundacion.hojaDeVida.completado = false;
+      user.fundacion.hojaDeVida.fechaCompletado = null;
+      console.log(`⏳ [HOJA DE VIDA] PENDIENTE - ${camposCompletados.length}/${camposObligatoriosHDV.length} campos obligatorios (${savedCount} con contenido) para ${userId}`);
     }
 
     user.markModified('fundacion.hojaDeVida');
@@ -920,9 +951,10 @@ const actualizarHojaDeVida = async (req, res) => {
       console.error(`❌ [HOJA DE VIDA] ¡ALERTA! Los datos no se persistieron correctamente para ${userId}`);
     }
 
-    res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', {
-      hojaDeVida: user.fundacion.hojaDeVida
-    }));
+    // Devolver usuario completo actualizado para sincronizar frontend
+    const updatedUser = await User.findById(userId).select('-password').lean();
+
+    res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', updatedUser));
   } catch (error) {
     console.error('Error al actualizar Hoja de Vida:', error);
     res.status(500).json(formatErrorResponse('Error al guardar Hoja de Vida', [error.message]));

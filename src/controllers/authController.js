@@ -278,8 +278,28 @@ const login = async (req, res) => {
     const token = generateToken(fullUser);
 
     // Preparar respuesta (Inyectar virtuals manuales ya que no usamos Mongoose hydrate)
+    // 🔧 FIX: Flattenear Maps BSON que el driver directo no convierte automáticamente
+    const flattenBsonMaps = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(flattenBsonMaps);
+      const result = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          // Detectar BSON Map interno (tiene _items o estructura especial)
+          if (value instanceof Map) {
+            result[key] = Object.fromEntries(value);
+          } else {
+            result[key] = flattenBsonMaps(value);
+          }
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+
     const userResponse = {
-      ...fullUser,
+      ...flattenBsonMaps(fullUser),
       id: fullUser._id.toString(),
       rol: fullUser.seguridad?.rolSistema || 'usuario',
       nombreCompleto: `${fullUser.nombres?.primero || ''} ${fullUser.apellidos?.primero || ''}`.trim()

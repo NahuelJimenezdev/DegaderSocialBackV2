@@ -753,6 +753,16 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
       ultimaActualizacion: new Date()
     };
 
+    // 🔧 FIX: Validar completado para FHSYL (Requerido por Dashboard)
+    const camposObligatoriosFHSYL = ['testimonioConversion', 'llamadoPastoral', 'ocupacion', 'estadoCivil'];
+    const camposCompletados = camposObligatoriosFHSYL.filter(campo => {
+      const val = user.fundacion.documentacionFHSYL[campo];
+      return val && String(val).trim().length > 10; // Al menos 10 caracteres para testimonios
+    });
+    
+    // Marcar como completado si tiene los campos clave
+    user.fundacion.documentacionFHSYL.completado = camposCompletados.length >= 3;
+
     user.markModified('fundacion');
     await user.save();
     

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.39.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.38.3...v1.39.0) (2026-04-15)
+
+
+### Features
+
+* add Secretary roles for International Organizations (Salvacion Mundial and Mision Internacional de Paz) ([daf2020](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/daf2020a06801880cc3fa153bf8dfed3e9b8753b))
+* **auth:** complete password recovery system (back-end) ([2ddcac2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/2ddcac2f5ff0e4baf5a6c82e1224b21b30f0092c))
+* **fundacion:** agregar filtro de estado (completado/pendiente) en panel admin ([e72b170](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e72b170d5825c362cad9401b83c9400d6c426c2b))
+
+
+### Bug Fixes
+
+* **auth:** implement missing logout controller function to resolve ReferenceError ([33ea0be](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/33ea0be387fb9ac24b3de61a38f1b762ad682e73))
+* **auth:** update FRONTEND_URL to official domain and sanitise slashes ([7be444d](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7be444d4bb499645ffc55ad63e8afeb738256752))
+* **email:** bypass self-signed certificate error for SMTP transporter ([b1f9954](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/b1f9954fbd3568be3a052dd9291461d2160c5c05))
+* **fundacion:** corregir integridad de datos en formularios de documentación ([685acc4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/685acc415b7b76174c1ca4aa17799fd2e788e58e))
+
 ### [1.38.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.38.2...v1.38.3) (2026-04-09)
 
 ### [1.38.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.38.1...v1.38.2) (2026-04-09)

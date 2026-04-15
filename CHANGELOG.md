@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.40.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.39.4...v1.40.0) (2026-04-15)
+
+
+### Features
+
+* **posts:** habilitar poblacion de metadatos.targetUser en consultas de publicaciones - Se agrego el populate para targetUser en feed, perfiles, grupos y posts individuales - Esto permite al front mostrar los datos del destinatario en publicaciones de cumpleaños ([ce58a34](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ce58a3414c3f7821ef2cb7f0150b0231979857fc))
+
 ### [1.39.4](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.39.3...v1.39.4) (2026-04-15)
 
 ### [1.39.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.39.2...v1.39.3) (2026-04-15)

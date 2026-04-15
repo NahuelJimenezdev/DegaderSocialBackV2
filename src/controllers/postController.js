@@ -349,6 +349,7 @@ const getFeed = async (req, res) => {
 
         const hydratedPosts = await Post.populate(finalSortedPosts, [
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },
+            { path: 'metadatos.targetUser', select: 'nombres.primero apellidos.primero social.fotoPerfil username' },
             { path: 'grupo', select: 'nombre tipo' },
             { path: 'postOriginal' },
             { path: 'comentariosRecientes.usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username' }
@@ -455,6 +456,7 @@ const getFeed = async (req, res) => {
 
     const posts = await Post.find(query)
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
+      .populate('metadatos.targetUser', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -537,6 +539,7 @@ const getUserPosts = async (req, res) => {
       ]
     })
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
+      .populate('metadatos.targetUser', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate({
         path: 'comentariosRecientes.usuario',
@@ -616,6 +619,7 @@ const getGroupPosts = async (req, res) => {
 
     const posts = await Post.find(query)
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
+      .populate('metadatos.targetUser', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({
@@ -664,6 +668,7 @@ const getPostById = async (req, res) => {
 
     const post = await Post.findById(id)
       .populate('usuario', 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema')
+      .populate('metadatos.targetUser', 'nombres.primero apellidos.primero social.fotoPerfil username')
       .populate('grupo', 'nombre tipo')
       .populate('postOriginal')
       .populate({

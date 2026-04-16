@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.40.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.1...v1.40.2) (2026-04-16)
+
+
+### Bug Fixes
+
+* **fundacion:** agregar logica de completado para documentacion FHSYL ([ea324de](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/ea324dea7855bf74b9c3e2588972fa1e01170f5d))
+
 ### [1.40.1](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.0...v1.40.1) (2026-04-15)
 
 ## [1.40.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.39.4...v1.40.0) (2026-04-15)

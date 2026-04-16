@@ -147,18 +147,16 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       const esGlobal = nivelesGlobales.includes(nivelDirector);
       
       const cargoDirector = director.fundacion?.cargo ? director.fundacion.cargo.trim() : '';
+      const esSecretario = cargoDirector.toLowerCase().includes('secretario');
       const esDirectorGeneral = [
         'Director General (Pastor)', 
         'Director General', 
         'Sub-Director General', 
-        'secretario Director General', 
-        'secretario Sub-Director General',
-        'Secretario Ejecutivo',
         'Director Nacional',
         'Director Regional',
         'Director Departamental',
         'Coordinador Municipal'
-      ].includes(cargoDirector);
+      ].includes(cargoDirector) || esSecretario;
 
       if (!esGlobal && !esDirectorGeneral && areaDirector) {
         query['fundacion.area'] = areaDirector;
@@ -245,7 +243,17 @@ const getUsuarioJurisdiccionDetalle = async (req, res) => {
       }
 
       // C. Validación de Área (Si no es Director General/Global)
-      const esDirectorGral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'Secretario Ejecutivo'].includes(director.fundacion?.cargo);
+      const cargoDirStr = director.fundacion?.cargo || '';
+      const esDirectorGral = [
+        'Director General (Pastor)', 
+        'Director General', 
+        'Sub-Director General', 
+        'Director Nacional',
+        'Director Regional',
+        'Director Departamental',
+        'Coordinador Municipal'
+      ].includes(cargoDirStr) || cargoDirStr.toLowerCase().includes('secretario');
+      
       const esGlobal = ['directivo_general', 'organo_control', 'organismo_internacional'].includes(nivelDir);
 
       if (!esGlobal && !esDirectorGral && areaDir !== areaTar) {

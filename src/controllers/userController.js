@@ -763,13 +763,25 @@ const actualizarDocumentacionFHSYL = async (req, res) => {
     // Marcar como completado si tiene los campos clave
     user.fundacion.documentacionFHSYL.completado = camposCompletados.length >= 3;
 
+    // Forzar persistencia en rutas anidadas
     user.markModified('fundacion');
+    user.markModified('fundacion.documentacionFHSYL');
+    
     await user.save();
     
-    console.log(`✅ [FHSYL] Datos guardados exitosamente para ${userId}`);
+    // Verificación de integridad post-save
+    const verifyUser = await User.findById(userId).select('fundacion.documentacionFHSYL').lean();
+    const hasData = verifyUser?.fundacion?.documentacionFHSYL && Object.keys(verifyUser.fundacion.documentacionFHSYL).length > 2; // Más que 'completado' y 'ultimaActualizacion'
+
+    console.log(`🔍 [FHSYL] Verificación final: ${hasData ? 'CON DATOS' : 'VACÍO'}`);
+
+    if (!hasData) {
+      console.error(`❌ [FHSYL] FALLO DE PERSISTENCIA DETECTADO PARA ${userId}`);
+      return res.status(500).json(formatErrorResponse('Error al guardar en base de datos. Los datos no se persistieron.'));
+    }
 
     // Obtener el usuario actualizado sin password para devolver al frontend
-    const updatedUser = await User.findById(userId).select('-password');
+    const updatedUser = await User.findById(userId).select('-password').lean();
 
     res.json(formatSuccessResponse('Documentación FHSYL actualizada exitosamente', updatedUser));
   } catch (error) {
@@ -816,14 +828,17 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       user.fundacion.entrevista = { completado: false, respuestas: new Map(), fechaCompletado: null };
     }
 
-    if (!(user.fundacion.entrevista.respuestas instanceof Map)) {
+    // 🔧 FIX: Asegurar que respuestas es un Map sin sobreescribir el actual si ya existe
+    if (!user.fundacion.entrevista.respuestas) {
       user.fundacion.entrevista.respuestas = new Map();
     }
 
     // 🔧 FIX: Solo guardar campos con contenido real (no strings vacíos)
     let savedCount = 0;
     Object.entries(respuestas).forEach(([key, value]) => {
+      // Usar .set() es vital para que Mongoose rastree el mapa
       user.fundacion.entrevista.respuestas.set(key, value);
+      
       // Solo contar como "guardado real" si tiene contenido significativo
       if (value !== null && value !== undefined && String(value).trim() !== '') {
         savedCount++;
@@ -836,6 +851,8 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       'caracterAmigos', 'situacionDificil', 'autoridadEspiritual',
       'dones', 'talentos', 'profesion', 'disponibilidadTiempo'
     ];
+    
+    // Al ser un mapa, usamos .get() para validar
     const camposCompletados = camposObligatoriosEntrevista.filter(campo => {
       const val = user.fundacion.entrevista.respuestas.get(campo);
       return val && String(val).trim().length > 0;
@@ -853,23 +870,27 @@ const actualizarEntrevistaFundacion = async (req, res) => {
       console.log(`⏳ [ENTREVISTA] PENDIENTE - ${camposCompletados.length}/${camposObligatoriosEntrevista.length} campos obligatorios (${savedCount} totales) para ${userId}`);
     }
 
+    // Forzar guardado de rutas anidadas
+    user.markModified('fundacion');
     user.markModified('fundacion.entrevista');
     user.markModified('fundacion.entrevista.respuestas');
+    
     await user.save();
 
-    // Verificar que se guardó correctamente
-    const verifyUser = await User.findById(userId).select('fundacion.entrevista');
-    const savedMapSize = verifyUser?.fundacion?.entrevista?.respuestas?.size || 0;
-    console.log(`🔍 [ENTREVISTA] Verificación post-save: ${savedMapSize} campos en DB`);
-
+    // Verificación post-save inmediata para detectar fallos de Atlas/Mongoose
+    const verifyUser = await User.findById(userId).select('fundacion.entrevista').lean();
+    const savedMapSize = verifyUser?.fundacion?.entrevista?.respuestas ? Object.keys(verifyUser.fundacion.entrevista.respuestas).length : 0;
+    
+    console.log(`🔍 [ENTREVISTA] Verificación persistencia: ${savedMapSize} campos en DB`);
     if (savedMapSize === 0 && savedCount > 0) {
-      console.error(`❌ [ENTREVISTA] ¡ALERTA! Los datos no se persistieron correctamente para ${userId}`);
+      console.error(`❌ [ENTREVISTA] ERROR CRÍTICO: Los datos no persistieron.`)
+      return res.status(500).json(formatErrorResponse('Error al persistir datos en base de datos. Intente de nuevo.'));
     }
 
-    // Devolver usuario completo actualizado para sincronizar frontend
+    // Devolver usuario completo actualizado
     const updatedUser = await User.findById(userId).select('-password').lean();
+    return res.json(formatSuccessResponse('Entrevista guardada exitosamente', updatedUser));
 
-    res.json(formatSuccessResponse('Entrevista guardada exitosamente', updatedUser));
   } catch (error) {
     console.error('Error al actualizar entrevista:', error);
     res.status(500).json(formatErrorResponse('Error al guardar entrevista', [error.message]));
@@ -885,24 +906,16 @@ const actualizarHojaDeVida = async (req, res) => {
     const userId = req.userId;
     let { datos } = req.body;
 
-    // Validar que datos no esté vacío
     if (!datos || typeof datos !== 'object' || Object.keys(datos).length === 0) {
       return res.status(400).json(formatErrorResponse('No se proporcionaron datos para la Hoja de Vida'));
     }
 
-    console.log(`📝 [HOJA DE VIDA] Guardando para usuario ${userId}. Campos recibidos: ${Object.keys(datos).length}`);
-
     // 🆕 OPTIMIZACIÓN: Interceptar Base64 y subirlos a R2
     try {
+      const { processFormImages } = require('../utils/storageHelpers');
       datos = await processFormImages(datos, 'hojaDeVida');
     } catch (imgError) {
       console.error(`⚠️ [HOJA DE VIDA] Error procesando imágenes:`, imgError.message);
-      for (const [key, value] of Object.entries(datos)) {
-        if (typeof value === 'string' && value.startsWith('data:image') && value.length > 500000) {
-          console.warn(`⚠️ [HOJA DE VIDA] Eliminando base64 grande del campo "${key}" (${Math.round(value.length / 1024)}KB)`);
-          datos[key] = null;
-        }
-      }
     }
 
     const user = await User.findById(userId);
@@ -914,11 +927,12 @@ const actualizarHojaDeVida = async (req, res) => {
       user.fundacion.hojaDeVida = { completado: false, datos: new Map(), fechaCompletado: null };
     }
 
-    if (!(user.fundacion.hojaDeVida.datos instanceof Map)) {
+    // 🔧 FIX: Asegurar persistencia del Map sin recrearlo
+    if (!user.fundacion.hojaDeVida.datos) {
       user.fundacion.hojaDeVida.datos = new Map();
     }
 
-    // 🔧 FIX: Solo guardar y contar campos con contenido real
+    // 🔧 FIX: Mapear datos asegurando el track de Mongoose
     let savedCount = 0;
     Object.entries(datos).forEach(([key, value]) => {
       user.fundacion.hojaDeVida.datos.set(key, value);
@@ -932,39 +946,42 @@ const actualizarHojaDeVida = async (req, res) => {
       'nombre_completo', 'documento_num', 'fecha_nacimiento', 'nacionalidad',
       'direccion', 'telefono', 'email', 'estado_civil'
     ];
+    
     const camposCompletados = camposObligatoriosHDV.filter(campo => {
       const val = user.fundacion.hojaDeVida.datos.get(campo);
       return val && String(val).trim().length > 0;
     });
+    
     const porcentajeCompletado = camposCompletados.length / camposObligatoriosHDV.length;
 
     if (porcentajeCompletado >= 0.75) {
       user.fundacion.hojaDeVida.completado = true;
       user.fundacion.hojaDeVida.fechaCompletado = new Date();
-      console.log(`✅ [HOJA DE VIDA] COMPLETADO - ${camposCompletados.length}/${camposObligatoriosHDV.length} campos obligatorios (${savedCount} con contenido) para ${userId}`);
     } else {
       user.fundacion.hojaDeVida.completado = false;
       user.fundacion.hojaDeVida.fechaCompletado = null;
-      console.log(`⏳ [HOJA DE VIDA] PENDIENTE - ${camposCompletados.length}/${camposObligatoriosHDV.length} campos obligatorios (${savedCount} con contenido) para ${userId}`);
     }
 
+    // Forzar marcas de modificación para Mongoose en objetos complejos
+    user.markModified('fundacion');
     user.markModified('fundacion.hojaDeVida');
     user.markModified('fundacion.hojaDeVida.datos');
+    
     await user.save();
 
-    // Verificar que se guardó correctamente
-    const verifyUser = await User.findById(userId).select('fundacion.hojaDeVida');
-    const savedMapSize = verifyUser?.fundacion?.hojaDeVida?.datos?.size || 0;
-    console.log(`🔍 [HOJA DE VIDA] Verificación post-save: ${savedMapSize} campos en DB`);
+    // Verificación final
+    const verifyUser = await User.findById(userId).select('fundacion.hojaDeVida').lean();
+    const savedMapSize = verifyUser?.fundacion?.hojaDeVida?.datos ? Object.keys(verifyUser.fundacion.hojaDeVida.datos).length : 0;
+    
+    console.log(`🔍 [HOJA DE VIDA] Verificación final en DB: ${savedMapSize} campos.`);
 
     if (savedMapSize === 0 && savedCount > 0) {
-      console.error(`❌ [HOJA DE VIDA] ¡ALERTA! Los datos no se persistieron correctamente para ${userId}`);
+       console.error(`❌ [HOJA DE VIDA] FALLO DE PERSISTENCIA DETECTADO PARA ${userId}`);
+       return res.status(500).json(formatErrorResponse('Error crítico de persistencia. Los datos no se guardaron.'));
     }
 
-    // Devolver usuario completo actualizado para sincronizar frontend
     const updatedUser = await User.findById(userId).select('-password').lean();
-
-    res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', updatedUser));
+    return res.json(formatSuccessResponse('Hoja de Vida guardada exitosamente', updatedUser));
   } catch (error) {
     console.error('Error al actualizar Hoja de Vida:', error);
     res.status(500).json(formatErrorResponse('Error al guardar Hoja de Vida', [error.message]));

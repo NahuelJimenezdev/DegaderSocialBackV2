@@ -25,19 +25,22 @@ const User = require('../models/User.model.js');
 ```
 
 #### 2. **Controlador de Autenticación**
-**Archivo:** `src/controllers/auth.controller.js`
+**Archivo:** `src/controllers/authController.js`
 
 **Funciones Principales:**
 - `login()` - Maneja el proceso de autenticación
 - `register()` - Registra nuevos usuarios
-- `verifyToken()` - Verifica tokens JWT
+- `logout()` - Invalida sesiones
+- `forgotPassword()` / `resetPassword()` - Flujo de recuperación de contraseñas.
+- `getProfile()` - Retorna los datos del usuario actual y sirve para verificar el token JWT.
 
 **Proceso de Login:**
 1. Recibe email/username y password
 2. Busca el usuario en la base de datos
 3. Compara la contraseña usando bcrypt
-4. Genera un token JWT
-5. Retorna el token y datos del usuario
+4. Verifica que la cuenta no esté suspendida temporaria o permanentemente
+5. Genera un token JWT
+6. Retorna el token y datos del usuario
 
 ### Proceso de Registro
 **Campos Requeridos del Formulario:**
@@ -55,25 +58,34 @@ const User = require('../models/User.model.js');
 
 **Flujo de Registro:**
 1. Frontend envía datos a `POST /api/auth/register`.
-2. Backend valida duplicidad de email/username.
+2. Backend valida duplicidad de email/username vía Middlewares validadores.
 3. Se crea usuario con estructura `UserV2`.
 4. Se genera token JWT automático para login inmediato.
 5. Redirección al feed/inicio.
+
+#### 3. **Rutas de Autenticación**
 **Archivo:** `src/routes/auth.routes.js`
 
-**Endpoints:**
+**Endpoints Públicos:**
 - `POST /api/auth/login` - Iniciar sesión
 - `POST /api/auth/register` - Registrar usuario
+- `POST /api/auth/forgot-password` - Solicitar reset de contraseña
+- `POST /api/auth/reset-password/:token` - Aplicar nueva contraseña
+
+**Endpoints Protegidos:**
+- `GET /api/auth/profile` - Obtener datos y verificar token
 - `POST /api/auth/logout` - Cerrar sesión
-- `GET /api/auth/verify` - Verificar token
+- `PUT /api/auth/change-password` - Cambiar clave estando logueado
+- `POST /api/auth/admin/reset-password` - Admin reseteando clave
 
 #### 4. **Middleware de Autenticación**
-**Archivo:** `src/middlewares/auth.middleware.js`
+**Archivo:** `src/middleware/auth.middleware.js`
 
-**Función:** `verifyToken(req, res, next)`
+**Función:** `authenticate(req, res, next)`
 - Verifica que el token JWT sea válido
 - Extrae el ID del usuario del token
-- Adjunta el usuario a `req.user`
+- Adjunta el usuario a `req.userId`
+- Bloquea cuentas suspendidas.
 
 ### Frontend
 

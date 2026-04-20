@@ -8,7 +8,7 @@ El flujo para unirse a una iglesia involucra Socket.IO para notificaciones en ti
 
 ### Flujo de Solicitud (Usuario -> Pastor)
 
-1.  **Endpoint:** `POST /api/iglesias/unirse`
+1.  **Endpoint:** `POST /api/iglesias/:id/join`
 2.  **Acción:** El usuario solicita unirse.
 3.  **Notificación creada:**
     *   **Tipo:** `solicitud_iglesia`

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.41.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.3...v1.41.0) (2026-04-20)
+
+
+### Features
+
+* **ads:** Acceso Maestro y Filtro Tolerante ([7ad5ab8](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/7ad5ab82518dd969381b7cd70126952f1cbb8e65))
+
 ### [1.40.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.2...v1.40.3) (2026-04-20)
 
 

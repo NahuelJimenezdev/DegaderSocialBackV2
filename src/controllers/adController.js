@@ -616,6 +616,31 @@ exports.getCampaignStats = async (req, res) => {
     // Obtener distribución geográfica
     const geoDistribution = await AdImpression.obtenerDistribucionGeografica(id);
 
+    // 📊 AGREGACIONES VISUALES (Devices, Browsers, Trends)
+    const [devicesData, browsersData, trendsDataRaw] = await Promise.all([
+      AdImpression.aggregate([{ $match: { anuncioId: ad._id } }, { $group: { _id: '$dispositivo', count: { $sum: 1 } } }]),
+      AdImpression.aggregate([{ $match: { anuncioId: ad._id } }, { $group: { _id: '$navegador', count: { $sum: 1 } } }]),
+      AdImpression.aggregate([
+        { $match: { anuncioId: ad._id } },
+        { $group: { _id: { date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } }, tipo: "$tipo" }, count: { $sum: 1 } } },
+        { $sort: { "_id.date": 1 } }
+      ])
+    ]);
+
+    const devices = {};
+    devicesData.forEach(d => devices[d._id] = d.count);
+
+    const browsers = {};
+    browsersData.forEach(d => browsers[d._id || 'unknown'] = d.count);
+
+    const dailyMap = {};
+    trendsDataRaw.forEach(t => {
+      const date = t._id.date;
+      if(!dailyMap[date]) dailyMap[date] = { date, impressions: 0, clicks: 0 };
+      if(t._id.tipo === 'vista') dailyMap[date].impressions += t.count;
+      else if(t._id.tipo === 'click') dailyMap[date].clicks += t.count;
+    });
+
     res.json({
       campaign: {
         nombre: ad.nombreCliente,
@@ -628,7 +653,10 @@ exports.getCampaignStats = async (req, res) => {
       },
       metricas: ad.metricas,
       estadisticasDetalladas: stats,
-      distribucionGeografica: geoDistribution
+      distribucionGeografica: geoDistribution,
+      devices,
+      browsers,
+      trends: { daily: Object.values(dailyMap) }
     });
 
   } catch (error) {

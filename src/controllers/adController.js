@@ -55,11 +55,15 @@ exports.getRecommendations = async (req, res) => {
     }
 
     // Filtro de género
-    const genero = user.personal?.genero;
-    if (genero) {
+    const generoUser = user.personal?.genero;
+    if (generoUser) {
+      let generoAd = 'todos';
+      if (generoUser === 'M') generoAd = 'masculino';
+      if (generoUser === 'F') generoAd = 'femenino';
+
       query.$or = [
         { 'segmentacion.genero': 'todos' },
-        { 'segmentacion.genero': genero }
+        { 'segmentacion.genero': generoAd }
       ];
     } else {
       query['segmentacion.genero'] = 'todos';
@@ -151,14 +155,17 @@ exports.registerImpression = async (req, res) => {
       return res.status(404).json({ msg: 'Anuncio no encontrado o inactivo' });
     }
 
-    // 2. Verificar que el cliente tiene créditos
-    const balance = await AdCredit.findOne({ clienteId: ad.clienteId });
+    // 2. Verificar que el cliente tiene créditos (solo si no es gratuito)
+    let balance = null;
+    if (ad.costoPorImpresion > 0) {
+      balance = await AdCredit.findOne({ clienteId: ad.clienteId });
 
-    if (!balance || balance.balance < ad.costoPorImpresion) {
-      // Pausar campaña automáticamente
-      ad.estado = 'sin_creditos';
-      await ad.save();
-      return res.status(402).json({ msg: 'Campaña pausada por falta de créditos' });
+      if (!balance || balance.balance < ad.costoPorImpresion) {
+        // Pausar campaña automáticamente
+        ad.estado = 'sin_creditos';
+        await ad.save();
+        return res.status(402).json({ msg: 'Campaña pausada por falta de créditos' });
+      }
     }
 
     // 3. Registrar la impresión (Analytics Globales)
@@ -207,20 +214,34 @@ exports.registerImpression = async (req, res) => {
       console.error('⚠️ Error actualizando historial de usuario (no bloqueante):', histErr);
     }
 
-    // 5. Descontar crédito del balance
-    await balance.descontarCreditos(ad.costoPorImpresion);
+    // 5. Descontar crédito del balance (si no es gratuito)
+    if (ad.costoPorImpresion > 0 && balance) {
+      await balance.descontarCreditos(ad.costoPorImpresion);
 
-    // 6. Registrar transacción
-    await CreditTransaction.create({
-      clienteId: ad.clienteId,
-      tipo: 'gasto',
-      cantidad: -ad.costoPorImpresion,
-      balanceAnterior: balance.balance + ad.costoPorImpresion,
-      balanceNuevo: balance.balance,
-      anuncioId: adId,
-      impresionesGeneradas: 1,
-      descripcion: `Impresión de anuncio: ${ad.nombreCliente} `
-    });
+      // 6. Registrar transacción
+      await CreditTransaction.create({
+        clienteId: ad.clienteId,
+        tipo: 'gasto',
+        cantidad: -ad.costoPorImpresion,
+        balanceAnterior: balance.balance + ad.costoPorImpresion,
+        balanceNuevo: balance.balance,
+        anuncioId: adId,
+        impresionesGeneradas: 1,
+        descripcion: `Impresión de anuncio: ${ad.nombreCliente} `
+      });
+    } else if (ad.costoPorImpresion === 0) {
+      // 6(B). Registrar Auditoría de Patrocinio de Founder
+      await CreditTransaction.create({
+        clienteId: ad.clienteId,
+        tipo: 'admin_grant',
+        cantidad: 0,
+        balanceAnterior: balance ? balance.balance : 0,
+        balanceNuevo: balance ? balance.balance : 0,
+        anuncioId: adId,
+        impresionesGeneradas: 1,
+        descripcion: `Patrocinio Oficial: Impresión gratuita - ${ad.nombreCliente}`
+      });
+    }
 
     // 7. Actualizar créditos gastados en el anuncio
     ad.creditosGastados += ad.costoPorImpresion;
@@ -321,7 +342,9 @@ exports.createCampaign = async (req, res) => {
       segmentacion,
       prioridad,
       maxImpresionesUsuario,
-      costoPorImpresion
+      costoPorImpresion,
+      overrideClienteEmail, // NUEVO: Para Founder
+      esGratuito // NUEVO: Para Founder
     } = req.body;
 
     // Validaciones básicas
@@ -333,12 +356,24 @@ exports.createCampaign = async (req, res) => {
     console.log('✅ Validaciones básicas pasadas');
     console.log('📊 Segmentación recibida:', JSON.stringify(segmentacion, null, 2));
 
-    // Verificar si el usuario es founder para auto-aprobar
-    const user = await UserV2.findById(clienteId).select('seguridad.rolSistema'); // Modificado para check correcto
+    // Verificar si el usuario es founder para auto-aprobar y roles especiales
+    const user = await UserV2.findById(clienteId).select('seguridad.rolSistema'); 
     const isFounder = user?.seguridad?.rolSistema === 'Founder';
     const estadoInicial = isFounder ? 'activo' : 'pendiente_aprobacion';
 
-    console.log(`👤 Usuario rol: ${user?.rol}, Estado inicial: ${estadoInicial} `);
+    let finalClienteId = clienteId;
+
+    // Lógica Founder: Asignar campaña a otro usuario por email
+    if (isFounder && overrideClienteEmail) {
+      const targetUser = await UserV2.findOne({ email: overrideClienteEmail.toLowerCase().trim() });
+      if (targetUser) {
+        finalClienteId = targetUser._id;
+      } else {
+        return res.status(404).json({ msg: 'Usuario asignado no encontrado por email. Verifica que exista.' });
+      }
+    }
+
+    console.log(`👤 Usuario rol: ${user?.seguridad?.rolSistema}, Estado inicial: ${estadoInicial} `);
 
     // Preparar segmentación - si es global, no incluir ubicacion
     const segmentacionData = {
@@ -362,7 +397,7 @@ exports.createCampaign = async (req, res) => {
 
     // Crear el anuncio
     const newAd = new Ad({
-      clienteId,
+      clienteId: finalClienteId,
       nombreCliente,
       imagenUrl,
       linkDestino,
@@ -374,7 +409,7 @@ exports.createCampaign = async (req, res) => {
       segmentacion: segmentacionData,
       prioridad: prioridad || 'basica',
       maxImpresionesUsuario: maxImpresionesUsuario || 3,
-      costoPorImpresion: costoPorImpresion || 1
+      costoPorImpresion: (isFounder && esGratuito) ? 0 : (costoPorImpresion || 1)
     });
 
     console.log('💾 Intentando guardar anuncio...');
@@ -561,10 +596,17 @@ exports.getCampaignStats = async (req, res) => {
     const clienteId = req.userId;
     const { fechaInicio, fechaFin } = req.query;
 
-    const ad = await Ad.findOne({ _id: id, clienteId });
+    const user = await UserV2.findById(clienteId).select('seguridad.rolSistema');
+    const isFounder = user?.seguridad?.rolSistema === 'Founder';
+
+    const query = isFounder ? { _id: id } : { _id: id, clienteId };
+    const ad = await Ad.findOne(query);
     if (!ad) {
-      return res.status(404).json({ msg: 'Campaña no encontrada' });
+      return res.status(404).json({ msg: 'Campaña no encontrada o no tienes permiso para ver sus estadísticas' });
     }
+
+    // Agregar flag para indicar al frontend si es una campaña gratuita/patrocinada
+    const isGratuito = ad.costoPorImpresion === 0;
 
     // Obtener estadísticas detalladas
     const stats = await AdImpression.obtenerEstadisticas(id, fechaInicio, fechaFin);
@@ -578,7 +620,9 @@ exports.getCampaignStats = async (req, res) => {
         estado: ad.estado,
         fechaInicio: ad.fechaInicio,
         fechaFin: ad.fechaFin,
-        creditosGastados: ad.creditosGastados
+        creditosGastados: ad.creditosGastados,
+        costoPorImpresion: ad.costoPorImpresion,
+        isGratuito: isGratuito
       },
       metricas: ad.metricas,
       estadisticasDetalladas: stats,
@@ -705,8 +749,10 @@ exports.getAllCampaigns = async (req, res) => {
       return res.status(403).json({ msg: 'Acceso denegado' });
     }
 
-    const { estado, page = 1, limit = 20 } = req.query;
-    const query = estado ? { estado } : {};
+    const { estado, costoPorImpresion, page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (estado) query.estado = estado;
+    if (costoPorImpresion !== undefined) query.costoPorImpresion = Number(costoPorImpresion);
 
     const campaigns = await Ad.find(query)
       .populate('clienteId', 'nombres apellidos email')

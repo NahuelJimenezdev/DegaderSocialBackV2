@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.40.3](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.2...v1.40.3) (2026-04-20)
+
+
+### Bug Fixes
+
+* **fundacion:** expandir permisos jerárquicos en el backend para incluir secretarios ([0c38401](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/0c384018dbb86daa6175dd696946c5ea4dccbed0))
+* persistencia de datos de fundacion y blindaje de formularios backend ([c4266dd](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/c4266dddfcdc1407cbe85c719d89572eb453000d))
+
 ### [1.40.2](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.1...v1.40.2) (2026-04-16)
 
 

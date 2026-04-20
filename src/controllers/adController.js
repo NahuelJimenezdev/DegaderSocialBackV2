@@ -243,11 +243,13 @@ exports.registerImpression = async (req, res) => {
       });
     }
 
-    // 7. Actualizar créditos gastados en el anuncio
-    ad.creditosGastados += ad.costoPorImpresion;
-    await ad.save();
+    // 7. Actualizar créditos gastados en el anuncio (Atómico para evitar Race Conditions que sobreescriben métricas)
+    await Ad.updateOne(
+      { _id: adId },
+      { $inc: { creditosGastados: ad.costoPorImpresion } }
+    );
 
-    res.json({ msg: 'Impresión registrada', creditosRestantes: balance.balance });
+    res.json({ msg: 'Impresión registrada', creditosRestantes: balance ? balance.balance : 'Ilimitado' });
 
   } catch (error) {
     console.error('❌ Error registrando impresión:', error);

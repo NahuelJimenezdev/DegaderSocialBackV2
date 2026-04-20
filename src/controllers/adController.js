@@ -857,19 +857,32 @@ exports.getRevenue = async (req, res) => {
       return res.status(403).json({ msg: 'Acceso denegado' });
     }
 
-    const revenue = await CreditTransaction.obtenerIngresostotales();
+    // Obtener estadísticas y sumar ingresos y tráfico
+    const allAds = await Ad.find({}, 'metricas creditosGastados estado');
+    
+    let totalImpresiones = 0;
+    let ingresosTotales = 0;
+    let pendientes = 0;
+    
+    allAds.forEach(ad => {
+      totalImpresiones += (ad.metricas?.impresiones || 0);
+      ingresosTotales += (ad.creditosGastados || 0);
+      if(ad.estado === 'pendiente_aprobacion') pendientes++;
+    });
 
-    // Obtener estadísticas adicionales
-    const totalCampaigns = await Ad.countDocuments();
-    const activeCampaigns = await Ad.countDocuments({ estado: 'activo' });
+    const activeCampaigns = allAds.filter(a => a.estado === 'activo').length;
+    const totalCampaigns = allAds.length;
     const totalClients = await AdCredit.countDocuments();
 
     res.json({
-      ingresos: revenue,
+      ingresosTotales,
+      cpmPromedio: totalImpresiones > 0 ? ((ingresosTotales / totalImpresiones) * 1000) : 0,
       estadisticas: {
         totalCampañas: totalCampaigns,
         campañasActivas: activeCampaigns,
-        clientesActivos: totalClients
+        clientesActivos: totalClients,
+        totalImpresiones,
+        pendientes
       }
     });
 

@@ -567,14 +567,20 @@ exports.deleteCampaign = async (req, res) => {
   try {
     const { id } = req.params;
     const clienteId = req.userId;
+    // 1. Verificar si el usuario es Founder
+    const user = await UserV2.findById(clienteId).select('seguridad.rolSistema');
+    const isFounder = user?.seguridad?.rolSistema === 'Founder';
 
-    const ad = await Ad.findOne({ _id: id, clienteId });
+    // 2. Buscar la campaña (si es Founder la encuentra directa, si no, debe ser el dueño)
+    const query = isFounder ? { _id: id } : { _id: id, clienteId };
+    const ad = await Ad.findOne(query);
+
     if (!ad) {
       return res.status(404).json({ msg: 'Campaña no encontrada' });
     }
 
-    // Solo permitir eliminar borradores o rechazadas
-    if (ad.estado === 'activo' || ad.estado === 'pausado') {
+    // 3. Solo prohibir eliminación de activas/pausadas a usuarios normales
+    if (!isFounder && (ad.estado === 'activo' || ad.estado === 'pausado')) {
       return res.status(400).json({ msg: 'No se puede eliminar una campaña activa. Pausala primero.' });
     }
 

@@ -59,6 +59,16 @@ const getAllNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
         // Para respuestas a solicitudes de grupo, el mensaje ya está completo
         mensaje = n.contenido;
+      } else if (n.tipo === 'nueva_publicacion_grupo') {
+        const nombreGrupo = n.referencia?.id?.nombre || n.metadata?.grupoNombre || 'un grupo';
+        mensaje = `${nombreCompleto} publicó en el grupo "${nombreGrupo}"`;
+      } else if (n.tipo === 'nuevo_miembro_grupo' || n.tipo === 'miembro_agregado_grupo') {
+        const nombreGrupo = n.referencia?.id?.nombre || n.metadata?.grupoNombre || 'un grupo';
+        mensaje = `${nombreCompleto} se unió al grupo "${nombreGrupo}"`;
+      } else if (n.tipo === 'mensaje_grupo') {
+        const nombreGrupo = n.referencia?.id?.nombre || n.metadata?.grupoNombre || 'un grupo';
+        const preview = n.metadata?.lastMessageContent ? `: "${n.metadata.lastMessageContent}"` : '';
+        mensaje = `${nombreCompleto} escribió en ${nombreGrupo}${preview}`;
       } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
         // Para notificaciones de iglesia, usar el contenido tal cual
         mensaje = n.contenido;
@@ -167,6 +177,16 @@ const getUnreadNotifications = async (req, res) => {
       } else if (n.tipo === 'solicitud_grupo_aprobada' || n.tipo === 'solicitud_grupo_rechazada') {
         // Para respuestas a solicitudes de grupo, el mensaje ya está completo
         mensaje = n.contenido;
+      } else if (n.tipo === 'nueva_publicacion_grupo') {
+        const nombreGrupo = n.referencia?.id?.nombre || n.metadata?.grupoNombre || 'un grupo';
+        mensaje = `${nombreCompleto} publicó en el grupo "${nombreGrupo}"`;
+      } else if (n.tipo === 'nuevo_miembro_grupo' || n.tipo === 'miembro_agregado_grupo') {
+        const nombreGrupo = n.referencia?.id?.nombre || n.metadata?.grupoNombre || 'un grupo';
+        mensaje = `${nombreCompleto} se unió al grupo "${nombreGrupo}"`;
+      } else if (n.tipo === 'mensaje_grupo') {
+        const nombreGrupo = n.referencia?.id?.nombre || n.metadata?.grupoNombre || 'un grupo';
+        const preview = n.metadata?.lastMessageContent ? `: "${n.metadata.lastMessageContent}"` : '';
+        mensaje = `${nombreCompleto} escribió en ${nombreGrupo}${preview}`;
       } else if (n.tipo === 'solicitud_iglesia' || n.tipo === 'solicitud_iglesia_aprobada' || n.tipo === 'solicitud_iglesia_rechazada') {
         // Para notificaciones de iglesia, usar el contenido tal cual
         mensaje = n.contenido;

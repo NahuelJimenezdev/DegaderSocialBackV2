@@ -9,6 +9,50 @@ const { processAndUploadImage } = require('../services/imageOptimizationService'
 const urlMetadataService = require('../services/urlMetadataService');
 
 /**
+ * Helper: Filtrar miembros que deben recibir notificaciones (respeta configuración de silencio)
+ */
+const filterMembersForNotification = async (group, authorId, content = '') => {
+  const mentionRegex = /@(\w+)/g;
+  const mentions = [...(content || '').matchAll(mentionRegex)].map(m => m[1]);
+  const now = new Date();
+  const membersToNotify = [];
+  let expiredCount = 0;
+
+  for (const member of group.miembros) {
+    if (member.usuario.equals(authorId)) continue;
+
+    const notifConfig = member.notificaciones || {};
+
+    if (!notifConfig.silenciadas) {
+      membersToNotify.push(member);
+      continue;
+    }
+
+    if (notifConfig.silenciadoHasta && now > notifConfig.silenciadoHasta) {
+      member.notificaciones.silenciadas = false;
+      member.notificaciones.silenciadoHasta = null;
+      membersToNotify.push(member);
+      expiredCount++;
+      continue;
+    }
+
+    if (notifConfig.tipoSilencio === 'solo_menciones') {
+      const user = await User.findById(member.usuario).select('username');
+      if (user && mentions.includes(user.username)) {
+        membersToNotify.push(member);
+        continue;
+      }
+    }
+  }
+
+  if (expiredCount > 0) {
+    await group.save();
+  }
+
+  return membersToNotify;
+};
+
+/**
  * Obtener todos los grupos
  * GET /api/grupos
  */
@@ -473,14 +517,44 @@ const joinGroup = async (req, res) => {
     await group.save();
     console.log('✅ [JOIN] Usuario agregado como miembro');
 
-    // 🏆 Notificación V1 PRO
-    notificationService.notify({
-      receptorId: group.creador,
-      emisorId: req.userId,
-      tipo: 'nuevo_miembro_grupo',
-      contenido: 'se unió a tu grupo',
-      referencia: { tipo: 'Group', id: group._id }
-    }).catch(err => console.error('⚠️ [JOIN] Error notification:', err.message));
+    // 🏆 Notificaciones: Nuevo miembro se unió al grupo
+    try {
+      // Notificar solo a admins/creador (notificación de nuevo miembro)
+      const adminTargets = [
+        group.creador.toString(),
+        ...group.administradores.map(a => a.toString())
+      ];
+      const uniqueAdminTargets = [...new Set(adminTargets)].filter(id => id !== req.userId.toString());
+
+      const adminNotifPromises = uniqueAdminTargets.map(adminId =>
+        notificationService.notify({
+          receptorId: adminId,
+          emisorId: req.userId,
+          tipo: 'nuevo_miembro_grupo',
+          contenido: `se unió al grupo ${group.nombre}`,
+          referencia: { tipo: 'Group', id: group._id },
+          metadata: { grupoNombre: group.nombre }
+        })
+      );
+
+      // Notificar al resto de miembros (informativo: "fue agregado")
+      const memberNotifPromises = group.miembros
+        .filter(m => !m.usuario.equals(req.userId) && !uniqueAdminTargets.includes(m.usuario.toString()))
+        .map(member =>
+          notificationService.notify({
+            receptorId: member.usuario,
+            emisorId: req.userId,
+            tipo: 'miembro_agregado_grupo',
+            contenido: `se unió al grupo ${group.nombre}`,
+            referencia: { tipo: 'Group', id: group._id },
+            metadata: { grupoNombre: group.nombre }
+          })
+        );
+
+      await Promise.allSettled([...adminNotifPromises, ...memberNotifPromises]);
+    } catch (err) {
+      console.error('⚠️ [JOIN] Error notifications:', err.message);
+    }
 
     await group.populate('miembros.usuario', 'nombre apellido avatar');
 
@@ -885,75 +959,20 @@ const sendMessage = async (req, res) => {
 
       ;
 
-    // ✅ Crear notificaciones para miembros del grupo
+    // ✅ Notificaciones WhatsApp-Style para miembros del grupo
     try {
-      // Detectar menciones en el mensaje (@username)
-      const mentionRegex = /@(\w+)/g;
-      const mentions = [...content.matchAll(mentionRegex)].map(m => m[1]);
-      const now = new Date();
-
-      console.log(`📬 [GROUP MESSAGE] Procesando notificaciones para grupo ${id}`);
-      console.log(`📬 [GROUP MESSAGE] Menciones detectadas:`, mentions);
-
-      // Filtrar miembros que deben recibir notificación
-      const membersToNotify = [];
-      let silencedCount = 0;
-      let expiredCount = 0;
-
-      for (const member of group.miembros) {
-        // No notificar al autor
-        if (member.usuario.equals(req.userId)) continue;
-
-        const notifConfig = member.notificaciones || {};
-
-        // Si no está silenciado, notificar
-        if (!notifConfig.silenciadas) {
-          membersToNotify.push(member);
-          continue;
-        }
-
-        // Verificar si el silencio expiró
-        if (notifConfig.silenciadoHasta && now > notifConfig.silenciadoHasta) {
-          // Silencio expirado, reactivar notificaciones
-          member.notificaciones.silenciadas = false;
-          member.notificaciones.silenciadoHasta = null;
-          membersToNotify.push(member);
-          expiredCount++;
-          continue;
-        }
-
-        // Si está silenciado permanentemente o temporalmente:
-        if (notifConfig.tipoSilencio === 'solo_menciones') {
-          // Solo notificar si fue mencionado
-          const user = await User.findById(member.usuario).select('username');
-          if (user && mentions.includes(user.username)) {
-            membersToNotify.push(member);
-            continue;
-          }
-        }
-
-        // tipoSilencio === 'total' → No notificar
-        silencedCount++;
-      }
-
-      // Guardar cambios si hubo expiración de silencios
-      if (expiredCount > 0) {
-        await group.save();
-        console.log(`⏰ [GROUP MESSAGE] ${expiredCount} silencios expirados reactivados`);
-      }
-
+      const membersToNotify = await filterMembersForNotification(group, req.userId, finalContent);
       console.log(`📬 [GROUP MESSAGE] Enviando notificaciones a ${membersToNotify.length} miembros`);
-      console.log(`🔕 [GROUP MESSAGE] Miembros silenciados: ${silencedCount}`);
 
-      // 🏆 Notificaciones V1 PRO (CONCURRENTE)
+      // 🏆 Notificaciones WhatsApp-Style (Upsert: 1 notificación por grupo por receptor)
       const notificationPromises = membersToNotify.map(member => 
-        notificationService.notify({
+        notificationService.upsertGroupChatNotification({
           receptorId: member.usuario,
           emisorId: req.userId,
-          tipo: 'mensaje_grupo',
-          contenido: `envió un mensaje en ${group.nombre}`,
-          referencia: { tipo: 'Group', id: group._id },
-          metadata: { mensajeId: message._id, grupoNombre: group.nombre }
+          grupoId: group._id,
+          grupoNombre: group.nombre,
+          contenidoMensaje: finalContent,
+          mensajeId: message._id
         })
       );
 
@@ -1276,6 +1295,44 @@ const approveJoinRequest = async (req, res) => {
       contenido: 'aceptó tu solicitud para unirte al grupo',
       referencia: { tipo: 'Group', id: group._id }
     }).catch(err => console.error('⚠️ [APPROVE] Error notification:', err.message));
+
+    // 🏆 Notificar a admins/creador sobre nuevo miembro aceptado
+    try {
+      const adminTargets = [
+        group.creador.toString(),
+        ...group.administradores.map(a => a.toString())
+      ];
+      const uniqueAdminTargets = [...new Set(adminTargets)].filter(id => id !== req.userId.toString() && id !== requestId.toString());
+
+      const adminNotifPromises = uniqueAdminTargets.map(adminId =>
+        notificationService.notify({
+          receptorId: adminId,
+          emisorId: requestId,
+          tipo: 'nuevo_miembro_grupo',
+          contenido: `fue agregado al grupo ${group.nombre}`,
+          referencia: { tipo: 'Group', id: group._id },
+          metadata: { grupoNombre: group.nombre }
+        })
+      );
+
+      // Notificar al resto de miembros (informativo)
+      const memberNotifPromises = group.miembros
+        .filter(m => !m.usuario.equals(requestId) && !m.usuario.equals(req.userId) && !uniqueAdminTargets.includes(m.usuario.toString()))
+        .map(member =>
+          notificationService.notify({
+            receptorId: member.usuario,
+            emisorId: requestId,
+            tipo: 'miembro_agregado_grupo',
+            contenido: `fue agregado al grupo ${group.nombre}`,
+            referencia: { tipo: 'Group', id: group._id },
+            metadata: { grupoNombre: group.nombre }
+          })
+        );
+
+      await Promise.allSettled([...adminNotifPromises, ...memberNotifPromises]);
+    } catch (err) {
+      console.error('⚠️ [APPROVE] Error member notifications:', err.message);
+    }
 
     await group.populate('miembros.usuario', 'nombre apellido avatar');
 
@@ -1946,6 +2003,28 @@ const sendMessageWithFiles = async (req, res) => {
         }
       }
     ]);
+
+    // ✅ Notificaciones WhatsApp-Style para mensaje con archivos
+    try {
+      const membersToNotify = await filterMembersForNotification(group, req.userId, content || '');
+      console.log(`📬 [GROUP FILE MSG] Enviando notificaciones a ${membersToNotify.length} miembros`);
+
+      const notificationPromises = membersToNotify.map(member =>
+        notificationService.upsertGroupChatNotification({
+          receptorId: member.usuario,
+          emisorId: req.userId,
+          grupoId: group._id,
+          grupoNombre: group.nombre,
+          contenidoMensaje: content || 'Compartió un archivo',
+          mensajeId: message._id
+        })
+      );
+
+      await Promise.allSettled(notificationPromises);
+      console.log(`✅ [GROUP FILE MSG] Notificaciones enviadas`);
+    } catch (notifError) {
+      console.error('⚠️ [GROUP FILE MSG] Error en notificaciones:', notifError);
+    }
 
     // Transformar a objeto y agregar attachments para compatibilidad con frontend
     const messageObj = message.toObject();

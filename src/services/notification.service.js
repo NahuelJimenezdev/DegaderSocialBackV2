@@ -297,6 +297,62 @@ class NotificationService {
       throw error;
     }
   }
+
+  /**
+   * Notificación estilo WhatsApp para chat de grupo.
+   * Crea o actualiza UNA SOLA notificación por grupo por receptor.
+   * Siempre muestra el último mensaje — evita spam de N notificaciones.
+   */
+  async upsertGroupChatNotification({ receptorId, emisorId, grupoId, grupoNombre, contenidoMensaje, mensajeId }) {
+    try {
+      const notification = await Notification.findOneAndUpdate(
+        { 'metadata.eventId': `grupo_chat:${grupoId}:${receptorId}` },
+        {
+          $set: {
+            receptor: receptorId,
+            emisor: emisorId,
+            tipo: 'mensaje_grupo',
+            contenido: `escribió en ${grupoNombre}`,
+            read: false,
+            delivered: false,
+            'referencia.tipo': 'Group',
+            'referencia.id': grupoId,
+            'metadata.lastMessageContent': (contenidoMensaje || '').substring(0, 100),
+            'metadata.grupoNombre': grupoNombre,
+            'metadata.mensajeId': mensajeId?.toString(),
+            'metadata.updatedAt': new Date(),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      // Poblar emisor para el WebSocket
+      await notification.populate('emisor', 'nombres.primero apellidos.primero social.fotoPerfil');
+
+      // Emitir en tiempo real (actualiza la notificación existente en el frontend)
+      this.emitToSocket(receptorId, notification);
+
+      // Push inteligente: solo si está offline
+      const isOnline = global.isUserOnline ? global.isUserOnline(receptorId) : false;
+      if (!isOnline) {
+        this.sendPushNotification(receptorId, {
+          title: grupoNombre,
+          body: contenidoMensaje?.substring(0, 100) || 'Nuevo mensaje',
+          data: {
+            tipo: 'mensaje_grupo',
+            referenciaId: grupoId?.toString(),
+            referenciaTipo: 'Group',
+            notificationId: notification._id?.toString()
+          }
+        }, notification._id).catch(err => logger.error(`Error Push grupo: ${err.message}`));
+      }
+
+      return notification;
+    } catch (error) {
+      logger.error(`❌ [UPSERT GROUP CHAT] Error: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new NotificationService();

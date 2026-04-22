@@ -185,6 +185,37 @@ const createPost = async (req, res) => {
       console.error('⚠️ [CREATE POST] Socket emit error:', socketError);
     }
 
+    // 🔔 NOTIFICAR MIEMBROS DEL GRUPO (nueva publicación en feed)
+    if (postData.grupo) {
+      try {
+        const groupForNotif = await Group.findById(postData.grupo).select('nombre miembros administradores creador');
+        if (groupForNotif) {
+          const membersToNotify = groupForNotif.miembros.filter(m => 
+            m.usuario && !m.usuario.equals(req.userId) && 
+            !(m.notificaciones?.silenciadas && (!m.notificaciones.silenciadoHasta || new Date() <= m.notificaciones.silenciadoHasta))
+          );
+
+          console.log(`📢 [CREATE POST] Notificando a ${membersToNotify.length} miembros del grupo ${groupForNotif.nombre}`);
+
+          const groupNotifPromises = membersToNotify.map(member =>
+            notificationService.notify({
+              receptorId: member.usuario,
+              emisorId: req.userId,
+              tipo: 'nueva_publicacion_grupo',
+              contenido: `publicó en el grupo ${groupForNotif.nombre}`,
+              referencia: { tipo: 'Group', id: groupForNotif._id },
+              metadata: { grupoNombre: groupForNotif.nombre, postId: post._id.toString() }
+            })
+          );
+
+          await Promise.allSettled(groupNotifPromises);
+          console.log(`✅ [CREATE POST] Notificaciones de grupo enviadas`);
+        }
+      } catch (groupNotifError) {
+        console.error('⚠️ [CREATE POST] Error en notificación de grupo:', groupNotifError);
+      }
+    }
+
     // 🔔 NOTIFICAR MENCIONES
     try {
       console.log('🔔 [CREATE POST] Checking for mentions in:', contenido);

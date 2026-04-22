@@ -348,33 +348,39 @@ const getFeed = async (req, res) => {
         
         // Eliminar duplicados e hidratar
         const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
+        // 🧠 CAPA 1: RANKING ENGINE (Cálculo Puro Continuo)
         // Inyectar Score Dinámico JIT (Single Global Continuous Function)
         uniquePosts.forEach(post => {
             post.dynamicJitScore = feedService.calculateRuntimeScore(post);
         });
 
-        // 🧠 MEJORA PHASE 5: ORDENAMIENTO GLOBAL ÚNICO
-        let sortedDesc = uniquePosts.sort((a, b) => b.dynamicJitScore - a.dynamicJitScore);
+        // Ordenamiento Matemático Único
+        const sortedDesc = uniquePosts.sort((a, b) => b.dynamicJitScore - a.dynamicJitScore);
 
-        // Capa Visual: 'Author Fatigue' (Diversidad natural sin buckets forzados)
-        // Reducimos el score del segundo, tercer post del mismo autor para dar lugar a otros,
-        // pero sin obligar a un post viejo/basura a subir artificialmente a la cima.
-        const authorSeenCount = {};
-        sortedDesc.forEach(post => {
+        // Retenemos estrictamente a los ganadores (evitamos agarrar basuras viejas para rellenar UI)
+        const highestQualityPosts = sortedDesc.slice(0, safeLimit);
+
+        // 🧠 CAPA 2: FEED SHAPING / LAYOUT ENGINE (Espaciado Visual UI)
+        // Evitamos que posts del mismo autor salgan pegados, reacomodándolos pero sin alterar su valor score.
+        const startFeed = [];
+        const delayedPosts = [];
+        let lastAuthorId = null;
+
+        highestQualityPosts.forEach(post => {
             const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
-            const seen = authorSeenCount[authorId] || 0;
-            
-            if (seen > 0) {
-                // Penaliza progresivamente duplicados (-150 pts al 2do, -300 al 3ro)
-                post.dynamicJitScore -= (seen * 150); 
+            // Si el autor anterior es el mismo, lo empujamos a la cola de retraso visual
+            if (authorId === lastAuthorId) {
+                delayedPosts.push(post);
+            } else {
+                startFeed.push(post);
+                lastAuthorId = authorId;
             }
-            authorSeenCount[authorId] = seen + 1;
         });
 
-        // Re-orden definitivo tras aplicar la fatiga visual
-        const finalSortedPosts = sortedDesc
-            .sort((a, b) => b.dynamicJitScore - a.dynamicJitScore)
-            .slice(0, safeLimit);
+        // Insertar los retrasados al final de los bloques naturales
+        delayedPosts.forEach(post => startFeed.push(post));
+
+        const finalSortedPosts = startFeed;
 
         const hydratedPosts = await Post.populate(finalSortedPosts, [
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },

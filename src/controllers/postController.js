@@ -348,57 +348,41 @@ const getFeed = async (req, res) => {
         
         // Eliminar duplicados e hidratar
         const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
-        // 🧠 CAPA 1: RANKING ENGINE (Cálculo Puro Continuo)
-        // Inyectar Score Dinámico JIT (Single Global Continuous Function)
+        // 🧠 CAPA ÚNICA: RANKING ENGINE PURO (TIPO INSTAGRAM/FACEBOOK)
+        // 1. Calculamos el Base Score continuo (Recency + Engagement + RoleBoost - Decay)
         uniquePosts.forEach(post => {
             post.dynamicJitScore = feedService.calculateRuntimeScore(post);
         });
 
-        // Ordenamiento Matemático Único
-        const sortedDesc = uniquePosts.sort((a, b) => b.dynamicJitScore - a.dynamicJitScore);
+        // 2. Control de Spam por Autor (Aplicado ANTES del ranking final)
+        const authorPosts = {};
+        uniquePosts.forEach(post => {
+            const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
+            if (!authorPosts[authorId]) authorPosts[authorId] = [];
+            authorPosts[authorId].push(post);
+        });
 
-        // Retenemos estrictamente a los ganadores (evitamos agarrar basuras viejas para rellenar UI)
-        const highestQualityPosts = sortedDesc.slice(0, safeLimit);
-
-        // 🧠 CAPA 2: FEED SHAPING / LAYOUT ENGINE (Espaciado Visual UI)
-        // Reducido a su mínima expresión "Soft Interleaving". Garantizamos una distancia sin destruir rankings legítimos.
-        const interleaveByAuthor = (posts, maxConsecutive = 2) => {
-            const result = [];
-            const queue = [...posts];
-            
-            while (queue.length > 0) {
-                let inserted = false;
-                for (let i = 0; i < queue.length; i++) {
-                    const post = queue[i];
-                    const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
-                    
-                    // Contamos recursivamente hacia atrás en el result array para ver la racha de este autor
-                    let consecutiveCount = 0;
-                    for (let j = result.length - 1; j >= 0; j--) {
-                        const prevAuthor = result[j].usuario._id ? result[j].usuario._id.toString() : result[j].usuario.toString();
-                        if (prevAuthor === authorId) consecutiveCount++;
-                        else break;
-                    }
-                    
-                    // Inyectamos si la racha es legal
-                    if (consecutiveCount < maxConsecutive) {
-                        result.push(post);
-                        queue.splice(i, 1);
-                        inserted = true;
-                        break;
-                    }
+        // Agrupamos por autor, ordenamos sus posts por novedad y castigamos a los más viejos de su ráfaga
+        Object.values(authorPosts).forEach(postsOfAuthor => {
+            postsOfAuthor.sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0));
+            postsOfAuthor.forEach((post, index) => {
+                if (index > 0) {
+                    // Penalización matemática drástica al spam consecutivo (Ej: -200 pts al 2do, -400 al 3ro)
+                    // Elimina los monopolios sin necesidad de un layout builder visual.
+                    const spamPenalty = index * 200; 
+                    post.dynamicJitScore -= spamPenalty;
                 }
-                
-                // Fallback: Si todos los post restantes son del mismo autor (monopolio ineludible)
-                // lo insertamos igualmente para no perder contenido visual.
-                if (!inserted) {
-                    result.push(queue.shift());
-                }
-            }
-            return result;
-        };
+            });
+        });
 
-        const finalSortedPosts = interleaveByAuthor(highestQualityPosts, 2);
+        // 3. ORDENAMIENTO GLOBAL DEFINITIVO Y ÚNICO
+        // Una sola pasada. Determinismo absoluto con tie-breaker. Sin Feed Shaping posterior.
+        const finalSortedPosts = uniquePosts
+            .sort((a, b) => 
+                b.dynamicJitScore - a.dynamicJitScore || 
+                (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0)
+            )
+            .slice(0, safeLimit);
 
         const hydratedPosts = await Post.populate(finalSortedPosts, [
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },

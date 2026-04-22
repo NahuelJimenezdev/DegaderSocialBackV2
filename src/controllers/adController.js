@@ -437,8 +437,7 @@ exports.createCampaign = async (req, res) => {
             referencia: {
               tipo: 'Ad',
               id: newAd._id
-            },
-            leida: false
+            }
           });
 
           // Popular para socket

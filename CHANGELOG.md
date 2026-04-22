@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.42.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.41.0...v1.42.0) (2026-04-22)
+
+
+### Features
+
+* **ads:** Desbloqueo de eliminacion universal para Founder ([aef989a](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/aef989ac186cea6f287cdcd07c91edb9d2663ca3))
+* **ads:** Integracion de agregaciones de Device, Browser y Trends en Analytics ([62a9276](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/62a92769c73a72dfd88de2f3fdb57387fec1a948))
+* **ads:** Integracion global de estadisticas de Trafico para Dashboard Maestro ([e63b8c0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/e63b8c0c0959a8c911258d45132f9c12cdca1702))
+* implementacion de notificaciones inteligentes para grupos (estilo whatsapp y feed) ([59c255c](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/59c255c10a00820e1646b1aba73e33cc760fd99b))
+* **meetings:** ampliar limite maximo de descripcion a 2000 caracteres ([9422e53](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/9422e53986178a7d5729c2cc48089539326f3c57))
+
+
+### Bug Fixes
+
+* **ads:** Race condition y balance null al registrar métricas ([9ea3534](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/commit/9ea35348b09c58d1571f304cccc99b40a64ba8ad))
+
 ## [1.41.0](https://github.com/NahuelJimenezdev/DegaderSocialBackV2/compare/v1.40.3...v1.41.0) (2026-04-20)
 
 

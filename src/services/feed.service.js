@@ -98,6 +98,52 @@ class FeedService {
     }
 
     /**
+     * Devuelve el Tier temporal de un post (Hard Gating).
+     * @param {Date|String} createdAt 
+     * @returns {Number} Tier (1 a 4)
+     */
+    getPostTier(createdAt) {
+        const hoursOld = Math.max(0, (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60));
+        if (hoursOld <= 3) return 1;    // Tier 1: 0-3h (Explosión)
+        if (hoursOld <= 24) return 2;   // Tier 2: 3-24h (Relevancia)
+        if (hoursOld <= 168) return 3;  // Tier 3: 1-7d (Long tail)
+        return 4;                       // Tier 4: +7d (Archivado temporalmente)
+    }
+
+    /**
+     * Recalcula el score puramente en Tiempo Real ignorando scores estancados.
+     * Garantiza que el Boost del Founder muera a las 6h sin falta.
+     * @param {Object} post 
+     * @returns {Number}
+     */
+    calculateRuntimeScore(post) {
+        const hoursOld = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
+
+        // 1. Base Estática: Engagement puro
+        const engagementWeight = 
+            (post.likesCount || 0) * 3 +
+            (post.commentsCount || 0) * 5 +
+            (post.sharesCount || 0) * 7;
+
+        // 2. Role Boost con TTL Estricto (Máximo 6 horas)
+        let roleBoost = 0;
+        const role = post.usuario?.seguridad?.rolSistema;
+        if (role && ['Founder', 'admin', 'moderador'].includes(role)) {
+            if (hoursOld <= 3) {
+                roleBoost = 250; // Boom inicial
+            } else if (hoursOld <= 6) {
+                // Desciende de 250 a 0 en las siguientes 3 horas
+                roleBoost = Math.max(0, 250 - ((hoursOld - 3) * 83.33));
+            }
+        }
+
+        // 3. Affinity Fallback (Si viene de Redis pre-cacheado, usamos el relevanceScore como base para no perder la afinidad, pero le restamos el engagement para evaluarlo nuevamente limpio sin decay zombie)
+        // Pero en este caso, es más seguro simplemente depender de engagementWeight + roleBoost como JIT Score dentro de la misma ventana de Tier, ya que las canastas round-robin de PostController evitan spam por sí mismas.
+        
+        return engagementWeight + roleBoost;
+    }
+
+    /**
      * Encola la tarea de backfill en BullMQ.
      */
     async queueBackfill(userId1, userId2) {

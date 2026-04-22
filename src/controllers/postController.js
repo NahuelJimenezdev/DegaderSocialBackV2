@@ -324,13 +324,15 @@ const getFeed = async (req, res) => {
             privacidad: { $ne: 'privado' }
         };
         
-        // Paginación por score si está presente
-        if (lastScoreQuery) {
-            influencerQuery.relevanceScore = { $lt: parseFloat(lastScoreQuery) };
+        // Paginación puramente cronológica para evitar resucitar posts zombies de hace 21 días
+        if (lastDate) {
+            influencerQuery.createdAt = { $lt: new Date(lastDate) };
+        } else if (lastId) {
+            influencerQuery._id = { $lt: lastId };
         }
         
         influencerPosts = await Post.find(influencerQuery)
-            .sort({ relevanceScore: -1, _id: -1 }) // Orden algorítmico
+            .sort({ createdAt: -1, _id: -1 }) // Recencia absoluta secundaria y primaria
             .limit(safeLimit)
             .lean();
     }
@@ -346,9 +348,22 @@ const getFeed = async (req, res) => {
         
         // Eliminar duplicados e hidratar
         const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
-        
-        // ORDENAMIENTO DE RELEVANCIA SECUNDARIO (MongoDB vs Redis merges)
-        const sortedDesc = uniquePosts.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+        // Inyectar Tier Temporal y Score Dinámico JIT para Hard Gating
+        uniquePosts.forEach(post => {
+            const createdAtAttr = post.createdAt || (post._id && typeof post._id.getTimestamp === 'function' ? post._id.getTimestamp() : Date.now());
+            post.timeTier = feedService.getPostTier(createdAtAttr);
+            post.dynamicJitScore = feedService.calculateRuntimeScore(post);
+        });
+
+        // 🧠 MEJORA PHASE 4: ORDENAMIENTO POR HARD GATING (TIERS) + JIT SCORE
+        // Tier 1 (0-3h) SIEMPRE le gana a Tier 2 (3-24h), sin importar el score o likes del Tier 2
+        const sortedDesc = uniquePosts.sort((a, b) => {
+            if (a.timeTier !== b.timeTier) {
+                return a.timeTier - b.timeTier; // Ascendente: Tier 1 primero, luego Tier 2...
+            }
+            // Si están en el mismo Tier, compiten por Engagement + Role Boost
+            return b.dynamicJitScore - a.dynamicJitScore;
+        });
 
         // 🧠 MEJORA PHASE 4: DIVERSIDAD DE CONTENIDO (INTERCALADO ESTRICTO - ROUND ROBIN)
         const authorBuckets = {};
@@ -388,11 +403,12 @@ const getFeed = async (req, res) => {
 
         const lastPost = hydratedPosts.length > 0 ? hydratedPosts[hydratedPosts.length - 1] : null;
         const nextCursor = lastPost ? {
-            relevanceScore: lastPost.relevanceScore,
+            relevanceScore: lastPost.relevanceScore, // Conservamos prop para Redis
+            date: lastPost.createdAt, // Nuevo prop para MongoDB Pagination
             id: lastPost._id
         } : null;
 
-        console.log(`📊 [FEED_METRIC] Ranked Retrieval: Redis Snapshots(${cachedPostsData?.length || 0}) + Influencers(${influencerPosts.length}) | user: ${req.userId}`);
+        console.log(`📊 [FEED_METRIC] Tiered Ranked Fetch: Redis(${cachedPostsData?.length || 0}) + Influencers(${influencerPosts.length}) | user: ${req.userId}`);
         
         return res.json({
             success: true,

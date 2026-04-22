@@ -348,50 +348,33 @@ const getFeed = async (req, res) => {
         
         // Eliminar duplicados e hidratar
         const uniquePosts = Array.from(new Map(allPosts.map(p => [p._id.toString(), p])).values());
-        // Inyectar Tier Temporal y Score Dinámico JIT para Hard Gating
+        // Inyectar Score Dinámico JIT (Single Global Continuous Function)
         uniquePosts.forEach(post => {
-            const createdAtAttr = post.createdAt || (post._id && typeof post._id.getTimestamp === 'function' ? post._id.getTimestamp() : Date.now());
-            post.timeTier = feedService.getPostTier(createdAtAttr);
             post.dynamicJitScore = feedService.calculateRuntimeScore(post);
         });
 
-        // 🧠 MEJORA PHASE 4: ORDENAMIENTO POR HARD GATING (TIERS) + JIT SCORE
-        // Tier 1 (0-3h) SIEMPRE le gana a Tier 2 (3-24h), sin importar el score o likes del Tier 2
-        const sortedDesc = uniquePosts.sort((a, b) => {
-            if (a.timeTier !== b.timeTier) {
-                return a.timeTier - b.timeTier; // Ascendente: Tier 1 primero, luego Tier 2...
-            }
-            // Si están en el mismo Tier, compiten por Engagement + Role Boost
-            return b.dynamicJitScore - a.dynamicJitScore;
-        });
+        // 🧠 MEJORA PHASE 5: ORDENAMIENTO GLOBAL ÚNICO
+        let sortedDesc = uniquePosts.sort((a, b) => b.dynamicJitScore - a.dynamicJitScore);
 
-        // 🧠 MEJORA PHASE 4: DIVERSIDAD DE CONTENIDO (INTERCALADO ESTRICTO - ROUND ROBIN)
-        const authorBuckets = {};
+        // Capa Visual: 'Author Fatigue' (Diversidad natural sin buckets forzados)
+        // Reducimos el score del segundo, tercer post del mismo autor para dar lugar a otros,
+        // pero sin obligar a un post viejo/basura a subir artificialmente a la cima.
+        const authorSeenCount = {};
         sortedDesc.forEach(post => {
             const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
-            if (!authorBuckets[authorId]) authorBuckets[authorId] = [];
-            authorBuckets[authorId].push(post);
+            const seen = authorSeenCount[authorId] || 0;
+            
+            if (seen > 0) {
+                // Penaliza progresivamente duplicados (-150 pts al 2do, -300 al 3ro)
+                post.dynamicJitScore -= (seen * 150); 
+            }
+            authorSeenCount[authorId] = seen + 1;
         });
 
-        // Intercalado: Tomamos el mejor post de cada autor, luego el segundo mejor...
-        let finalFeed = [];
-        const authorIds = Object.keys(authorBuckets);
-        let currentTier = 0;
-        let addedInThisTier = true;
-
-        while (addedInThisTier && finalFeed.length < safeLimit) {
-            addedInThisTier = false;
-            for (const authId of authorIds) {
-                if (authorBuckets[authId][currentTier]) {
-                    finalFeed.push(authorBuckets[authId][currentTier]);
-                    addedInThisTier = true;
-                    if (finalFeed.length >= safeLimit) break;
-                }
-            }
-            currentTier++;
-        }
-
-        const finalSortedPosts = finalFeed.slice(0, safeLimit);
+        // Re-orden definitivo tras aplicar la fatiga visual
+        const finalSortedPosts = sortedDesc
+            .sort((a, b) => b.dynamicJitScore - a.dynamicJitScore)
+            .slice(0, safeLimit);
 
         const hydratedPosts = await Post.populate(finalSortedPosts, [
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },

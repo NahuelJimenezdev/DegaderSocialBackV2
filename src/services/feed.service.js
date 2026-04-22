@@ -98,49 +98,38 @@ class FeedService {
     }
 
     /**
-     * Devuelve el Tier temporal de un post (Hard Gating).
-     * @param {Date|String} createdAt 
-     * @returns {Number} Tier (1 a 4)
-     */
-    getPostTier(createdAt) {
-        const hoursOld = Math.max(0, (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60));
-        if (hoursOld <= 3) return 1;    // Tier 1: 0-3h (Explosión)
-        if (hoursOld <= 24) return 2;   // Tier 2: 3-24h (Relevancia)
-        if (hoursOld <= 168) return 3;  // Tier 3: 1-7d (Long tail)
-        return 4;                       // Tier 4: +7d (Archivado temporalmente)
-    }
-
-    /**
-     * Recalcula el score puramente en Tiempo Real ignorando scores estancados.
-     * Garantiza que el Boost del Founder muera a las 6h sin falta.
+     * Recalcula el score en Tiempo Real (Single Global Ranking Function).
+     * Combina engagement, role boost con decay suave, y recencia pura, sin saltos duros.
      * @param {Object} post 
      * @returns {Number}
      */
     calculateRuntimeScore(post) {
         const hoursOld = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
 
-        // 1. Base Estática: Engagement puro
+        // 1. Engagement (Base quality)
         const engagementWeight = 
             (post.likesCount || 0) * 3 +
             (post.commentsCount || 0) * 5 +
             (post.sharesCount || 0) * 7;
 
-        // 2. Role Boost con TTL Estricto (Máximo 6 horas)
+        // 2. Role Boost Suave (Decay Lineal Extendido a 12h)
         let roleBoost = 0;
         const role = post.usuario?.seguridad?.rolSistema;
         if (role && ['Founder', 'admin', 'moderador'].includes(role)) {
-            if (hoursOld <= 3) {
-                roleBoost = 250; // Boom inicial
-            } else if (hoursOld <= 6) {
-                // Desciende de 250 a 0 en las siguientes 3 horas
-                roleBoost = Math.max(0, 250 - ((hoursOld - 3) * 83.33));
-            }
+            // Empieza en 250, decae progresivamente a 0 exacto en 12 horas
+            roleBoost = Math.max(0, 250 - (hoursOld * (250 / 12))); 
         }
 
-        // 3. Affinity Fallback (Si viene de Redis pre-cacheado, usamos el relevanceScore como base para no perder la afinidad, pero le restamos el engagement para evaluarlo nuevamente limpio sin decay zombie)
-        // Pero en este caso, es más seguro simplemente depender de engagementWeight + roleBoost como JIT Score dentro de la misma ventana de Tier, ya que las canastas round-robin de PostController evitan spam por sí mismas.
+        // 3. Recency Base Weight (Curva que premia posts súper nuevos)
+        // Empieza en 300, baja a 0 en 24 horas.
+        const recencyWeight = Math.max(0, 300 - (hoursOld * (300 / 24)));
+
+        // 4. Time Decay (Penalización severa a los posts viejos)
+        // Empieza a restar drásticamente a partir del primer día
+        const timeDecay = hoursOld > 24 ? (hoursOld - 24) * 2 : 0; 
         
-        return engagementWeight + roleBoost;
+        // Final Global Continuous Score
+        return (engagementWeight + roleBoost + recencyWeight) - timeDecay;
     }
 
     /**

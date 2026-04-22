@@ -361,26 +361,44 @@ const getFeed = async (req, res) => {
         const highestQualityPosts = sortedDesc.slice(0, safeLimit);
 
         // 🧠 CAPA 2: FEED SHAPING / LAYOUT ENGINE (Espaciado Visual UI)
-        // Evitamos que posts del mismo autor salgan pegados, reacomodándolos pero sin alterar su valor score.
-        const startFeed = [];
-        const delayedPosts = [];
-        let lastAuthorId = null;
-
-        highestQualityPosts.forEach(post => {
-            const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
-            // Si el autor anterior es el mismo, lo empujamos a la cola de retraso visual
-            if (authorId === lastAuthorId) {
-                delayedPosts.push(post);
-            } else {
-                startFeed.push(post);
-                lastAuthorId = authorId;
+        // Reducido a su mínima expresión "Soft Interleaving". Garantizamos una distancia sin destruir rankings legítimos.
+        const interleaveByAuthor = (posts, maxConsecutive = 2) => {
+            const result = [];
+            const queue = [...posts];
+            
+            while (queue.length > 0) {
+                let inserted = false;
+                for (let i = 0; i < queue.length; i++) {
+                    const post = queue[i];
+                    const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
+                    
+                    // Contamos recursivamente hacia atrás en el result array para ver la racha de este autor
+                    let consecutiveCount = 0;
+                    for (let j = result.length - 1; j >= 0; j--) {
+                        const prevAuthor = result[j].usuario._id ? result[j].usuario._id.toString() : result[j].usuario.toString();
+                        if (prevAuthor === authorId) consecutiveCount++;
+                        else break;
+                    }
+                    
+                    // Inyectamos si la racha es legal
+                    if (consecutiveCount < maxConsecutive) {
+                        result.push(post);
+                        queue.splice(i, 1);
+                        inserted = true;
+                        break;
+                    }
+                }
+                
+                // Fallback: Si todos los post restantes son del mismo autor (monopolio ineludible)
+                // lo insertamos igualmente para no perder contenido visual.
+                if (!inserted) {
+                    result.push(queue.shift());
+                }
             }
-        });
+            return result;
+        };
 
-        // Insertar los retrasados al final de los bloques naturales
-        delayedPosts.forEach(post => startFeed.push(post));
-
-        const finalSortedPosts = startFeed;
+        const finalSortedPosts = interleaveByAuthor(highestQualityPosts, 2);
 
         const hydratedPosts = await Post.populate(finalSortedPosts, [
             { path: 'usuario', select: 'nombres.primero apellidos.primero social.fotoPerfil username seguridad.rolSistema' },

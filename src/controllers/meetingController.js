@@ -202,23 +202,26 @@ const getMyMeetings = async (req, res) => {
     );
     console.log(`👫 Amigos detectados (aceptados): ${friendIds.length}`);
 
-    // Query compuesta:
+    // 🧠 [NUEVO MOTOR DE VISIBILIDAD STRICT-WHITELIST]
+    // -------------------------------------------------------------
+    // Condición BASE (Involucración directa y manual)
+    // Cubre: Soy el autor, estoy aprobado, o me solicitaron/invitaron.
     let orConditions = [
-      { creator: userId },    // 🛡️ CRÍTICO: Soy el creador (SIEMPRE debe estar)
-      { attendees: userId },  // Soy asistente aprobado
-      { invitedUsers: userId }, // Fui invitado directamente
+      { creator: userId },
+      { attendees: userId },
+      { invitedUsers: userId } 
     ];
 
-    // Reuniones públicas de amigos
+    // REGLA 1: Reuniones Públicas de amigos
     if (friendIds.length > 0) {
       orConditions.push({
         visibility: 'public',
         creator: { $in: friendIds },
-        status: { $ne: 'cancelled' }
+        status: { $ne: 'cancelled' } // Limpieza visual de historial
       });
     }
 
-    // Reuniones de iglesia
+    // REGLA 2: Reuniones de Iglesia a la que pertenezco ACTIVAMENTE
     if (user?.eclesiastico?.iglesia && user.eclesiastico.activo) {
       const iglesiaId = user.eclesiastico.iglesia;
       const myMinistries = user.eclesiastico.ministerios
@@ -235,7 +238,7 @@ const getMyMeetings = async (req, res) => {
       });
     }
 
-    // Reuniones de grupos
+    // REGLA 3: Reuniones Grupales (solo si SOY MIEMBRO del grupo)
     const myGroups = await Group.find({ 'miembros.usuario': userId }).select('_id');
     if (myGroups.length > 0) {
       const groupIds = myGroups.map(g => g._id);
@@ -246,7 +249,10 @@ const getMyMeetings = async (req, res) => {
       });
     }
 
-    console.log('📡 Ejecutando query OR con condiciones:', JSON.stringify(orConditions));
+    // 🔬 DEBUGGING LOGS (Tal como sugerimos)
+    console.log('----------------------------------------------------');
+    console.log('🔒 [MEETINGS_WHITELIST_STRICT] Fetching for User:', userId);
+    console.log('📡 OrConditions Finales:', JSON.stringify(orConditions, null, 2));
     const meetings = await Meeting.find({ $or: orConditions })
       .populate('creator', 'nombres.primero apellidos.primero social.fotoPerfil')
       .populate('attendees', 'nombres.primero apellidos.primero email social.fotoPerfil')

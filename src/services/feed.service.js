@@ -17,30 +17,19 @@ class FeedService {
      * @returns {Promise<Number>}
      */
     async calculatePostScore(post, viewerId = null, affinityData = null, temporaryBoost = 0, providedAuthorRole = null) {
-        // 1. Engagement Weight (Ajustado según modelo Phase 3)
-        const engagementWeight = 
-            (post.likesCount || 0) * 3 +
-            (post.commentsCount || 0) * 5 +
-            (post.sharesCount || 0) * 7;
+        const hoursOld = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
 
-        // 2. Freshness & Time Decay (MEJORADO: Más agresivo con posts viejos)
-        const hoursSinceCreation = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
-        
-        let recencyBoost = 0;
-        if (hoursSinceCreation <= 3) {
-            // Súper boost para las primeras 3 horas (de 300 bajando a 0)
-            recencyBoost = 300 - (hoursSinceCreation * 100);
-        } else if (hoursSinceCreation <= 24) {
-            // Boost moderado para el primer día
-            recencyBoost = Math.max(0, 100 - (hoursSinceCreation * 4)); 
-        }
-        
-        // Penalización por tiempo (Más agresiva: multiplicador x10 en lugar de x3)
-        const decayFactor = 10;
-        const timeDecay = hoursSinceCreation * decayFactor;
+        // 1. Engagement (normalizado con log, anti-spam)
+        const engagementScore = 
+            3 * Math.log(1 + (post.likesCount || 0)) +
+            5 * Math.log(1 + (post.commentsCount || 0)) +
+            7 * Math.log(1 + (post.sharesCount || 0));
 
-        // 3. Official / Priority Boost (Ajustado: Ya no es invencible frente al tiempo)
-        let priorityBoost = 0;
+        // 2. Recency (simple y estable)
+        const recencyBoost = 300 / (hoursOld + 2);
+
+        // 3. Priority Role
+        let roleBoost = 0;
         try {
             let authorRole = providedAuthorRole;
             
@@ -61,37 +50,39 @@ class FeedService {
             }
 
             if (authorRole && ['Founder', 'admin', 'moderador'].includes(authorRole)) {
-                // Priority boost ahora es de 250 (antes 500) para permitir que lo nuevo lo supere
-                priorityBoost = 250;
+                roleBoost = 20; // Adaptado sutilmente a la escala logarítmica
             }
         } catch (e) {
             logger.warn('⚠️ [FEED_SERVICE] Error al obtener rol para priority boost:', e.message);
         }
 
-        // 4. User Affinity Avanzado
-        let userAffinity = 0;
+        // 4. Afinidad (Bajo peso)
+        let affinityScore = 0;
         if (viewerId) {
             const authorId = post.usuario._id ? post.usuario._id.toString() : post.usuario.toString();
             
             if (authorId === viewerId.toString()) {
-                userAffinity += 30; // Boost extra al propio contenido
+                affinityScore = 5; 
             } else {
-                userAffinity += 10; // Conexión base (está en su feed)
-                
-                // Si pasamos la data real de afinidad calculada en batch
+                let userAffinity = 1; // Base
                 if (affinityData) {
                     const likesToAuthor = affinityData.likes || 0;
                     const commentsToAuthor = affinityData.comments || 0;
-                    userAffinity += (likesToAuthor * 2) + (commentsToAuthor * 4);
+                    userAffinity += likesToAuthor * 2 + commentsToAuthor * 4;
                 }
+                // Capamos con logaritmo también para que el usuario no pueda farmear al infinito su afinidad
+                affinityScore = Math.log(1 + userAffinity) * 1; 
             }
         }
 
-        // Formula final estilo TikTok/Instagram con inyección de Temporary Boost (Phase 4)
-        const finalScore = Math.max(0, engagementWeight + recencyBoost + priorityBoost + userAffinity + temporaryBoost - timeDecay);
+        // 5. Decay suave multiplicativo (control de envejecimiento)
+        const decayFactor = 1 / Math.pow(hoursOld + 2, 1.2);
+
+        // 🧮 FÓRMULA FINAL DE FEED (Production-grade simple tipo Instagram)
+        const finalScore = (recencyBoost + engagementScore + affinityScore + roleBoost + (temporaryBoost || 0)) * decayFactor;
         
-        if (engagementWeight > 0 || temporaryBoost > 0) {
-            logger.info(`📊 [FEED_RANKING] Score: ${finalScore.toFixed(2)} | Eng: ${engagementWeight} | Decay: -${timeDecay.toFixed(1)} | Aff: ${userAffinity} | BoostTemp: ${temporaryBoost} | Post: ${post._id}`);
+        if (engagementScore > 0 || temporaryBoost > 0) {
+            logger.info(`📊 [FEED_RANKING] Score: ${finalScore.toFixed(2)} | Eng: ${engagementScore.toFixed(1)} | Rec: ${recencyBoost.toFixed(1)} | Aff: ${affinityScore.toFixed(1)} | BoostTemp: ${temporaryBoost} | Post: ${post._id}`);
         }
 
         return finalScore;
@@ -106,30 +97,27 @@ class FeedService {
     calculateRuntimeScore(post) {
         const hoursOld = Math.max(0, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
 
-        // 1. Engagement (Base quality)
-        const engagementWeight = 
-            (post.likesCount || 0) * 3 +
-            (post.commentsCount || 0) * 5 +
-            (post.sharesCount || 0) * 7;
+        // 1. Engagement (normalizado)
+        const engagementScore = 
+            3 * Math.log(1 + (post.likesCount || 0)) +
+            5 * Math.log(1 + (post.commentsCount || 0)) +
+            7 * Math.log(1 + (post.sharesCount || 0));
 
-        // 2. Role Boost Suave (Decay Lineal Extendido a 12h)
+        // 2. Recency Boost
+        const recencyBoost = 300 / (hoursOld + 2);
+
+        // 3. Role Boost
         let roleBoost = 0;
         const role = post.usuario?.seguridad?.rolSistema;
         if (role && ['Founder', 'admin', 'moderador'].includes(role)) {
-            // Empieza en 250, decae progresivamente a 0 exacto en 12 horas
-            roleBoost = Math.max(0, 250 - (hoursOld * (250 / 12))); 
+            roleBoost = 20; 
         }
 
-        // 3. Recency Base Weight (Curva que premia posts súper nuevos)
-        // Empieza en 300, baja a 0 en 24 horas.
-        const recencyWeight = Math.max(0, 300 - (hoursOld * (300 / 24)));
-
-        // 4. Time Decay (Penalización severa a los posts viejos)
-        // Empieza a restar drásticamente a partir del primer día
-        const timeDecay = hoursOld > 24 ? (hoursOld - 24) * 2 : 0; 
+        // 4. Decay suave multiplicativo
+        const decayFactor = 1 / Math.pow(hoursOld + 2, 1.2);
         
-        // Final Global Continuous Score
-        return (engagementWeight + roleBoost + recencyWeight) - timeDecay;
+        // 🧮 FÓRMULA FINAL REDUCIDA
+        return (recencyBoost + engagementScore + roleBoost) * decayFactor;
     }
 
     /**

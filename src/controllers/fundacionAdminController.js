@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const { formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
 const logger = require('../config/logger');
+const { NIVELES_ORDENADOS_ASC, CARGOS_DIRECTIVOS } = require('../constants/fundacionConstants');
 
 /**
  * Obtener usuarios bajo la jurisdicción del director actual
@@ -45,11 +46,7 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
     const esFounder = seguridad?.rolSistema === 'Founder';
 
     // Jerarquía ordenada
-    const nivelesOrdenados = [
-      "afiliado", "local", "barrial", "municipal",
-      "departamental", "regional", "nacional",
-      "organismo_internacional", "organo_control", "directivo_general"
-    ];
+    const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
     const indexNivelDirector = nivelesOrdenados.indexOf(nivelDirector?.toLowerCase());
     
@@ -148,15 +145,7 @@ const getUsuariosBajoJurisdiccion = async (req, res) => {
       
       const cargoDirector = director.fundacion?.cargo ? director.fundacion.cargo.trim() : '';
       const esSecretario = cargoDirector.toLowerCase().includes('secretario');
-      const esDirectorGeneral = [
-        'Director General (Pastor)', 
-        'Director General', 
-        'Sub-Director General', 
-        'Director Nacional',
-        'Director Regional',
-        'Director Departamental',
-        'Coordinador Municipal'
-      ].includes(cargoDirector) || esSecretario;
+      const esDirectorGeneral = CARGOS_DIRECTIVOS.includes(cargoDirector) || esSecretario;
 
       if (!esGlobal && !esDirectorGeneral && areaDirector) {
         query['fundacion.area'] = areaDirector;
@@ -234,7 +223,7 @@ const getUsuarioJurisdiccionDetalle = async (req, res) => {
       }
 
       // B. Validación de Nivel (No puede ver niveles superiores)
-      const nivelesOrdenados = ["afiliado", "local", "barrial", "municipal", "departamental", "regional", "nacional", "organismo_internacional", "organo_control", "directivo_general"];
+      const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
       const idxDir = nivelesOrdenados.indexOf(nivelDir?.toLowerCase());
       const idxTar = nivelesOrdenados.indexOf(nivelTar?.toLowerCase());
 
@@ -244,15 +233,7 @@ const getUsuarioJurisdiccionDetalle = async (req, res) => {
 
       // C. Validación de Área (Si no es Director General/Global)
       const cargoDirStr = director.fundacion?.cargo || '';
-      const esDirectorGral = [
-        'Director General (Pastor)', 
-        'Director General', 
-        'Sub-Director General', 
-        'Director Nacional',
-        'Director Regional',
-        'Director Departamental',
-        'Coordinador Municipal'
-      ].includes(cargoDirStr) || cargoDirStr.toLowerCase().includes('secretario');
+      const esDirectorGral = CARGOS_DIRECTIVOS.includes(cargoDirStr) || cargoDirStr.toLowerCase().includes('secretario');
       
       const esGlobal = ['directivo_general', 'organo_control', 'organismo_internacional'].includes(nivelDir);
 

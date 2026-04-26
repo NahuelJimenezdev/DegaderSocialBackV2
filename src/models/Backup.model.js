@@ -8,101 +8,14 @@ const argon2 = require('argon2');
 
 const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 
-// Niveles jerárquicos Fundación
-const NIVELES_FUNDACION = [
-  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial"
-];
-  
-const AREAS_FUNDACION = [
-  // Directivo General
-  "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
-  // Órganos de Control
-  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos",
-  // Organismos Internacionales
-  "Salvación Mundial", "Misión Internacional de Paz",
-  // Áreas Ejecuivas Transversales
-  "Despacho del Director", "Despacho del Subdirector",
-  // Áreas por nivel nacional/regional/departamental/municipal
-  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
-  // Áreas de Coordinación (Nivel Departamental/Municipal)
-  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad"
-];
-
-// Subdirecciones / Unidades internas
-const SUBAREAS_FUNDACION = [
-  "Dirección Psicosocial", "Dirección de Protección Animal", "Gerencia Clínica", "Gerencia Clínica Veterinaria", "Interventoría Interna", "Interventoría Externa"
-];
-
-// Programas
-const PROGRAMAS_FUNDACION = [
-  "Banco de Proyectos",
-  "Programa de Conexión y Desarrollo Informático",
-  "Programa de Estrategias Comerciales de Desarrollo Productivo",
-
-  "Programas de Asuntos y Competencia Laboral",
-  "Programas de Bienestar y Seguridad Laboral",
-  "Programa de Gestión Documental y Almacén",
-
-  "Contratación",
-  "Banco de Oferentes",
-  "Programa de Jueces de Paz",
-
-  "Programas de Salud",
-  "Programas de Salud Mental",
-  "Programas de Salud Sexual y Reproductiva",
-  "Programas de Acompañamiento Productivo",
-
-  "Programas de Promoción y Prevención en la Salud Animal",
-
-  "Programas de Educación",
-  "Programas de Cultura y Turismo",
-  "Gerencias Universitarias",
-
-  "Programas de Tesorería",
-  "Programas de Contabilidad",
-
-  "Comunicaciones de Prensa",
-  "Programas de Radio y Televisión"
-];
-
-const CARGOS_FUNDACION = [
-  // Directivo General
-  "Director Ejecutivo",
-  "Secretario Ejecutivo",
-  "Miembro de Junta Directiva",
-
-  // Direcciones por nivel
-  "Director", 
-  "Subdirector",
-  "Director de Áreas",
-  "Secretario/a Director de Áreas",
-  "Sub-Director de Áreas",
-  "Secretario/a Sub-Director de Áreas",
-  "Director Nacional",
-  "Director Regional",
-  "Director Departamental",
-  "Director Departamental",
-  "Coordinador Municipal",
-  "Coordinador",
-
-  // Director General (Pastor) - Rol territorial
-  "Director General (Pastor)",
-
-  // Órganos de Control
-  "Auditor",
-  "Secretario/a",
-  "Miembro Comité Ético",
-  "Delegado Internacional"
-];
-// Roles funcionales (qué hace)
-const ROLES_FUNCIONALES = [
-  "profesional",
-  "encargado",
-  "asistente",
-  "secretario/a",
-  "voluntario",
-  "pastor"
-];
+const {
+  NIVELES_FUNDACION,
+  AREAS_FUNDACION,
+  SUBAREAS_FUNDACION,
+  PROGRAMAS_FUNDACION,
+  CARGOS_FUNDACION,
+  ROLES_FUNCIONALES
+} = require('../constants/fundacionConstants');
 
 // Jerarquía Eclesiástica
 const MINISTERIOS = [
@@ -175,6 +88,7 @@ const PerfilFundacionSchema = new Schema({
 
   // Estructura Territorial (Dónde ejerce su cargo)
   territorio: {
+    continente: { type: String, trim: true },
     pais: { type: String, trim: true }, // Aplica para todos
     region: { type: String, trim: true }, // Aplica para Regional
     departamento: { type: String, trim: true }, // Aplica para Departamental/Provincial

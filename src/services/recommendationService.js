@@ -6,22 +6,7 @@ const logger = require('../config/logger');
 
 const CACHE_TTL = 60; // 60 segundos de cache
 
-/**
- * Mapeo de niveles jerárquicos para comparación eficiente.
- */
-const NIVELES_MAP = {
-  "directivo_general": 0,
-  "organo_control": 1,
-  "organismo_internacional": 2,
-  "nacional": 3,
-  "regional": 4,
-  "departamental": 5,
-  "municipal": 6,
-  "local": 7,
-  "barrial": 8
-};
-
-const NIVELES_FUNDACION = Object.keys(NIVELES_MAP);
+const { NIVELES_MAP, NIVELES_FUNDACION } = require('../constants/fundacionConstants');
 
 /**
  * Borrar el cache de recomendaciones de un usuario específico

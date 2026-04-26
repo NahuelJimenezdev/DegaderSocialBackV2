@@ -8,126 +8,15 @@ const argon2 = require('argon2');
 
 const ROLES_SISTEMA = ["Founder", "admin", "moderador", "usuario", "soporte"];
 
-// Niveles jerárquicos Fundación
-const NIVELES_FUNDACION = [
-  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial", "afiliado"
-];
-
-const AREAS_FUNDACION = [
-  // antes era: "Ejecutivo/a",
-  "Dirección y organismo Ejecutivo",
-  // Directivo General
-  "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
-  // Nuevas Áreas Directivo General
-  "Director General FHIS&L", "Secretario General FHIS&L",
-  // Órganos de Control
-  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos", "Dirección Asuntos Ético",
-  // Nuevas Áreas Órganos de Control
-  "Control Interno", "Seguimiento de Proyectos", "FHISYL", "Nacional",
-  // Organismos Internacionales
-  "Salvación Mundial", "Misión Internacional de Paz",
-  // Nuevas Áreas Organismos Internacionales
-  "Salvación Latinoamérica", "Embajadores",
-  // Áreas Ejecuivas Transversales
-  "Despacho del Director", "Despacho del Subdirector",
-  // Áreas por nivel nacional/regional/departamental/municipal
-  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
-  // Áreas de Coordinación (Nivel Departamental/Municipal)
-  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad",
-  // Afiliados
-  "Afiliado"
-];
-
-// Subdirecciones / Unidades internas
-const SUBAREAS_FUNDACION = [
-  "Dirección Psicosocial", "Dirección de Protección Animal", "Gerencia Clínica", "Gerencia Clínica Veterinaria", "Interventoría Interna", "Interventoría Externa"
-];
-
-// Programas
-const PROGRAMAS_FUNDACION = [
-  "Banco de Proyectos",
-  "Programa de Conexión y Desarrollo Informático",
-  "Programa de Estrategias Comerciales de Desarrollo Productivo",
-
-  "Programas de Asuntos y Competencia Laboral",
-  "Programas de Bienestar y Seguridad Laboral",
-  "Programa de Gestión Documental y Almacén",
-
-  "Contratación",
-  "Banco de Oferentes",
-  "Programa de Jueces de Paz",
-
-  "Programas de Salud",
-  "Programas de Salud Mental",
-  "Programas de Salud Sexual y Reproductiva",
-  "Programas de Acompañamiento Productivo",
-
-  "Programas de Promoción y Prevención en la Salud Animal",
-
-  "Programas de Educación",
-  "Programas de Cultura y Turismo",
-  "Gerencias Universitarias",
-
-  "Programas de Tesorería",
-  "Programas de Contabilidad",
-
-  "Comunicaciones de Prensa",
-  "Programas de Radio y Televisión"
-];
-
-const CARGOS_FUNDACION = [
-  // Directivo General (Nuevos)
-  "Director Ejecutivo",
-  "Secretario Ejecutivo",
-  "Miembro de Junta Directiva",
-  "Equipo de Licitación y Adquisiciones",
-
-  // Órganos de Control (Nuevos)
-  "Dirección de Control Interno y Seguimiento",
-  "Dirección Asuntos Ético",
-  
-  // Organismos Internacionales (Nuevos)
-  "Salvación Mundial",
-  "Secretario Salvación Mundial",
-  "Misión Internacional de Paz",
-  "Secretario Misión Internacional de Paz",
-
-  // Territoriales (Nuevos)
-  "Director de Áreas",
-  "Secretario/a Director de Áreas",
-  "Sub-Director de Áreas",
-  "Secretario/a Sub-Director de Áreas",
-  "Director General",
-  "Sub-Director General",
-  "secretario Director General",
-  "secretario Sub-Director General",
-
-  // Direcciones por nivel (Antiguos/Mantenidos por compatibilidad)
-  "Director", 
-  "Subdirector",
-  "Director Nacional",
-  "Director Regional",
-  "Director Departamental",
-  "Coordinador Municipal",
-  "Coordinador",
-  "Director General (Pastor)",
-  "Auditor",
-  "Secretario/a",
-  "Miembro Comité Ético",
-  "Delegado Internacional",
-
-  // Afiliados (Sin poder jerárquico)
-  "Afiliado"
-];
-// Roles funcionales (qué hace)
-const ROLES_FUNCIONALES = [
-  "profesional",
-  "encargado",
-  "asistente",
-  "secretario/a",
-  "voluntario",
-  "pastor"
-];
+const {
+  NIVELES_FUNDACION,
+  AREAS_FUNDACION,
+  SUBAREAS_FUNDACION,
+  PROGRAMAS_FUNDACION,
+  CARGOS_FUNDACION,
+  ROLES_FUNCIONALES,
+  getContinente
+} = require('../constants/fundacionConstants');
 
 // Jerarquía Eclesiástica
 const MINISTERIOS = [
@@ -199,6 +88,7 @@ const PerfilFundacionSchema = new Schema({
 
   // Estructura Territorial (Dónde ejerce su cargo)
   territorio: {
+    continente: { type: String, trim: true }, // Se autocalcula desde el país
     pais: { type: String, trim: true }, // Aplica para todos
     region: { type: String, trim: true }, // Aplica para Regional
     departamento: { type: String, trim: true }, // Aplica para Departamental/Provincial
@@ -589,6 +479,14 @@ const UserV2Schema = new Schema({
 // ==========================================
 // 🔹 VIRTUALS Y MÉTODOS
 // ==========================================
+
+// Pre-save para autocalcular continente si hay país
+UserV2Schema.pre('save', function(next) {
+  if (this.esMiembroFundacion && this.fundacion && this.fundacion.territorio && this.fundacion.territorio.pais) {
+    this.fundacion.territorio.continente = getContinente(this.fundacion.territorio.pais);
+  }
+  next();
+});
 
 // Nombre completo virtual
 UserV2Schema.virtual('nombreCompleto').get(function () {

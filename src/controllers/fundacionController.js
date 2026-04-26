@@ -3,6 +3,7 @@ const Notification = require('../models/Notification.model');
 const notificationService = require('../services/notification.service');
 const { formatErrorResponse, formatSuccessResponse } = require('../utils/validators');
 const logger = require('../config/logger');
+const { NIVELES_ORDENADOS_ASC, CARGOS_DIRECTIVOS } = require('../constants/fundacionConstants');
 
 /**
  * Solicitar unirse a la Fundación Sol y Luna
@@ -69,11 +70,7 @@ const solicitarUnirse = async (req, res) => {
       const founders = await User.find({ 'seguridad.rolSistema': 'Founder' }).select('_id email');
 
       // 1. Jerarquía Ordenada (de abajo hacia arriba)
-      const nivelesOrdenados = [
-        "afiliado", "local", "barrial", "municipal",
-        "departamental", "regional", "nacional",
-        "organismo_internacional", "organo_control", "directivo_general"
-      ];
+      const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
       // Normalizar nivel a minúsculas para evitar errores de índice
       const nivelSolicitante = nivel?.toLowerCase();
@@ -172,7 +169,7 @@ const solicitarUnirse = async (req, res) => {
 
         query.$or = [
           { 'fundacion.area': { $regex: areaRegex } },
-          { 'fundacion.cargo': { $in: ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'] } },
+          { 'fundacion.cargo': { $in: CARGOS_DIRECTIVOS } },
           { 'seguridad.rolSistema': 'Founder' },
           { 'fundacion.nivel': { $in: ['organismo_internacional', 'organo_control', 'directivo_general'] } }
         ];
@@ -277,11 +274,7 @@ const listarSolicitudes = async (req, res) => {
     // }
 
     // 1. Jerarquía Ordenada (de abajo hacia arriba)
-    const nivelesOrdenados = [
-      "afiliado", "local", "barrial", "municipal",
-      "departamental", "regional", "nacional",
-      "organismo_internacional", "organo_control", "directivo_general"
-    ];
+    const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
     const nivelActual = currentUser.fundacion.nivel;
     const indexNivelActual = nivelesOrdenados.indexOf(nivelActual);
@@ -310,7 +303,7 @@ const listarSolicitudes = async (req, res) => {
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
     // Los Directores Generales NO tienen área funcional, gobiernan un territorio completo
     const cargoActual = currentUser.fundacion?.cargo ? currentUser.fundacion.cargo.trim() : '';
-    const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoActual);
+    const esDirectorGeneral = CARGOS_DIRECTIVOS.includes(cargoActual);
 
     if (!esGlobal && !esDirectorGeneral) {
       // Solo filtrar por área si NO es global Y NO es Director General
@@ -394,11 +387,7 @@ const aprobarSolicitud = async (req, res) => {
     }
 
     // Verificar jerarquía con nueva lista ordenada (de abajo hacia arriba)
-    const nivelesOrdenados = [
-      "afiliado", "local", "barrial", "municipal",
-      "departamental", "regional", "nacional",
-      "organismo_internacional", "organo_control", "directivo_general"
-    ];
+    const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
     const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel?.toLowerCase());
 
@@ -417,7 +406,7 @@ const aprobarSolicitud = async (req, res) => {
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
     const cargoAprobador = aprobador.fundacion?.cargo ? aprobador.fundacion.cargo.trim() : '';
-    const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoAprobador);
+    const esDirectorGeneral = CARGOS_DIRECTIVOS.includes(cargoAprobador);
 
 
 
@@ -581,11 +570,7 @@ const rechazarSolicitud = async (req, res) => {
     }
 
     // Verificar jerarquía con nueva lista ordenada
-    const nivelesOrdenados = [
-      "afiliado", "local", "barrial", "municipal",
-      "departamental", "regional", "nacional",
-      "organismo_internacional", "organo_control", "directivo_general"
-    ];
+    const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
     const indexSolicitante = nivelesOrdenados.indexOf(solicitante.fundacion.nivel?.toLowerCase());
 
@@ -603,7 +588,7 @@ const rechazarSolicitud = async (req, res) => {
 
     // 🔑 LÓGICA ESPECIAL PARA DIRECTORES GENERALES (PASTOR)
     const cargoAprobador = aprobador.fundacion?.cargo ? aprobador.fundacion.cargo.trim() : '';
-    const esDirectorGeneral = ['Director General (Pastor)', 'Director General', 'Sub-Director General', 'secretario Director General', 'secretario Sub-Director General'].includes(cargoAprobador);
+    const esDirectorGeneral = CARGOS_DIRECTIVOS.includes(cargoAprobador);
 
 
 

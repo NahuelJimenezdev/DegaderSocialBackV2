@@ -122,7 +122,7 @@ const register = async (req, res) => {
         activo: true,
         nivel: 'directivo_general',
         area: 'Dirección Ejecutiva',
-        cargo: 'Director General (Pastor)',
+        cargo: 'Presidente-Representante Legal',
         estadoAprobacion: 'aprobado',
         fechaIngreso: new Date(),
         fechaAprobacion: new Date()

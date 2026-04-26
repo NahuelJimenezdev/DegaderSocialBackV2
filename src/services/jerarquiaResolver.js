@@ -9,52 +9,13 @@ const UserV2 = require('../models/User.model');
 /* -------------------------------------------------------------------------- */
 
 // Áreas institucionales oficiales (Sincronizado con User.model.js)
-const AREAS = [
-  "Dirección Ejecutiva", "Secretaría Ejecutiva", "Junta Directiva", "Equipo de Licitación y Adquisiciones",
-  "Director General FHIS&L", "Secretario General FHIS&L",
-  "Dirección de Control Interno y Seguimiento", "Dirección de Asuntos Éticos", "Dirección Asuntos Ético",
-  "Control Interno", "Seguimiento de Proyectos", "FHISYL", "Nacional",
-  "Salvación Mundial", "Misión Internacional de Paz",
-  "Salvación Latinoamérica", "Embajadores",
-  "Despacho del Director", "Despacho del Subdirector",
-  "Dirección de Planeación Estratégica y Proyectos", "Dirección de Asuntos Étnicos", "Dirección de Infraestructura", "Dirección de Sostenibilidad Ambiental", "Dirección de Recursos Humanos y Seguridad Laboral", "Dirección Jurídica", "Dirección de Salud", "Dirección de Educación", "Dirección Financiera", "Dirección de Imagen Corporativa y Comunicación", "Dirección de Seguridad",
-  "Coordinación de Planeación Estratégica y Proyectos", "Coordinación de Asuntos Étnicos", "Coordinación de Infraestructura", "Coordinación de Sostenibilidad Ambiental", "Coordinación de Recursos Humanos y Seguridad Laboral", "Coordinación Jurídica", "Coordinación de Salud", "Coordinación de Educación", "Coordinación Financiera", "Coordinación de Imagen Corporativa y Comunicación", "Coordinación de Seguridad",
-  // Afiliados
-  "Afiliado"
-];
-
-// Subáreas
-const SUBAREAS = [
-  "Dirección Psicosocial", "Dirección de Protección Animal", "Gerencia Clínica", "Gerencia Clínica Veterinaria", "Interventoría Interna", "Interventoría Externo"
-];
-
-// Programas
-const PROGRAMAS = [
-  "Banco de Proyectos", "Programa de Conexión y Desarrollo Informático", "Programa de Estrategias Comerciales de Desarrollo Productivo",
-  "Programas de Asuntos y Competencia Laboral", "Programas de Bienestar y Seguridad Laboral", "Programa de Gestión Documental y Almacén",
-  "Contratación", "Banco de Oferentes", "Programa de Jueces de Paz",
-  "Programas de Salud", "Programas de Salud Mental", "Programas de Salud Sexual y Reproductiva", "Programas de Acompañamiento Productivo",
-  "Programas de Promoción y Prevención en la Salud Animal",
-  "Programas de Educación", "Programas de Cultura y Turismo", "Gerencias Universitarias",
-  "Programas de Tesorería", "Programas de Contabilidad",
-  "Comunicaciones de Prensa", "Programas de Radio y Televisión"
-];
-
-// Cargos institucionales oficiales
-const CARGOS = [
-  "Director Ejecutivo", "Secretario Ejecutivo", "Miembro de Junta Directiva", "Equipo de Licitación y Adquisiciones",
-  "Dirección de Control Interno y Seguimiento", "Dirección Asuntos Ético",
-  "Salvación Mundial", "Secretario Salvación Mundial", "Misión Internacional de Paz", "Secretario Misión Internacional de Paz",
-  "Director de Áreas", "Secretario/a Director de Áreas", "Sub-Director de Áreas", "Secretario/a Sub-Director de Áreas", "Director General", "Sub-Director General", "secretario Director General", "secretario Sub-Director General",
-  "Director", "Subdirector", "Director Nacional", "Director Regional", "Director Departamental", "Coordinador Municipal", "Coordinador", "Director General (Pastor)", "Auditor", "Secretario/a", "Miembro Comité Ético", "Delegado Internacional",
-  // Afiliados
-  "Afiliado"
-];
-
-// Niveles institucionales oficiales
-const NIVELES = [
-  "directivo_general", "organo_control", "organismo_internacional", "nacional", "regional", "departamental", "municipal", "local", "barrial", "afiliado"
-];
+const {
+  AREAS_FUNDACION: AREAS,
+  SUBAREAS_FUNDACION: SUBAREAS,
+  PROGRAMAS_FUNDACION: PROGRAMAS,
+  CARGOS_FUNDACION: CARGOS,
+  NIVELES_FUNDACION: NIVELES
+} = require('../constants/fundacionConstants');
 
 /* -------------------------------------------------------------------------- */
 /*                        RESOLVER DE USUARIOS POR JERARQUÍA                  */

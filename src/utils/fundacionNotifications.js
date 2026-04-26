@@ -1,14 +1,11 @@
 const User = require('../models/User.model');
 const Notification = require('../models/Notification.model');
 const notificationService = require('../services/notification.service');
+const { NIVELES_ORDENADOS_ASC } = require('../constants/fundacionConstants');
 
 const enviarNotificacionesJerarquicas = async ({ userId, user, nivel, area, cargo, territorio, io }) => {
     try {
-        const nivelesOrdenados = [
-            "local", "barrial", "municipal",
-            "departamental", "regional", "nacional",
-            "organismo_internacional", "organo_control", "directivo_general"
-        ];
+        const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
         const nivelSolicitante = nivel?.toLowerCase();
         const indexNivelSolicitante = nivelesOrdenados.indexOf(nivelSolicitante);

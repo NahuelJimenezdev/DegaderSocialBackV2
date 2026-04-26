@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const ExcelJS = require('exceljs');
 const { formatErrorResponse } = require('../utils/validators');
+const { NIVELES_ORDENADOS_ASC, CARGOS_DIRECTIVOS } = require('../constants/fundacionConstants');
 const logger = require('../config/logger');
 
 /**
@@ -36,11 +37,7 @@ const descargarBase = async (req, res) => {
     const esFounder = seguridad?.rolSistema === 'Founder';
 
     // Jerarquía ordenada
-    const nivelesOrdenados = [
-      "afiliado", "local", "barrial", "municipal",
-      "departamental", "regional", "nacional",
-      "organismo_internacional", "organo_control", "directivo_general"
-    ];
+    const nivelesOrdenados = NIVELES_ORDENADOS_ASC;
 
     const indexNivelDirector = nivelesOrdenados.indexOf(nivelDirector?.toLowerCase());
 
@@ -114,18 +111,7 @@ const descargarBase = async (req, res) => {
       const nivelesGlobales = ['directivo_general', 'organo_control', 'organismo_internacional'];
       const esGlobal = nivelesGlobales.includes(nivelDirector);
       const cargoDirector = director.fundacion?.cargo ? director.fundacion.cargo.trim() : '';
-      const esDirectorGeneral = [
-        'Director General (Pastor)',
-        'Director General',
-        'Sub-Director General',
-        'secretario Director General',
-        'secretario Sub-Director General',
-        'Secretario Ejecutivo',
-        'Director Nacional',
-        'Director Regional',
-        'Director Departamental',
-        'Coordinador Municipal'
-      ].includes(cargoDirector);
+      const esDirectorGeneral = CARGOS_DIRECTIVOS.includes(cargoDirector);
 
       if (!esGlobal && !esDirectorGeneral && areaDirector) {
         query['fundacion.area'] = areaDirector;
